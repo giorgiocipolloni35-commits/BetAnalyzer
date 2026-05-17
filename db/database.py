@@ -76,6 +76,7 @@ def init_db():
             season_id INTEGER,
             team_id INTEGER,
             stats_json TEXT NOT NULL,
+            rating REAL DEFAULT 0,
             updated_at TEXT NOT NULL,
             PRIMARY KEY (player_id, season_id, team_id)
         );
@@ -107,6 +108,11 @@ def init_db():
             created_at TEXT NOT NULL
         );
     """)
+    # Migrations for existing databases
+    try:
+        conn.execute("ALTER TABLE player_stats_cache ADD COLUMN rating REAL DEFAULT 0")
+    except Exception:
+        pass  # column already exists
     conn.close()
     logger.info(f"Database inizializzato: {DB_PATH}")
 
