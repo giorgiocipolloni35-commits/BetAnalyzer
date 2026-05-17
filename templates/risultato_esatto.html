@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Risultato Esatto{% endblock %}
+
+{% block content %}
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">🎯 Risultato Esatto — Correct Score</h1>
+        <p class="rigori-desc">Previsione probabilistica con modello Poisson + correzione Dixon-Coles, basata su forza offensiva/difensiva e medie campionato.</p>
+    </div>
+
+    <div class="rigori-controls">
+        <label class="rigori-select-label">Campionato:</label>
+        <select id="cs-league" class="rigori-select">
+            <option value="">— Seleziona —</option>
+            <option value="italy_serie_a">🇮🇹 Serie A</option>
+            <option value="england_premier_league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+            <option value="spain_la_liga">🇪🇸 La Liga</option>
+            <option value="germany_bundesliga">🇩🇪 Bundesliga</option>
+            <option value="france_ligue_1">🇫🇷 Ligue 1</option>
+            <option value="netherlands_eredivisie">🇳🇱 Eredivisie</option>
+            <option value="champions_league">🏆 Champions League</option>
+            <option value="england_championship">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship</option>
+            <option value="portugal_primeira_liga">🇵🇹 Primeira Liga</option>
+            <option value="brazil_serie_a">🇧🇷 Brasileirão</option>
+        </select>
+        <button type="button" class="btn-run btn-rigori-load" id="btn-cs-load" disabled>
+            <span id="cs-load-icon">🔍</span>
+            <span id="cs-load-text">Analizza</span>
+        </button>
+    </div>
+
+    <div id="cs-status" class="rigori-status" style="display:none"></div>
+    <div id="cs-results" style="display:none"></div>
+</section>
+
+<style>
+/* ─── Match card ─── */
+.cs-match {
+    background: #1a1f2e;
+    border: 1px solid #2a3040;
+    border-radius: 12px;
+    margin-bottom: 28px;
+    overflow: hidden;
+}
+.cs-match-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #1e2538, #252d44);
+    border-bottom: 1px solid #2a3040;
+}
+.cs-teams {
+    font-size: 17px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+.cs-teams .vs { color: #64748b; font-weight: 400; margin: 0 8px; }
+.cs-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.cs-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 99px;
+    text-transform: uppercase;
+}
+.cs-badge-md { background: #334155; color: #94a3b8; }
+.cs-badge-lambda { background: #1e1b4b; color: #a5b4fc; }
+
+.cs-body { padding: 16px 20px; }
+
+/* ─── Grid 5×5 ─── */
+.cs-grid-wrap {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.cs-grid-main { flex: 1; min-width: 320px; }
+.cs-grid-side { width: 280px; }
+
+.cs-grid-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 3px;
+}
+.cs-grid-table th {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    padding: 4px;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+.cs-grid-table .cs-row-header {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 700;
+    padding: 4px 6px;
+    text-align: center;
+    width: 32px;
+    text-transform: uppercase;
+}
+.cs-cell {
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px 4px;
+    cursor: default;
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+}
+.cs-cell:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 2;
+}
+.cs-cell .cs-score {
+    font-size: 11px;
+    font-weight: 800;
+    color: #f8fafc;
+    display: block;
+    line-height: 1;
+}
+.cs-cell .cs-prob {
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    display: block;
+    margin-top: 2px;
+    font-weight: 600;
+}
+.cs-cell-top {
+    border: 2px solid #f59e0b !important;
+    box-shadow: 0 0 8px rgba(245,158,11,0.3);
+}
+.cs-cell-top .cs-prob {
+    color: #fbbf24;
+    font-weight: 800;
+}
+
+/* Cell color scale */
+.cs-heat-0 { background: #1e293b; }
+.cs-heat-1 { background: #1e3a5f; }
+.cs-heat-2 { background: #1d4ed8; }
+.cs-heat-3 { background: #7c3aed; }
+.cs-heat-4 { background: #c026d3; }
+.cs-heat-5 { background: #e11d48; }
+
+/* ─── Legend row (diagonal labels) ─── */
+.cs-grid-legend {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.cs-legend-team {
+    font-size: 11px;
+    font-weight: 700;
+}
+.cs-legend-home { color: #38bdf8; }
+.cs-legend-away { color: #f472b6; }
+.cs-legend-sep { color: #475569; font-size: 11px; }
+
+/* ─── Aggregate boxes ─── */
+.cs-agg-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.cs-agg-box {
+    flex: 1;
+    min-width: 70px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    text-align: center;
+    padding: 10px 6px;
+}
+.cs-agg-label {
+    font-size: 9px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+}
+.cs-agg-val {
+    font-size: 18px;
+    font-weight: 800;
+    margin-top: 2px;
+}
+.cs-agg-1 { color: #38bdf8; }
+.cs-agg-x { color: #a5b4fc; }
+.cs-agg-2 { color: #f472b6; }
+.cs-agg-over { color: #4ade80; }
+.cs-agg-under { color: #fb923c; }
+.cs-agg-gg { color: #4ade80; }
+.cs-agg-ng { color: #f87171; }
+.cs-agg-even { color: #c084fc; }
+.cs-agg-odd { color: #22d3ee; }
+
+/* ─── Top scores ranking ─── */
+.cs-top-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.cs-top-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #0f172a;
+    border-radius: 6px;
+    border: 1px solid #1e293b;
+}
+.cs-top-rank {
+    font-size: 10px;
+    font-weight: 800;
+    color: #475569;
+    width: 16px;
+    text-align: center;
+}
+.cs-top-score {
+    font-size: 14px;
+    font-weight: 800;
+    color: #f8fafc;
+    width: 40px;
+    text-align: center;
+}
+.cs-top-bar-wrap {
+    flex: 1;
+    background: #1e293b;
+    border-radius: 3px;
+    height: 14px;
+    position: relative;
+    overflow: hidden;
+}
+.cs-top-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+.cs-top-pct {
+    font-size: 11px;
+    font-weight: 700;
+    width: 45px;
+    text-align: right;
+}
+
+/* Colors for top ranking */
+.cs-top-item:nth-child(1) .cs-top-bar { background: linear-gradient(90deg, #f59e0b, #f97316); }
+.cs-top-item:nth-child(1) .cs-top-pct { color: #fbbf24; }
+.cs-top-item:nth-child(1) .cs-top-rank { color: #fbbf24; }
+.cs-top-item:nth-child(2) .cs-top-bar { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.cs-top-item:nth-child(2) .cs-top-pct { color: #a78bfa; }
+.cs-top-item:nth-child(3) .cs-top-bar { background: linear-gradient(90deg, #6366f1, #818cf8); }
+.cs-top-item:nth-child(3) .cs-top-pct { color: #818cf8; }
+.cs-top-item:nth-child(n+4) .cs-top-bar { background: linear-gradient(90deg, #334155, #475569); }
+.cs-top-item:nth-child(n+4) .cs-top-pct { color: #94a3b8; }
+
+/* ─── Lambda / strength section ─── */
+.cs-strength {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+.cs-strength-card {
+    flex: 1;
+    min-width: 120px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+}
+.cs-str-team {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+.cs-str-home { color: #38bdf8; }
+.cs-str-away { color: #f472b6; }
+.cs-form-arrow { font-size: 9px; margin-left: 4px; opacity: 0.7; }
+.cs-form-arrow.cs-up { color: #4ade80; }
+.cs-form-arrow.cs-down { color: #f87171; }
+.cs-str-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    padding: 2px 0;
+}
+.cs-str-label { color: #64748b; }
+.cs-str-val { font-weight: 700; color: #e2e8f0; }
+
+/* ─── Recent scores ─── */
+.cs-recent {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+.cs-recent-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #1e293b;
+    color: #94a3b8;
+}
+.cs-recent-pill.home { border-left: 2px solid #38bdf8; }
+.cs-recent-pill.away { border-left: 2px solid #f472b6; }
+
+/* ─── Section headers ─── */
+.cs-section-title {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    margin-top: 16px;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+    .cs-grid-wrap { flex-direction: column; }
+    .cs-grid-side { width: 100%; }
+    .cs-match-header { flex-direction: column; gap: 8px; }
+}
+</style>
+
+<script>
+const sel = document.getElementById('cs-league');
+const btn = document.getElementById('btn-cs-load');
+const statusEl = document.getElementById('cs-status');
+const resultsEl = document.getElementById('cs-results');
+
+sel.addEventListener('change', () => btn.disabled = !sel.value);
+
+btn.addEventListener('click', async () => {
+    const league = sel.value;
+    if (!league) return;
+
+    btn.disabled = true;
+    document.getElementById('cs-load-icon').textContent = '⏳';
+    document.getElementById('cs-load-text').textContent = 'Calcolo...';
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = '<span class="loader-icon">🧮</span> Calcolo probabilità Poisson in corso...';
+    resultsEl.style.display = 'none';
+
+    try {
+        const res = await fetch(`/api/correct_score/${league}`);
+        const data = await res.json();
+
+        if (data.error) {
+            statusEl.innerHTML = `<span style="color:#f87171">❌ ${data.error}</span>`;
+            return;
+        }
+
+        const matches = data.matches || [];
+        if (!matches.length) {
+            statusEl.innerHTML = '<span style="color:#fbbf24">⚠ Nessuna partita trovata.</span>';
+            return;
+        }
+
+        statusEl.style.display = 'none';
+        resultsEl.style.display = 'block';
+        resultsEl.innerHTML = matches.map(m => renderMatch(m)).join('');
+
+    } catch(e) {
+        statusEl.innerHTML = `<span style="color:#f87171">❌ Errore: ${e.message}</span>`;
+    } finally {
+        btn.disabled = false;
+        document.getElementById('cs-load-icon').textContent = '🔍';
+        document.getElementById('cs-load-text').textContent = 'Analizza';
+    }
+});
+
+function heatClass(pct) {
+    if (pct >= 15) return 'cs-heat-5';
+    if (pct >= 10) return 'cs-heat-4';
+    if (pct >= 7) return 'cs-heat-3';
+    if (pct >= 4) return 'cs-heat-2';
+    if (pct >= 1.5) return 'cs-heat-1';
+    return 'cs-heat-0';
+}
+
+function renderMatch(m) {
+    const grid = m.grid;
+    const agg = m.aggregates;
+    const topScores = m.top_scores || [];
+    const topSet = new Set(topScores.slice(0, 3).map(t => t.score));
+
+    // Grid table
+    let gridHtml = '<table class="cs-grid-table">';
+    // Header row
+    gridHtml += '<tr><th></th>';
+    for (let j = 0; j <= 4; j++) gridHtml += `<th>${j}</th>`;
+    gridHtml += '</tr>';
+    // Data rows
+    for (let i = 0; i <= 4; i++) {
+        gridHtml += `<tr><td class="cs-row-header">${i}</td>`;
+        for (let j = 0; j <= 4; j++) {
+            const p = grid[i][j];
+            const score = `${i}-${j}`;
+            const isTop = topSet.has(score);
+            gridHtml += `<td class="cs-cell ${heatClass(p)} ${isTop ? 'cs-cell-top' : ''}">
+                <span class="cs-score">${score}</span>
+                <span class="cs-prob">${p}%</span>
+            </td>`;
+        }
+        gridHtml += '</tr>';
+    }
+    gridHtml += '</table>';
+
+    // Top scores ranking
+    const maxPct = topScores.length ? topScores[0].prob : 1;
+    let topHtml = topScores.map((t, idx) => `
+        <div class="cs-top-item">
+            <span class="cs-top-rank">${idx + 1}</span>
+            <span class="cs-top-score">${t.score}</span>
+            <div class="cs-top-bar-wrap">
+                <div class="cs-top-bar" style="width:${(t.prob / maxPct * 100).toFixed(0)}%"></div>
+            </div>
+            <span class="cs-top-pct">${t.prob}%</span>
+        </div>
+    `).join('');
+
+    // Recent scores
+    const recentHome = (m.home_recent_scores || []).map(r =>
+        `<span class="cs-recent-pill ${r.is_home ? 'home' : 'away'}">${r.score}</span>`
+    ).join('');
+    const recentAway = (m.away_recent_scores || []).map(r =>
+        `<span class="cs-recent-pill ${r.is_home ? 'home' : 'away'}">${r.score}</span>`
+    ).join('');
+
+    return `
+    <div class="cs-match">
+        <div class="cs-match-header">
+            <div class="cs-teams">
+                <span style="color:#38bdf8">${m.home_team}</span>
+                <span class="vs">vs</span>
+                <span style="color:#f472b6">${m.away_team}</span>
+            </div>
+            <div class="cs-meta">
+                ${m.matchday ? `<span class="cs-badge cs-badge-md">Giornata ${m.matchday}</span>` : ''}
+                <span class="cs-badge cs-badge-lambda">⚽ Gol attesi: ${m.home_team} ${m.lambda_home} — ${m.away_team} ${m.lambda_away}</span>
+            </div>
+        </div>
+        <div class="cs-body">
+            <!-- Aggregati 1X2 / O/U / GG/NG -->
+            <div class="cs-agg-row">
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">1 Casa</div>
+                    <div class="cs-agg-val cs-agg-1">${agg.home_win}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">X Pareggio</div>
+                    <div class="cs-agg-val cs-agg-x">${agg.draw}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">2 Fuori</div>
+                    <div class="cs-agg-val cs-agg-2">${agg.away_win}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">Over 2.5</div>
+                    <div class="cs-agg-val cs-agg-over">${agg.over_25}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">Under 2.5</div>
+                    <div class="cs-agg-val cs-agg-under">${agg.under_25}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">GG</div>
+                    <div class="cs-agg-val cs-agg-gg">${agg.gg}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">NG</div>
+                    <div class="cs-agg-val cs-agg-ng">${agg.ng}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">Pari</div>
+                    <div class="cs-agg-val cs-agg-even">${agg.even}%</div>
+                </div>
+                <div class="cs-agg-box">
+                    <div class="cs-agg-label">Dispari</div>
+                    <div class="cs-agg-val cs-agg-odd">${agg.odd}%</div>
+                </div>
+            </div>
+
+            <div class="cs-grid-wrap">
+                <!-- LEFT: Grid 5x5 -->
+                <div class="cs-grid-main">
+                    <div class="cs-grid-legend">
+                        <span class="cs-legend-team cs-legend-home">↓ ${m.home_team} (gol casa)</span>
+                        <span class="cs-legend-sep">×</span>
+                        <span class="cs-legend-team cs-legend-away">→ ${m.away_team} (gol trasferta)</span>
+                    </div>
+                    ${gridHtml}
+
+                    <!-- Strength cards -->
+                    <div class="cs-strength">
+                        <div class="cs-strength-card">
+                            <div class="cs-str-team cs-str-home">${m.home_team} (Casa)</div>
+                            <div class="cs-str-row"><span class="cs-str-label">Gol fatti/p</span><span class="cs-str-val">${m.home_attack} <span class="cs-form-arrow ${m.home_attack_form > m.home_attack ? 'cs-up' : m.home_attack_form < m.home_attack ? 'cs-down' : ''}">${m.home_attack_form > m.home_attack ? '▲' : m.home_attack_form < m.home_attack ? '▼' : '='} ${m.home_attack_form}</span></span></div>
+                            <div class="cs-str-row"><span class="cs-str-label">Gol subiti/p</span><span class="cs-str-val">${m.home_defense} <span class="cs-form-arrow ${m.home_defense_form > m.home_defense ? 'cs-down' : m.home_defense_form < m.home_defense ? 'cs-up' : ''}">${m.home_defense_form > m.home_defense ? '▲' : m.home_defense_form < m.home_defense ? '▼' : '='} ${m.home_defense_form}</span></span></div>
+                            <div class="cs-str-row"><span class="cs-str-label">λ atteso</span><span class="cs-str-val" style="color:#fbbf24">${m.lambda_home}</span></div>
+                            <div class="cs-section-title" style="margin-top:8px;margin-bottom:4px">Recenti</div>
+                            <div class="cs-recent">${recentHome}</div>
+                        </div>
+                        <div class="cs-strength-card">
+                            <div class="cs-str-team cs-str-away">${m.away_team} (Fuori)</div>
+                            <div class="cs-str-row"><span class="cs-str-label">Gol fatti/p</span><span class="cs-str-val">${m.away_attack} <span class="cs-form-arrow ${m.away_attack_form > m.away_attack ? 'cs-up' : m.away_attack_form < m.away_attack ? 'cs-down' : ''}">${m.away_attack_form > m.away_attack ? '▲' : m.away_attack_form < m.away_attack ? '▼' : '='} ${m.away_attack_form}</span></span></div>
+                            <div class="cs-str-row"><span class="cs-str-label">Gol subiti/p</span><span class="cs-str-val">${m.away_defense} <span class="cs-form-arrow ${m.away_defense_form > m.away_defense ? 'cs-down' : m.away_defense_form < m.away_defense ? 'cs-up' : ''}">${m.away_defense_form > m.away_defense ? '▲' : m.away_defense_form < m.away_defense ? '▼' : '='} ${m.away_defense_form}</span></span></div>
+                            <div class="cs-str-row"><span class="cs-str-label">λ atteso</span><span class="cs-str-val" style="color:#fbbf24">${m.lambda_away}</span></div>
+                            <div class="cs-section-title" style="margin-top:8px;margin-bottom:4px">Recenti</div>
+                            <div class="cs-recent">${recentAway}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Top 8 ranking -->
+                <div class="cs-grid-side">
+                    <div class="cs-section-title">🏆 Classifica Risultati</div>
+                    <div class="cs-top-list">${topHtml}</div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+</script>
+{% endblock %}

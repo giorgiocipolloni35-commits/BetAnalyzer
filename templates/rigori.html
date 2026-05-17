@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Rigori{% endblock %}
+
+{% block content %}
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">⚽ Analisi Probabilità Rigori</h1>
+        <p class="rigori-desc">Modello multi-fattore: astinenza, potenza offensiva, difesa avversaria, arbitro, fattore casa e storico rigori.</p>
+    </div>
+
+    <div class="rigori-controls">
+        <label class="rigori-select-label">Campionato:</label>
+        <select id="rigori-league" class="rigori-select">
+            <option value="">— Seleziona —</option>
+            <option value="top10">🏆 Top 10 — Tutti i campionati</option>
+            <option value="italy_serie_a">🇮🇹 Serie A</option>
+            <option value="england_premier_league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+            <option value="spain_la_liga">🇪🇸 La Liga</option>
+            <option value="germany_bundesliga">🇩🇪 Bundesliga</option>
+            <option value="france_ligue_1">🇫🇷 Ligue 1</option>
+            <option value="netherlands_eredivisie">🇳🇱 Eredivisie</option>
+            <option value="champions_league">🏆 Champions League</option>
+            <option value="england_championship">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship</option>
+            <option value="portugal_primeira_liga">🇵🇹 Primeira Liga</option>
+            <option value="brazil_serie_a">🇧🇷 Brasileirão</option>
+            <option value="world_cup">🌍 Mondiali 2026</option>
+        </select>
+        <button type="button" class="btn-run btn-rigori-load" id="btn-rigori-load" disabled>
+            <span id="rigori-load-icon">🔍</span>
+            <span id="rigori-load-text">Analizza</span>
+        </button>
+    </div>
+
+    <div id="rigori-status" class="rigori-status" style="display:none"></div>
+
+    <div id="rigori-legend" class="rigori-legend" style="display:none">
+        <span class="legend-item"><span class="legend-dot dot-drought"></span> AST = Astinenza (0-25)</span>
+        <span class="legend-item"><span class="legend-dot dot-attack"></span> ATT = Attacco (0-20)</span>
+        <span class="legend-item"><span class="legend-dot dot-defense"></span> DIF = Difesa avv. gol+cartellini (0-20)</span>
+        <span class="legend-item"><span class="legend-dot dot-referee"></span> ARB = Arbitro (0-15)</span>
+        <span class="legend-item"><span class="legend-dot dot-home"></span> 🏠/✈️ = Casa/Trasf. (0-10)</span>
+        <span class="legend-item"><span class="legend-dot dot-history"></span> STO = Storico (0-10)</span>
+    </div>
+
+    <div id="rigori-results" style="display:none">
+        <div class="rigori-table-wrap">
+            <table class="rigori-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Squadra</th>
+                        <th title="Giornate reali senza rigore">Astinenza</th>
+                        <th title="Ultimo rigore (segnato o sbagliato)">Ultimo Rig.</th>
+                        <th title="Rigori totali (segnati) / Partite giocate">Rig.</th>
+                        <th>Prossima</th>
+                        <th>Arbitro</th>
+                        <th title="Gare arbitrate e rigori per partita">Arb.</th>
+                        <th title="Rigoristi principali (tirati/segnati)">Rigoristi</th>
+                        <th title="Scomposizione punteggio per fattore">Fattori</th>
+                        <th title="Punteggio complessivo probabilità rigore">Prob.</th>
+                    </tr>
+                </thead>
+                <tbody id="rigori-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<script>
+(function() {
+    const select = document.getElementById('rigori-league');
+    const btn = document.getElementById('btn-rigori-load');
+    const icon = document.getElementById('rigori-load-icon');
+    const text = document.getElementById('rigori-load-text');
+    const status = document.getElementById('rigori-status');
+    const results = document.getElementById('rigori-results');
+    const legend = document.getElementById('rigori-legend');
+    const tbody = document.getElementById('rigori-tbody');
+
+    select.addEventListener('change', function() { btn.disabled = !this.value; });
+
+    btn.addEventListener('click', function() {
+        const league = select.value;
+        if (!league) return;
+
+        btn.disabled = true;
+        icon.innerHTML = '<div class="btn-spinner"></div>';
+        text.textContent = 'Caricamento...';
+        status.style.display = 'none';
+        results.style.display = 'none';
+        legend.style.display = 'none';
+
+        fetch('/api/rigori/' + league)
+            .then(r => r.json())
+            .then(data => {
+                icon.textContent = '🔍';
+                text.textContent = 'Analizza';
+                btn.disabled = false;
+
+                if (!data.success) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-error';
+                    status.textContent = '⚠ ' + (data.error || 'Errore sconosciuto');
+                    return;
+                }
+
+                const teams = data.data || [];
+                if (teams.length === 0) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-warn';
+                    status.textContent = 'Nessun dato disponibile per questo campionato.';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                teams.forEach(function(t, i) {
+                    const prob = t.probability_score;
+                    const probClass = prob >= 55 ? 'prob-high' : prob >= 35 ? 'prob-mid' : 'prob-low';
+                    const abs = t.abstinence || 0;
+                    const absClass = abs >= 10 ? 'abs-high' : abs >= 5 ? 'abs-mid' : 'abs-low';
+
+                    const f = t.factors || {};
+                    const w = t.max_weights || {};
+                    const hasRef = t.has_referee;
+
+                    const droughtHint = abs >= 10 ? 'Lunga astinenza — rigore molto atteso'
+                                      : abs >= 5  ? 'Media astinenza — potrebbe arrivare'
+                                      : 'Rigore recente — bassa astinenza';
+                    const attackHint = f.attacco >= 15 ? 'Attacco forte — molte azioni in area'
+                                     : f.attacco >= 8  ? 'Attacco nella media'
+                                     : 'Attacco debole — poche azioni in area';
+                    const defHint = f.difesa_avv >= 15 ? 'Avversario con difesa fragile — subisce molti gol, tende a fare falli'
+                                  : f.difesa_avv >= 8  ? 'Difesa avversaria nella media'
+                                  : 'Avversario con difesa solida — pochi falli concessi';
+                    const refPpm = t.referee_ppm !== null && t.referee_ppm !== undefined && t.referee_ppm > 0
+                        ? t.referee_ppm.toFixed(2) + ' rig/gara'
+                        : '';
+                    const refCardsPm = t.referee_cards_pm ? t.referee_cards_pm.toFixed(1) + ' cart/gara' : '';
+                    const refHint = hasRef
+                        ? `${t.referee}: ${t.referee_matches} gare, ${refPpm || 'dati insufficienti'}${refCardsPm ? ', ' + refCardsPm : ''}`
+                        : 'Arbitro non assegnato — peso redistribuito sugli altri fattori';
+                    const homeHint = f.casa >= 8 ? 'Gioca in CASA — statisticamente più rigori a favore'
+                                   : 'Gioca in TRASFERTA — meno probabilità di rigore';
+                    const histHint = t.penalties_total > 0
+                        ? `${t.penalties_total} rigori in ${t.matches_played} partite (1 ogni ${Math.round(t.matches_played / t.penalties_total)} gare)`
+                        : 'Nessun rigore ottenuto questa stagione';
+
+                    const refPill = hasRef
+                        ? `<span class="factor-pill fp-referee" title="Arbitro ${f.arbitro}/${w.arbitro}&#10;${refHint}"><b>ARB</b>${f.arbitro}</span>`
+                        : `<span class="factor-pill fp-no-data" title="${refHint}"><b>ARB</b>—</span>`;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${i + 1}</td>
+                        <td class="team-cell">${t.team}</td>
+                        <td><span class="abs-badge ${absClass}" title="${droughtHint}">${abs} gg</span></td>
+                        <td class="last-pen-cell">${t.last_penalty || '<span class="no-data">mai</span>'}</td>
+                        <td>${t.penalties_scored !== undefined ? t.penalties_scored : t.penalties_total}✓ ${t.penalties_total}tot / ${t.matches_played}pg</td>
+                        <td>${t.next_match || '—'}</td>
+                        <td>${t.referee || '<span class="no-data">da assegnare</span>'}</td>
+                        <td>
+                            ${hasRef ? `<span class="ref-stat">${t.referee_matches} gare</span>${refPpm ? `<span class="ref-rate">${refPpm}</span>` : ''}` : '<span class="no-data">—</span>'}
+                        </td>
+                        <td class="takers-cell">${(t.penalty_takers || []).length === 0
+                            ? '<span class="no-data">—</span>'
+                            : (t.penalty_takers || []).slice(0, 2).map(function(tk) {
+                                const conv = tk.scored + '/' + tk.taken;
+                                const pct = Math.round(tk.scored / tk.taken * 100);
+                                const cls = tk.absent ? 'tk-absent' : pct >= 70 ? 'tk-good' : pct >= 40 ? 'tk-mid' : 'tk-bad';
+                                var absentIcon = '';
+                                var absentHint = '';
+                                if (tk.absent) {
+                                    var reason = (tk.absent_reason || '').toLowerCase();
+                                    if (reason.indexOf('squalif') >= 0 || reason.indexOf('ammonizion') >= 0 || reason.indexOf('rosso') >= 0 || reason.indexOf('doppia') >= 0) {
+                                        absentIcon = ' 🔴';
+                                        absentHint = ' — SQUALIFICATO: ' + (tk.absent_reason || '');
+                                    } else {
+                                        absentIcon = ' 🏥';
+                                        absentHint = ' — INFORTUNATO: ' + (tk.absent_reason || '');
+                                    }
+                                }
+                                return '<span class="taker-pill ' + cls + '" title="' + tk.player + ': ' + conv + ' segnati (' + pct + '%)' + absentHint + '">' + tk.player.split(' ').pop() + ' <b>' + conv + '</b>' + absentIcon + '</span>';
+                              }).join('')
+                        }</td>
+                        <td class="factors-cell">
+                            <span class="factor-pill fp-drought" title="Astinenza ${f.astinenza}/${w.astinenza}&#10;${droughtHint}"><b>AST</b>${f.astinenza}</span>
+                            <span class="factor-pill fp-attack" title="Attacco ${f.attacco}/${w.attacco}&#10;${attackHint}"><b>ATT</b>${f.attacco}</span>
+                            <span class="factor-pill fp-defense" title="Difesa avv. ${f.difesa_avv}/${w.difesa_avv}&#10;Gol subiti + cartellini avversario"><b>DIF</b>${f.difesa_avv}</span>
+                            ${refPill}
+                            <span class="factor-pill fp-home" title="Casa ${f.casa}/${w.casa}&#10;${homeHint}"><b>${f.casa >= 8 ? '🏠' : '✈️'}</b>${f.casa}</span>
+                            <span class="factor-pill fp-history" title="Storico ${f.storico}/${w.storico}&#10;${histHint}"><b>STO</b>${f.storico}</span>
+                            ${t.advanced_stats && Object.keys(t.advanced_stats).length > 0 ? `
+                            <div class="scorer-adv-line" style="margin-top:4px">
+                                ${t.advanced_stats.shots_pg ? `<span class="scorer-adv-pill pill-shots" title="Tiri squadra/partita">🎯 ${t.advanced_stats.shots_pg}/g</span>` : ''}
+                                ${t.advanced_stats.fouls_drawn_pg ? `<span class="scorer-adv-pill pill-fouls" title="Falli subiti squadra/partita">⚡ ${t.advanced_stats.fouls_drawn_pg}/g</span>` : ''}
+                                ${t.advanced_stats.dribbles_pg ? `<span class="scorer-adv-pill pill-dribbles" title="Dribbling riusciti squadra/partita">💨 ${t.advanced_stats.dribbles_pg}/g</span>` : ''}
+                                ${t.advanced_stats.big_chances ? `<span class="scorer-adv-pill pill-chances" title="Grandi occasioni create (totale stagione)">💎 ${t.advanced_stats.big_chances}</span>` : ''}
+                                ${t.advanced_stats.key_passes_pg ? `<span class="scorer-adv-pill pill-kp" title="Passaggi chiave squadra/partita">🔑 ${t.advanced_stats.key_passes_pg}/g</span>` : ''}
+                            </div>
+                            ` : ''}
+                        </td>
+                        <td><span class="prob-badge ${probClass}">${prob}%</span></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                results.style.display = 'block';
+                legend.style.display = 'flex';
+            })
+            .catch(function() {
+                icon.textContent = '🔍';
+                text.textContent = 'Analizza';
+                btn.disabled = false;
+                status.style.display = 'block';
+                status.className = 'rigori-status rigori-error';
+                status.textContent = '⚠ Errore di connessione.';
+            });
+    });
+})();
+</script>
+{% endblock %}

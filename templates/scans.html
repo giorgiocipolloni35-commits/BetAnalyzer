@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Cronologia Scansioni — BetAnalyzer{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+    <h1 class="page-title">Cronologia Scansioni</h1>
+    <p class="page-subtitle">Ricarica una scansione passata senza spendere crediti AI</p>
+
+    {% if scans %}
+    <div class="scans-list">
+        {% for scan in scans %}
+        <div class="scan-card">
+            <div class="scan-header">
+                <span class="scan-date">{{ scan.timestamp[:16] | replace('T', ' ') }} UTC</span>
+                <span class="scan-source-badge source-{{ scan.source }}">{{ scan.source }}</span>
+            </div>
+
+            <div class="scan-body">
+                <div class="scan-leagues">
+                    {% for league in scan.leagues %}
+                    <span class="scan-league-tag">{{ league | replace('_', ' ') | title }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="scan-stats-row">
+                    <div class="scan-stat">
+                        <span class="scan-stat-num">{{ scan.match_count }}</span>
+                        <span class="scan-stat-label">Partite</span>
+                    </div>
+                    <div class="scan-stat">
+                        <span class="scan-stat-num">{{ scan.prediction_count }}</span>
+                        <span class="scan-stat-label">Predictions</span>
+                    </div>
+                    <div class="scan-stat">
+                        <span class="scan-stat-num {% if scan.settled > 0 %}stat-settled{% endif %}">
+                            {{ scan.wins }}/{{ scan.settled }}
+                        </span>
+                        <span class="scan-stat-label">Vinte/Chiuse</span>
+                    </div>
+                </div>
+            </div>
+
+            <a href="/scans/{{ scan.id }}" class="scan-load-btn">Carica scansione</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <h2>Nessuna scansione salvata</h2>
+        <p>Lancia un'analisi dalla dashboard — verrà salvata automaticamente qui.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

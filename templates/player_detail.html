@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — {{ player.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .player-profile-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding-bottom: 4rem;
+    }
+
+    /* Header Section */
+    .player-hero {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 24px;
+        padding: 3rem;
+        display: flex;
+        gap: 3rem;
+        align-items: center;
+        margin-bottom: 2.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .player-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(79, 110, 247, 0.1) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .player-main-info {
+        flex-grow: 1;
+    }
+
+    .player-role-label {
+        color: #4f6ef7;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .player-hero h1 {
+        font-size: 3.5rem;
+        font-weight: 800;
+        margin: 0;
+        line-height: 1.1;
+        letter-spacing: -1px;
+    }
+
+    .player-meta-badges {
+        display: flex;
+        gap: 12px;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .meta-badge {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 6px 14px;
+        border-radius: 100px;
+        font-size: 0.9rem;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .meta-badge strong { color: #fff; }
+
+    /* Stats Grid */
+    .stats-dashboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+    }
+
+    .stat-card {
+        background: #1e1e1e;
+        padding: 1.5rem;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        text-align: center;
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover { transform: translateY(-5px); border-color: rgba(79, 110, 247, 0.2); }
+
+    .stat-card-val {
+        display: block;
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-card-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+
+    /* Impact Section */
+    .impact-section {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 2rem;
+        margin-bottom: 2.5rem;
+    }
+
+    .impact-box {
+        background: rgba(79, 110, 247, 0.05);
+        border: 1px solid rgba(79, 110, 247, 0.1);
+        padding: 2rem;
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+
+    .impact-score {
+        font-size: 4rem;
+        font-weight: 900;
+        color: #4f6ef7;
+        line-height: 1;
+    }
+
+    .impact-label {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #fff;
+        margin-top: 1rem;
+    }
+
+    .impact-desc {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        max-width: 200px;
+    }
+
+    /* Info Table */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+
+    .info-block {
+        background: #1e1e1e;
+        padding: 2rem;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .info-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .info-row:last-child { border: none; }
+    .info-label { color: #64748b; font-size: 0.9rem; }
+    .info-val { color: #fff; font-weight: 600; }
+
+    /* Condition Badge */
+    .condition-banner {
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-weight: 600;
+    }
+    .cond-healthy { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+    /* Breadcrumb */
+    .breadcrumb {
+        display: flex;
+        list-style: none;
+        padding: 0;
+        margin: 0 0 1.5rem 0;
+        font-size: 0.9rem;
+        color: #64748b;
+    }
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: "›";
+        padding: 0 8px;
+        color: #475569;
+    }
+    .breadcrumb-item a {
+        color: #4f6ef7;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .breadcrumb-item a:hover {
+        color: #818cf8;
+    }
+    .breadcrumb-item.active {
+        color: #e2e8f0;
+    }
+</style>
+
+<div class="player-profile-container">
+    <nav aria-label="breadcrumb">
+        <ul class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('teams_list') }}">Squadre</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('team_detail', team_id=team.id, league=team.league_key) }}">{{ team.name }}</a></li>
+            <li class="breadcrumb-item active">{{ player.name }}</li>
+        </ul>
+    </nav>
+
+    {% if player.injury_details %}
+    <div class="condition-banner cond-injured">
+        <span style="font-size: 1.5rem;">🏥</span>
+        <div>
+            <div>ATTUALMENTE INFORTUNATO: {{ player.injury_details.injury }}</div>
+            <div style="font-size: 0.8rem; font-weight: 400; opacity: 0.8;">Rientro previsto: {{ player.injury_details.return_date or 'Da valutare' }}</div>
+        </div>
+    </div>
+    {% else %}
+    <div class="condition-banner cond-healthy">
+        <span style="font-size: 1.5rem;">✅</span>
+        Disponibile per la selezione
+    </div>
+    {% endif %}
+
+    <header class="player-hero">
+        <div class="player-main-info">
+            <span class="player-role-label">{{ player.role }}</span>
+            <h1>{{ player.name }}</h1>
+            
+            <div class="player-meta-badges">
+                <div class="meta-badge">
+                    <img src="https://crests.football-data.org/{{ team.id }}.png" style="width: 20px; height: 20px; object-fit: contain;">
+                    <strong>{{ team.name }}</strong>
+                </div>
+                {% if player.bio %}
+                <div class="meta-badge">🎂 <strong>{{ player.bio.dateOfBirth }}</strong></div>
+                <div class="meta-badge">🌍 <strong>{{ player.bio.nationality }}</strong></div>
+                {% if player.bio.shirtNumber %}
+                <div class="meta-badge">👕 Numero <strong>{{ player.bio.shirtNumber }}</strong></div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="team-crest-large">
+            <img src="https://crests.football-data.org/{{ team.id }}.png" 
+                 style="width: 150px; height: 150px; object-fit: contain; opacity: 0.8; filter: drop-shadow(0 0 20px rgba(79, 110, 247, 0.2));">
+        </div>
+    </header>
+
+    <div class="stats-dashboard">
+        <div class="stat-card">
+            <span class="stat-card-val" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                {{ player.appearances }}
+                <span style="font-size: 0.9rem; color: #94a3b8; font-weight: 500; text-transform: uppercase;">{{ player.starts|default(0) }} Titolare • {{ player.subs|default(0) }} Sub.</span>
+            </span>
+            <span class="stat-card-label" style="margin-top: 8px; display: block;">Presenze</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-card-val" style="color: #10b981;">{{ player.goals }}</span>
+            <span class="stat-card-label">Gol Totali</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-card-val" style="color: #4f6ef7;">{{ player.assists }}</span>
+            <span class="stat-card-label">Assist</span>
+        </div>
+        {% if player.advanced_stats %}
+        <div class="stat-card" title="Intercettazioni + Contrasti">
+            <span class="stat-card-val" style="color: #94a3b8;">{{ player.advanced_stats.interceptions_total + player.advanced_stats.tackles_total }}</span>
+            <span class="stat-card-label">Recuperi</span>
+        </div>
+        {% endif %}
+        <div class="stat-card">
+            <span class="stat-card-val" style="color: #fbbf24;">{{ player.yellow_cards }}</span>
+            <span class="stat-card-label">Gialli</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-card-val" style="color: #ef4444;">{{ player.red_cards }}</span>
+            <span class="stat-card-label">Rossi</span>
+        </div>
+    </div>
+
+    {% if player.advanced_stats %}
+    <div class="glass-card animate-slide-up" style="margin-bottom: 2.5rem; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2);">
+        <div class="info-title" style="color: #38bdf8; padding: 1.5rem 1.5rem 0.5rem;">
+            <i class="fas fa-chart-line"></i> Performance Premium (Dati Medi per Gara)
+        </div>
+        <div class="stats-dashboard" style="padding: 1.5rem; margin-bottom: 0;">
+            <div class="stat-card" style="background: rgba(0,0,0,0.2);">
+                <span class="stat-card-val" style="color: #38bdf8; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    {{ player.advanced_stats.shots_on_target_total }}
+                    <span style="font-size: 0.9rem; color: rgba(56, 189, 248, 0.7); font-weight: 500;">({{ player.advanced_stats.shots_on_target_avg }}/g)</span>
+                </span>
+                <span class="stat-card-label">Tiri in Porta</span>
+            </div>
+            <div class="stat-card" style="background: rgba(0,0,0,0.2);">
+                <span class="stat-card-val" style="color: #38bdf8; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    {{ player.advanced_stats.shots_total_total }}
+                    <span style="font-size: 0.9rem; color: rgba(56, 189, 248, 0.7); font-weight: 500;">({{ player.advanced_stats.shots_total_avg }}/g)</span>
+                </span>
+                <span class="stat-card-label">Tiri Totali</span>
+            </div>
+            <div class="stat-card" style="background: rgba(0,0,0,0.2);">
+                <span class="stat-card-val" style="color: #fbbf24; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    {{ player.advanced_stats.fouls_drawn_total }}
+                    <span style="font-size: 0.9rem; color: rgba(251, 191, 36, 0.7); font-weight: 500;">({{ player.advanced_stats.fouls_drawn_avg }}/g)</span>
+                </span>
+                <span class="stat-card-label">Falli Subiti</span>
+            </div>
+            <div class="stat-card" style="background: rgba(0,0,0,0.2);">
+                <span class="stat-card-val" style="color: #ef4444; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    {{ player.advanced_stats.fouls_committed_total }}
+                    <span style="font-size: 0.9rem; color: rgba(239, 68, 68, 0.7); font-weight: 500;">({{ player.advanced_stats.fouls_committed_avg }}/g)</span>
+                </span>
+                <span class="stat-card-label">Falli Commessi</span>
+            </div>
+        </div>
+
+        <!-- Specializzazione per Ruolo -->
+        {% if player.advanced_stats.position_id %}
+        <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem;">
+            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; padding-left: 1.5rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                {% if player.advanced_stats.position_id == 25 %} <span style="background: #1e293b; padding: 2px 8px; border-radius: 4px; color: #38bdf8;">🛡️ DIFESA</span>
+                {% elif player.advanced_stats.position_id == 26 %} <span style="background: #1e293b; padding: 2px 8px; border-radius: 4px; color: #fbbf24;">🪄 REGIA</span>
+                {% elif player.advanced_stats.position_id == 27 %} <span style="background: #1e293b; padding: 2px 8px; border-radius: 4px; color: #ef4444;">🏹 ATTACCO</span>
+                {% else %} <span style="background: #1e293b; padding: 2px 8px; border-radius: 4px; color: #94a3b8;">📊 TECNICA</span> {% endif %}
+            </div>
+            <div class="stats-dashboard" style="padding: 0.5rem 1.5rem 1.5rem 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                {% if player.advanced_stats.position_id == 25 %}
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.aerials_won_total }}</span>
+                        <span class="stat-card-label">Duelli Aerei</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.interceptions_total }}</span>
+                        <span class="stat-card-label">Intercettazioni</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.tackles_total }}</span>
+                        <span class="stat-card-label">Contrasti</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.clearances_total }}</span>
+                        <span class="stat-card-label">Salvataggi</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.blocks_total }}</span>
+                        <span class="stat-card-label">Tiri Murati</span>
+                    </div>
+                {% elif player.advanced_stats.position_id == 26 %}
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.accurate_passes_pct }}%</span>
+                        <span class="stat-card-label">Precisione %</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.key_passes_total }}</span>
+                        <span class="stat-card-label">Passaggi Chiave</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.long_balls_total }}</span>
+                        <span class="stat-card-label">Lanci Lunghi</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.through_balls_total }}</span>
+                        <span class="stat-card-label">Filtranti</span>
+                    </div>
+                {% elif player.advanced_stats.position_id == 27 %}
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.dribbles_success_total }}</span>
+                        <span class="stat-card-label">Dribbling OK</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.big_chances_created_total }}</span>
+                        <span class="stat-card-label">Grandi Occasioni</span>
+                    </div>
+                    <div class="stat-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 0.8rem;">
+                        <span class="stat-card-val" style="font-size: 1.1rem; color: #e2e8f0;">{{ player.advanced_stats.shots_total_total - player.advanced_stats.shots_on_target_total }}</span>
+                        <span class="stat-card-label">Tiri Fuori</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="impact-section">
+        <div class="impact-box" style="border-color: {{ 'rgba(16, 185, 129, 0.2)' if player.impact_drop >= 0 else 'rgba(239, 68, 68, 0.2)' }}; background: {{ 'rgba(16, 185, 129, 0.05)' if player.impact_drop >= 0 else 'rgba(239, 68, 68, 0.05)' }};">
+            {% if player.impact_drop >= 0 %}
+                <div class="impact-score" style="color: #10b981;">-{{ player.impact_drop }}%</div>
+                <div class="impact-label" style="color: #10b981;"><i class="fas fa-crown"></i> Pilastro</div>
+                <div class="impact-desc">La squadra vince il <strong style="color: #fff;">{{ player.impact_drop }}% in MENO</strong> senza di lui.</div>
+            {% else %}
+                <div class="impact-score" style="color: #ef4444;">+{{ player.impact_drop|abs }}%</div>
+                <div class="impact-label" style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Anello Debole</div>
+                <div class="impact-desc">La squadra vince il <strong style="color: #fff;">{{ player.impact_drop|abs }}% in PIÙ</strong> senza di lui.</div>
+            {% endif %}
+        </div>
+        
+        <div class="info-block">
+            <div class="info-title">📊 Analisi Avanzata Rendimento</div>
+            <div class="info-row">
+                <span class="info-label">Win Rate con Giocatore</span>
+                <span class="info-val">{{ player.win_rate_with }}%</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Win Rate senza Giocatore</span>
+                <span class="info-val">{{ player.win_rate_without }}%</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Distribuzione Gol (1T / 2T)</span>
+                <span class="info-val">{{ player.goals_1h }} / {{ player.goals_2h }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Media Gol per Partita</span>
+                <span class="info-val">{{ (player.goals / player.appearances)|round(2) if player.appearances > 0 else 0 }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-block">
+            <div class="info-title">👤 Dati Anagrafici</div>
+            {% if player.bio %}
+            <div class="info-row">
+                <span class="info-label">Nome Completo</span>
+                <span class="info-val">{{ player.bio.name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Data di Nascita</span>
+                <span class="info-val">{{ player.bio.dateOfBirth }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Nazionalità</span>
+                <span class="info-val">{{ player.bio.nationality }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Ruolo API</span>
+                <span class="info-val">{{ player.bio.position }}</span>
+            </div>
+            {% else %}
+            <p class="text-muted">Dati anagrafici non disponibili dall'API.</p>
+            {% endif %}
+        </div>
+
+        <div class="info-block">
+            <div class="info-title">📄 Info Contrattuali</div>
+            <div class="info-row">
+                <span class="info-label">Club</span>
+                <span class="info-val">{{ team.name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Lega</span>
+                <span class="info-val">{{ team.league }}</span>
+            </div>
+            {% if player.bio and player.bio.section %}
+            <div class="info-row">
+                <span class="info-label">Sezione Campo</span>
+                <span class="info-val">{{ player.bio.section }}</span>
+            </div>
+            {% endif %}
+            <div class="info-row">
+                <span class="info-label">Ultima Presenza</span>
+                <span class="info-val">Giornata {{ player.last_matchday }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

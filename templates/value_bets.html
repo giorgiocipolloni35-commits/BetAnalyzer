@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Value Bets{% endblock %}
+
+{% block content %}
+<section class="value-bets-page">
+    <div class="vb-header">
+        <h1 class="vb-title">&#x1F48E; Value Bet Detector</h1>
+        <p class="vb-desc">Confronto tra probabilità del modello Poisson/Dixon-Coles e quote dei bookmaker. EV = (Prob_Modello &times; Quota) - 1</p>
+    </div>
+
+    <div class="vb-summary" id="vb-summary" style="display:none;">
+        <div class="vb-stat-box">
+            <span class="vb-stat-num" id="vb-total">0</span>
+            <span class="vb-stat-label">Value Bets</span>
+        </div>
+        <div class="vb-stat-box">
+            <span class="vb-stat-num" id="vb-hot-count">0</span>
+            <span class="vb-stat-label">EV &gt; 15%</span>
+        </div>
+        <div class="vb-stat-box">
+            <span class="vb-stat-num" id="vb-avg-ev">0%</span>
+            <span class="vb-stat-label">EV Medio</span>
+        </div>
+    </div>
+
+    <div class="vb-loading" id="vb-loading">
+        <div class="spinner"></div>
+        <p>Calcolo Value Bets in corso...</p>
+    </div>
+
+    <div class="vb-empty" id="vb-empty" style="display:none;">
+        <p>Nessuna partita caricata. Vai alla <a href="/">Dashboard</a> e carica le partite prima.</p>
+    </div>
+
+    <div class="vb-grid" id="vb-grid"></div>
+</section>
+
+<style>
+.value-bets-page { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+.vb-header { text-align: center; margin-bottom: 2rem; }
+.vb-title { font-size: 2rem; background: linear-gradient(135deg, #7c3aed, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.vb-desc { color: #94a3b8; margin-top: 0.5rem; }
+
+.vb-summary { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap; }
+.vb-stat-box { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; padding: 1rem 2rem; text-align: center; min-width: 140px; }
+.vb-stat-num { display: block; font-size: 1.8rem; font-weight: 700; color: #a855f7; }
+.vb-stat-label { display: block; font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
+
+.vb-loading { text-align: center; padding: 3rem; color: #94a3b8; }
+.vb-loading .spinner { width: 40px; height: 40px; border: 3px solid rgba(124,58,237,0.2); border-top-color: #a855f7; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.vb-empty { text-align: center; padding: 3rem; color: #64748b; }
+.vb-empty a { color: #a855f7; text-decoration: underline; }
+
+.vb-grid { display: flex; flex-direction: column; gap: 1.2rem; }
+
+.vb-match-card { background: rgba(30,41,59,0.8); border: 1px solid rgba(124,58,237,0.2); border-radius: 12px; overflow: hidden; }
+.vb-match-header { padding: 1rem 1.5rem; background: rgba(124,58,237,0.05); border-bottom: 1px solid rgba(124,58,237,0.15); display: flex; justify-content: space-between; align-items: center; }
+.vb-match-teams { font-size: 1.1rem; font-weight: 600; color: #e2e8f0; }
+.vb-match-league { font-size: 0.8rem; color: #94a3b8; }
+.vb-match-xg { font-size: 0.85rem; color: #a855f7; font-weight: 600; }
+
+/* Odds input grid */
+.vb-odds-grid { padding: 1rem 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 0.6rem; }
+.vb-odds-cell { background: rgba(15,23,42,0.6); border: 1px solid rgba(100,116,139,0.2); border-radius: 8px; padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 4px; transition: border-color 0.2s; }
+.vb-odds-cell:focus-within { border-color: rgba(124,58,237,0.5); }
+.vb-odds-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+.vb-odds-model { font-size: 0.78rem; color: #a855f7; font-weight: 600; }
+.vb-odds-input { background: rgba(15,23,42,0.8); border: 1px solid rgba(100,116,139,0.3); border-radius: 5px; color: #e2e8f0; padding: 5px 8px; font-size: 0.9rem; font-weight: 600; width: 100%; box-sizing: border-box; text-align: center; outline: none; transition: border-color 0.2s; }
+.vb-odds-input:focus { border-color: #a855f7; }
+.vb-odds-input::placeholder { color: #475569; font-weight: 400; font-size: 0.8rem; }
+.vb-ev-result { font-size: 0.78rem; font-weight: 700; min-height: 18px; text-align: center; }
+.vb-ev-pos { color: #4ade80; }
+.vb-ev-neg { color: #64748b; }
+.vb-ev-value { color: #fbbf24; }
+.vb-ev-hot { color: #f87171; animation: pulse-vb 2s infinite; }
+
+/* Value highlight on cell */
+.vb-odds-cell.has-value { border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.05); }
+.vb-odds-cell.has-hot-value { border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.05); }
+
+@keyframes pulse-vb { 0%,100% { opacity:1; } 50% { opacity:0.7; } }
+
+.vb-no-value { padding: 0.8rem 1.5rem; color: #64748b; font-size: 0.85rem; font-style: italic; }
+
+/* Source badge */
+.vb-source { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+.vb-source-api { background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+.vb-source-manual { background: rgba(234,179,8,0.15); color: #fbbf24; border: 1px solid rgba(234,179,8,0.3); }
+
+/* Responsive */
+@media (max-width: 600px) {
+    .vb-odds-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const loading = document.getElementById('vb-loading');
+    const empty = document.getElementById('vb-empty');
+    const grid = document.getElementById('vb-grid');
+    const summary = document.getElementById('vb-summary');
+
+    const MARKETS = [
+        { key: '1',        label: '1 (Casa)',   aggKey: 'home_win' },
+        { key: 'X',        label: 'X (Pareggio)', aggKey: 'draw' },
+        { key: '2',        label: '2 (Trasferta)', aggKey: 'away_win' },
+        { key: 'OVER 2.5', label: 'Over 2.5',   aggKey: 'over_25' },
+        { key: 'UNDER 2.5',label: 'Under 2.5',  aggKey: 'under_25' },
+        { key: 'GG',       label: 'GG',         aggKey: 'gg' },
+        { key: 'NG',       label: 'NG',         aggKey: 'ng' },
+    ];
+
+    function calcEV(modelProb, odds) {
+        if (!modelProb || !odds || odds <= 1.0) return null;
+        return ((modelProb / 100.0) * odds - 1) * 100;
+    }
+
+    function updateSummary() {
+        const allBadges = document.querySelectorAll('.vb-ev-result');
+        let count = 0, hotCount = 0, totalEv = 0;
+        allBadges.forEach(el => {
+            const ev = parseFloat(el.dataset.ev || '0');
+            if (ev > 5) { count++; totalEv += ev; }
+            if (ev > 15) hotCount++;
+        });
+        if (count > 0) {
+            summary.style.display = 'flex';
+            document.getElementById('vb-total').textContent = count;
+            document.getElementById('vb-hot-count').textContent = hotCount;
+            document.getElementById('vb-avg-ev').textContent = `+${(totalEv / count).toFixed(1)}%`;
+        } else {
+            summary.style.display = 'none';
+        }
+    }
+
+    function onOddsInput(input, modelProb, resultEl, cellEl) {
+        const raw = input.value.replace(',', '.');
+        const odds = parseFloat(raw);
+        const ev = calcEV(modelProb, odds);
+        cellEl.classList.remove('has-value', 'has-hot-value');
+
+        if (ev === null || isNaN(ev)) {
+            resultEl.textContent = '';
+            resultEl.dataset.ev = '0';
+        } else {
+            const evRound = ev.toFixed(1);
+            resultEl.dataset.ev = evRound;
+            if (ev > 15) {
+                resultEl.innerHTML = `&#x1F48E;&#x1F48E;&#x1F48E; +${evRound}%`;
+                resultEl.className = 'vb-ev-result vb-ev-hot';
+                cellEl.classList.add('has-hot-value');
+            } else if (ev > 10) {
+                resultEl.innerHTML = `&#x1F48E;&#x1F48E; +${evRound}%`;
+                resultEl.className = 'vb-ev-result vb-ev-value';
+                cellEl.classList.add('has-value');
+            } else if (ev > 5) {
+                resultEl.innerHTML = `&#x1F48E; +${evRound}%`;
+                resultEl.className = 'vb-ev-result vb-ev-pos';
+                cellEl.classList.add('has-value');
+            } else if (ev > 0) {
+                resultEl.textContent = `+${evRound}%`;
+                resultEl.className = 'vb-ev-result vb-ev-neg';
+            } else {
+                resultEl.textContent = `${evRound}%`;
+                resultEl.className = 'vb-ev-result vb-ev-neg';
+            }
+        }
+        updateSummary();
+    }
+
+    try {
+        const matchResp = await fetch('/api/matches-list');
+        const matchJson = await matchResp.json();
+        const hasMatches = matchJson.success && matchJson.matches && matchJson.matches.length > 0;
+        const matchMap = {};
+        if (hasMatches) {
+            for (const m of matchJson.matches) matchMap[m.id] = m;
+        }
+
+        const resp = await fetch('/api/xg-ev');
+        const json = await resp.json();
+        loading.style.display = 'none';
+
+        if (!hasMatches) {
+            empty.style.display = 'block';
+            return;
+        }
+
+        const evData = (json.success && json.data) ? json.data : {};
+        const hasEvData = Object.keys(evData).length > 0;
+
+        // Build cards: one per match, with model probs + odds inputs
+        // If we have EV data from API, pre-fill odds; otherwise show empty inputs
+        const matchIds = Object.keys(matchMap);
+
+        for (const matchId of matchIds) {
+            const match = matchMap[matchId];
+            const data = evData[matchId]; // may be undefined if no correct score data
+            const teams = `${match.home_team} vs ${match.away_team}`;
+            const league = match.league;
+
+            const card = document.createElement('div');
+            card.className = 'vb-match-card';
+
+            let xgHtml = '';
+            if (data) {
+                xgHtml = `<div class="vb-match-xg">xG: ${data.xg_home.toFixed(2)} - ${data.xg_away.toFixed(2)}</div>`;
+            }
+
+            // Build odds source badge
+            const hasApiOdds = data && data.ev_markets && data.ev_markets.some(e => e.odds > 0);
+            const sourceBadge = hasApiOdds
+                ? '<span class="vb-source vb-source-api">API</span>'
+                : '<span class="vb-source vb-source-manual">Manuale</span>';
+
+            card.innerHTML = `
+                <div class="vb-match-header">
+                    <div>
+                        <div class="vb-match-teams">${teams} ${sourceBadge}</div>
+                        <div class="vb-match-league">${league}</div>
+                    </div>
+                    ${xgHtml}
+                </div>
+                <div class="vb-odds-grid" data-match-id="${matchId}"></div>`;
+
+            grid.appendChild(card);
+
+            // Build market cells
+            const oddsGrid = card.querySelector('.vb-odds-grid');
+
+            // Build lookup of API odds/ev by market key
+            const apiMarkets = {};
+            if (data && data.ev_markets) {
+                for (const em of data.ev_markets) {
+                    apiMarkets[em.market] = em;
+                }
+            }
+
+            for (const mkt of MARKETS) {
+                // Get model probability
+                let modelProb = 0;
+                if (data) {
+                    // From ev_markets if available
+                    if (apiMarkets[mkt.key]) {
+                        modelProb = apiMarkets[mkt.key].model_prob;
+                    }
+                }
+
+                const cell = document.createElement('div');
+                cell.className = 'vb-odds-cell';
+
+                const apiOdd = apiMarkets[mkt.key] ? apiMarkets[mkt.key].odds : '';
+                const prefill = apiOdd && apiOdd > 1.0 ? apiOdd.toFixed(2) : '';
+
+                cell.innerHTML = `
+                    <div class="vb-odds-label">${mkt.label}</div>
+                    <div class="vb-odds-model">${modelProb > 0 ? modelProb.toFixed(1) + '%' : '—'}</div>
+                    <input type="text" inputmode="decimal" class="vb-odds-input" placeholder="Quota" value="${prefill}" ${modelProb <= 0 ? 'disabled' : ''}>
+                    <div class="vb-ev-result" data-ev="0"></div>`;
+
+                oddsGrid.appendChild(cell);
+
+                // Wire up input
+                const input = cell.querySelector('.vb-odds-input');
+                const resultEl = cell.querySelector('.vb-ev-result');
+
+                if (modelProb > 0) {
+                    input.addEventListener('input', () => onOddsInput(input, modelProb, resultEl, cell));
+                    // Calculate initial EV if prefilled
+                    if (prefill) {
+                        onOddsInput(input, modelProb, resultEl, cell);
+                    }
+                }
+            }
+        }
+
+        // If we have matches but none had correct score data, show all cards anyway
+        // (they'll have "—" for model probs but that's informative)
+        if (matchIds.length === 0) {
+            empty.style.display = 'block';
+        }
+
+        updateSummary();
+
+    } catch (err) {
+        loading.style.display = 'none';
+        grid.innerHTML = `<div class="vb-empty"><p>Errore nel caricamento: ${err.message}</p></div>`;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Cartellini{% endblock %}
+
+{% block content %}
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">🟨 Analisi Cartellini Gialli</h1>
+        <p class="rigori-desc">Giocatori con alta probabilità di ammonizione, incrociati con la severità dell'arbitro designato.</p>
+    </div>
+
+    <div class="rigori-controls">
+        <label class="rigori-select-label">Campionato:</label>
+        <select id="cards-league" class="rigori-select">
+            <option value="">— Seleziona —</option>
+            <option value="top10">🏆 Top 10 — Tutti i campionati</option>
+            <option value="italy_serie_a">🇮🇹 Serie A</option>
+            <option value="england_premier_league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+            <option value="spain_la_liga">🇪🇸 La Liga</option>
+            <option value="germany_bundesliga">🇩🇪 Bundesliga</option>
+            <option value="france_ligue_1">🇫🇷 Ligue 1</option>
+            <option value="netherlands_eredivisie">🇳🇱 Eredivisie</option>
+            <option value="champions_league">🏆 Champions League</option>
+            <option value="england_championship">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship</option>
+            <option value="portugal_primeira_liga">🇵🇹 Primeira Liga</option>
+            <option value="brazil_serie_a">🇧🇷 Brasileirão</option>
+            <option value="world_cup">🌍 Mondiali 2026</option>
+        </select>
+        <button type="button" class="btn-run btn-rigori-load" id="btn-cards-load" disabled>
+            <span id="cards-load-icon">🔍</span>
+            <span id="cards-load-text">Analizza</span>
+        </button>
+    </div>
+
+    <div id="cards-status" class="rigori-status" style="display:none"></div>
+
+    <div id="cards-results" style="display:none"></div>
+</section>
+
+<script>
+function _shortPos(pos) {
+    var map = {
+        'Goalkeeper': 'POR',
+        'Defence': 'DIF',
+        'Left-Back': 'TS',
+        'Right-Back': 'TD',
+        'Centre-Back': 'DC',
+        'Midfield': 'CEN',
+        'Central Midfield': 'CC',
+        'Defensive Midfield': 'CDM',
+        'Attacking Midfield': 'TRQ',
+        'Left Midfield': 'ES',
+        'Right Midfield': 'ED',
+        'Offence': 'ATT',
+        'Left Winger': 'AS',
+        'Right Winger': 'AD',
+        'Centre-Forward': 'ATT',
+        'Second Striker': 'SS',
+    };
+    return map[pos] || pos.substring(0, 3).toUpperCase();
+}
+function _formatDate(isoStr) {
+    if (!isoStr) return '';
+    try {
+        const d = new Date(isoStr);
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const hours = d.getHours().toString().padStart(2, '0');
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        return `${day}/${month} ${hours}:${minutes}`;
+    } catch(e) { return ''; }
+}
+
+(function() {
+    const select = document.getElementById('cards-league');
+    const btn = document.getElementById('btn-cards-load');
+    const icon = document.getElementById('cards-load-icon');
+    const text = document.getElementById('cards-load-text');
+    const status = document.getElementById('cards-status');
+    const results = document.getElementById('cards-results');
+
+    select.addEventListener('change', function() { btn.disabled = !this.value; });
+
+    btn.addEventListener('click', function() {
+        const league = select.value;
+        if (!league) return;
+
+        btn.disabled = true;
+        icon.innerHTML = '<div class="btn-spinner"></div>';
+        text.textContent = 'Caricamento...';
+        status.style.display = 'none';
+        results.style.display = 'none';
+        results.innerHTML = '';
+
+        fetch('/api/cartellini/' + league)
+            .then(r => r.json())
+            .then(data => {
+                icon.textContent = '🔍';
+                text.textContent = 'Analizza';
+                btn.disabled = false;
+
+                if (!data.success) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-error';
+                    status.textContent = '⚠ ' + (data.error || 'Errore sconosciuto');
+                    return;
+                }
+
+                const matches = data.data || [];
+                if (matches.length === 0) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-warn';
+                    status.textContent = 'Nessun dato disponibile.';
+                    return;
+                }
+
+                matches.forEach(function(m) {
+                    if (!m.top_picks || m.top_picks.length === 0) return;
+
+                    const card = document.createElement('div');
+                    card.className = 'cards-match-card';
+
+                    const refInfo = m.referee
+                        ? m.referee + ' (' + m.referee_matches + ' gare, ' + m.referee_cards_pm + ' cart/g)'
+                        : 'da assegnare';
+                    const multClass = m.referee_multiplier >= 1.15 ? 'mult-high'
+                                    : m.referee_multiplier <= 0.85 ? 'mult-low' : 'mult-mid';
+                    const multLabel = m.referee_multiplier >= 1.0
+                        ? '+' + Math.round((m.referee_multiplier - 1) * 100) + '%'
+                        : Math.round((m.referee_multiplier - 1) * 100) + '%';
+
+                    let html = '<div class="cards-match-header">';
+                    html += '<div style="display:flex; flex-direction:column; gap:4px;">';
+                    html += '<span class="cards-match-teams">';
+                    html += m.home_team + ' <small>(' + m.home_position + '°)</small>';
+                    html += ' vs ';
+                    html += m.away_team + ' <small>(' + m.away_position + '°)</small>';
+                    html += '</span>';
+                    if (m.utcDate) {
+                        html += '<span style="font-size: 0.75rem; color: #94a3b8; font-weight: 500;"><i class="fas fa-clock" style="margin-right:4px;"></i>' + _formatDate(m.utcDate) + '</span>';
+                    }
+                    html += '</div>';
+                    html += '<span class="cards-match-ref">⚖ ' + refInfo;
+                    if (m.referee) {
+                        html += ' <span class="cards-mult ' + multClass + '">' + multLabel + '</span>';
+                    }
+                    if (m.underdog_team) {
+                        html += ' <span class="cards-underdog-badge">🛡 ' + m.underdog_team + ' sfavorita</span>';
+                    }
+                    html += '</span></div>';
+
+                    html += '<div class="cards-picks">';
+                    html += '<div class="cards-pick-row cards-pick-header">';
+                    html += '<span class="cards-pick-rank">#</span>';
+                    html += '<span class="cards-pick-player">Giocatore</span>';
+                    html += '<span class="cards-pick-team">Squadra</span>';
+                    html += '<span class="cards-pick-stats">Statistiche</span>';
+                    html += '<span class="prob-badge" style="background:transparent;color:var(--text-muted)">Prob.</span>';
+                    html += '</div>';
+                    m.top_picks.forEach(function(p, i) {
+                        const probClass = p.probability >= 40 ? 'prob-high' : p.probability >= 25 ? 'prob-mid' : 'prob-low';
+                        const loc = p.is_home ? '🏠' : '✈️';
+                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '">';
+                        var diffBadge = p.diffidato ? ' <span class="cards-diffida-badge">⚠ DIFFIDATO</span>' : '';
+                        var underdogIcon = p.is_underdog ? ' 🛡' : '';
+                        var posLabel = p.position ? ' <span class="cards-role-badge">' + _shortPos(p.position) + '</span>' : '';
+                        var absentBadge = '';
+                        if (p.absent) {
+                            var reason = (p.absent_reason || '').toLowerCase();
+                            if (reason.indexOf('injur') >= 0 || reason.indexOf('infort') >= 0 || reason.indexOf('muscle') >= 0 || reason.indexOf('knee') >= 0 || reason.indexOf('ankle') >= 0 || reason.indexOf('ligament') >= 0 || reason.indexOf('surgery') >= 0 || reason.indexOf('fractur') >= 0 || reason.indexOf('strain') >= 0 || reason.indexOf('sprain') >= 0) {
+                                absentBadge = ' <span class="cards-absent-badge absent-injured">🏥 INFORTUNATO</span>';
+                            } else if (reason.indexOf('suspen') >= 0 || reason.indexOf('squalif') >= 0 || reason.indexOf('red') >= 0 || reason.indexOf('rosso') >= 0 || reason.indexOf('ammonizion') >= 0 || reason.indexOf('doppia') >= 0) {
+                                absentBadge = ' <span class="cards-absent-badge absent-suspended">🔴 SQUALIFICATO</span>';
+                            } else {
+                                absentBadge = ' <span class="cards-absent-badge absent-other">❌ ' + (p.absent_reason || 'ASSENTE') + '</span>';
+                            }
+                        }
+                        // Build advanced stats pills
+                        var advPills = '';
+                        if (p.fouls_per_game != null && p.fouls_per_game > 0) {
+                            advPills += '<span class="scorer-adv-pill pill-card-fouls" title="Falli commessi/partita">🦶 ' + p.fouls_per_game + '/g</span>';
+                        }
+                        if (p.tackles_per_game != null && p.tackles_per_game > 0.5) {
+                            advPills += '<span class="scorer-adv-pill pill-card-tackles" title="Tackle/partita">🦵 ' + p.tackles_per_game + '/g</span>';
+                        }
+                        if (p.interceptions_per_game != null && p.interceptions_per_game > 0.5) {
+                            advPills += '<span class="scorer-adv-pill pill-card-inter" title="Intercetti/partita">🧤 ' + p.interceptions_per_game + '/g</span>';
+                        }
+                        if (p.aerials_per_game != null && p.aerials_per_game >= 1.0) {
+                            advPills += '<span class="scorer-adv-pill pill-card-aerials" title="Duelli aerei vinti/partita">✈️ ' + p.aerials_per_game + '/g</span>';
+                        }
+                        if (p.dribbles_att_per_game != null && p.dribbles_att_per_game >= 1.0) {
+                            advPills += '<span class="scorer-adv-pill pill-dribbles" title="Dribbling tentati/partita (rischio fallo)">💨 ' + p.dribbles_att_per_game + '/g</span>';
+                        }
+
+                        var statsHtml = p.yellows_season + '🟨 in ' + p.matches + 'pg (' + p.yellows_per_match + '/g)';
+                        if (advPills) {
+                            statsHtml += '<br><span class="scorer-adv-line">' + advPills + '</span>';
+                        }
+
+                        html += '<span class="cards-pick-rank">' + (i + 1) + '</span>';
+                        html += '<span class="cards-pick-player">' + p.player + posLabel + diffBadge + absentBadge + '</span>';
+                        html += '<span class="cards-pick-team">' + loc + ' ' + p.team + underdogIcon + '</span>';
+                        html += '<span class="cards-pick-stats">' + statsHtml + '</span>';
+                        html += '<span class="prob-badge ' + probClass + '">' + p.probability + '%</span>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+
+                    card.innerHTML = html;
+                    results.appendChild(card);
+                });
+
+                results.style.display = 'block';
+            })
+            .catch(function() {
+                icon.textContent = '🔍';
+                text.textContent = 'Analizza';
+                btn.disabled = false;
+                status.style.display = 'block';
+                status.className = 'rigori-status rigori-error';
+                status.textContent = '⚠ Errore di connessione.';
+            });
+    });
+})();
+</script>
+{% endblock %}

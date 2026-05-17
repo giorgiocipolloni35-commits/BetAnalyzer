@@ -1,0 +1,11 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+data/betanalyzer.db
+data/*.json
+*.log
+.git/
+.DS_Store
+missing_players.json

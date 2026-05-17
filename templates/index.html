@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Dashboard{% endblock %}
+
+{% block content %}
+<section class="config-panel">
+    <form method="POST" action="/refresh" class="main-config-form-v2">
+        <!-- Row 1: Campionati -->
+        <div class="config-row-main">
+            <span class="config-label">Campionati</span>
+            <div class="league-selector-v2">
+                {% set chips = [
+                    ('italy_serie_a', '🇮🇹 Serie A', 'Serie A'),
+                    ('england_premier_league', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League', 'Premier League'),
+                    ('spain_la_liga', '🇪🇸 La Liga', 'La Liga'),
+                    ('germany_bundesliga', '🇩🇪 Bundesliga', 'Bundesliga'),
+                    ('france_ligue_1', '🇫🇷 Ligue 1', 'Ligue 1'),
+                    ('denmark_superliga', '🇩🇰 Superliga', 'Superliga'),
+                    ('scotland_premiership', '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Premiership', 'Premiership'),
+                ] %}
+                {% for key, label, league_name in chips %}
+                {% set cnt = league_counts.get(league_name, 0) %}
+                <label class="league-chip {% if key in state.selected_leagues %}league-active{% endif %}">
+                    <input type="checkbox" name="leagues" value="{{ key }}" {% if key in state.selected_leagues %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                    {% if cnt > 0 %}<span class="league-badge">{{ cnt }}</span>{% endif %}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Row 2: Sorgente + Azioni -->
+        <div class="config-row-bottom">
+            <div class="source-selector-v2">
+                <span class="config-label-sm">Sorgente quote:</span>
+                <label class="source-chip {% if state.source == 'odds_api' %}source-active{% endif %}">
+                    <input type="radio" name="source" value="odds_api" {% if state.source == 'odds_api' %}checked{% endif %}>
+                    <span>The Odds API</span>
+                </label>
+                <label class="source-chip {% if state.source == 'sportmonks' %}source-active{% endif %}">
+                    <input type="radio" name="source" value="sportmonks" {% if state.source == 'sportmonks' %}checked{% endif %}>
+                    <span>Sportmonks</span>
+                </label>
+            </div>
+            <div class="config-actions-v2">
+                <label class="force-option" title="Scarica dati freschi ignorando la cache">
+                    <input type="checkbox" name="force" id="force-cache" value="1"> Svuota cache
+                </label>
+                <button type="submit" class="btn-run" id="btn-run" {% if state.loading %}disabled{% endif %}>
+                    <span class="run-icon" id="run-icon">⚡</span>
+                    <span class="btn-text" id="run-text">{% if state.loading %}ANALISI IN CORSO...{% else %}AVVIA ANALISI{% endif %}</span>
+                </button>
+            </div>
+        </div>
+    </form>
+</section>
+
+<section class="worker-control-panel">
+    <div class="worker-status-card">
+        <div class="worker-info">
+            <span class="worker-badge {% if worker_enabled == 'on' %}badge-on{% else %}badge-off{% endif %}">
+                ● Monitoraggio: {{ 'ATTIVO' if worker_enabled == 'on' else 'DISATTIVATO' }}
+            </span>
+            <p class="worker-desc">Il monitoraggio formazioni e alert email è attualmente {{ 'in funzione' if worker_enabled == 'on' else 'in pausa' }}.</p>
+        </div>
+        <form action="/api/worker/toggle" method="POST" id="worker-toggle-form">
+            <label class="switch">
+                <input type="checkbox" name="enabled" onchange="this.form.submit()" {% if worker_enabled == 'on' %}checked{% endif %}>
+                <span class="slider round"></span>
+            </label>
+        </form>
+    </div>
+</section>
+
+{% if last_sync and (last_sync.precache or last_sync.playersync) %}
+<div class="sync-status-bar">
+    <span class="sync-icon">🔄</span>
+    <span class="sync-info">Ultimo aggiornamento dati:
+        {% if last_sync.precache %}
+            <strong>Partite</strong> {{ last_sync.precache }}
+        {% endif %}
+        {% if last_sync.precache and last_sync.playersync %} · {% endif %}
+        {% if last_sync.playersync %}
+            <strong>Giocatori</strong> {{ last_sync.playersync }}
+        {% endif %}
+    </span>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestione checkbox cache (rimossa persistenza per sicurezza crediti)
+    const forceCheck = document.getElementById('force-cache');
+    if (forceCheck) {
+        forceCheck.checked = false; // Forza a false al caricamento
+    }
+
+    // Toggle visual state on league/source chips
+    document.querySelectorAll('.league-chip input').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            this.closest('.league-chip').classList.toggle('league-active', this.checked);
+        });
+    });
+    document.querySelectorAll('.source-chip input').forEach(function(rb) {
+        rb.addEventListener('change', function() {
+            document.querySelectorAll('.source-chip').forEach(function(c) { c.classList.remove('source-active'); });
+            this.closest('.source-chip').classList.add('source-active');
+        });
+    });
+
+    // Loader sul bottone al submit
+    const form = document.querySelector('.main-config-form-v2') || document.querySelector('.main-config-form');
+    const btn = document.getElementById('btn-run');
+    const icon = document.getElementById('run-icon');
+    const text = document.getElementById('run-text');
+    if (form && btn) {
+        form.addEventListener('submit', function() {
+            btn.disabled = true;
+            icon.innerHTML = '<div class="btn-spinner"></div>';
+            text.textContent = 'ANALISI IN CORSO...';
+        });
+    }
+});
+</script>
+
+<section class="filters-secondary">
+    <div class="filter-group">
+        <span class="filter-label">Filtra Risultati:</span>
+        <a href="/?league=all{% if only_play %}&play=1{% endif %}"
+           class="filter-btn {% if league_filter == 'all' %}active{% endif %}">Tutti</a>
+        {% for lg in leagues %}
+        <a href="/?league={{ lg | urlencode }}{% if only_play %}&play=1{% endif %}"
+           class="filter-btn {% if league_filter == lg %}active{% endif %}">{{ lg }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="filter-group">
+        <a href="/?league={{ league_filter }}&play={% if only_play %}0{% else %}1{% endif %}"
+           class="filter-btn {% if only_play %}active-green{% endif %}">
+            ✅ Solo consigliati
+        </a>
+        <button type="button" class="filter-btn btn-top-picks" id="btn-top-picks" title="Top 8 migliori giocate">
+            💡 Top 8
+        </button>
+        <a href="{{ url_for('predictions_page') }}" class="filter-btn" style="background: rgba(59, 130, 246, 0.1); border-color: #3b82f6; text-decoration: none;">
+            💡 Betting Tips
+        </a>
+        <span class="match-count">{{ matches | length }} partite caricate</span>
+    </div>
+</section>
+
+{% if not matches and not state.loading and not state.error %}
+<div class="empty-state">
+    <div class="empty-icon">📊</div>
+    <h2>Pronto per l'analisi</h2>
+    <p>Usa il pannello in alto per selezionare la <strong>Sorgente</strong> e i <strong>Campionati</strong>, quindi clicca sul tasto con il fulmine per iniziare.</p>
+    <div class="setup-guide">
+        <span class="step">1. Scegli API</span>
+        <span class="arrow">→</span>
+        <span class="step">2. Scegli Leghe</span>
+        <span class="arrow">→</span>
+        <span class="step">3. RUN ⚡</span>
+    </div>
+</div>
+{% endif %}
+
+{% if matches %}
+<div class="matches-grid">
+    {% for match in matches %}
+    <a href="/match/{{ match.id }}" class="match-card {% if match.recommendation and match.recommendation.play %}card-recommended{% endif %}">
+
+        <div class="card-header">
+            <span class="league-badge league-{{ match.league | replace(' ', '-') | lower }}">
+                {{ match.league }}
+            </span>
+            <span class="match-date">
+                {{ match.commence_time | format_date }}
+                {% if match.matchday %}
+                    <span class="matchday-badge">G{{ match.matchday }}</span>
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="teams">
+            <span class="team home-team">{{ match.home_team }}</span>
+            <span class="vs">vs</span>
+            <span class="team away-team">{{ match.away_team }}</span>
+        </div>
+
+        <div class="team-stats-row" data-home="{{ match.home_team }}" data-away="{{ match.away_team }}"></div>
+
+        <div class="odds-row">
+            {% set markets = [('1', match.best_home[0]), ('X', match.best_draw[0]), ('2', match.best_away[0]), ('O2.5', match.best_over25[0]), ('GG', match.best_gg[0])] %}
+            {% for label, val in markets %}
+                {% set rec = match.get_recommendation(label if label != 'O2.5' else 'OVER 2.5') %}
+                <label class="odd-box-wrapper">
+                    <input type="checkbox" class="bet-selector hidden-checkbox" 
+                           data-odds="{{ val }}" 
+                           data-match="{{ match.home_team }} vs {{ match.away_team }}" 
+                           data-market="{{ label }}">
+                    <div class="odd-box {{ 'has-value' if rec and rec.value_rating >= 7.0 }}">
+                        <span class="odd-label">{{ label }}</span>
+                        <span class="odd-value">{{ "%.2f" | format(val) if val else "—" }}</span>
+                        {% if rec and rec.value_rating >= 7.0 %}
+                            <span class="value-badge" title="Value Rating: {{ rec.value_rating }}/10">★</span>
+                        {% endif %}
+                    </div>
+                </label>
+            {% endfor %}
+        </div>
+
+        <div class="xg-ev-row" id="xg-ev-{{ match.id }}" style="display:none;">
+            <span class="xg-badge" title="Gol attesi dal modello Poisson">⚽ xG: <strong class="xg-home">—</strong> – <strong class="xg-away">—</strong></span>
+            <span class="ev-badge" title="Expected Value: vantaggio rispetto alle quote">📈 EV: <strong class="ev-best">—</strong></span>
+            <span class="value-bet-badge" style="display:none;" title="Value Bet trovata!">💎 VALUE</span>
+        </div>
+        <div class="value-bets-detail" id="vb-{{ match.id }}" style="display:none;"></div>
+
+        <div class="bk-count">
+            {{ match.bookmaker_count() }} bookmaker
+            {% if match.referee %}
+                <span class="referee-badge" title="{% if match.referee_stats and match.referee_stats.matches >= 3 %}{{ match.referee_stats.matches }} gare, {{ match.referee_stats.penalties_per_match }} rig/g, {{ match.referee_stats.cards_per_match }} cart/g{% else %}Dati insufficienti{% endif %}">⚖ {{ match.referee }}</span>
+            {% endif %}
+        </div>
+
+        {% if match.recommendations %}
+        <div class="rec-list">
+            {% for rec in match.recommendations %}
+            <div class="rec-bar rec-{{ 'play' if rec.play else 'noplay' }}">
+                <label class="rec-checkbox-label">
+                    <input type="checkbox" class="bet-selector" data-odds="{{ rec.odds_value }}" data-match="{{ match.home_team }} vs {{ match.away_team }}" data-market="{{ rec.market }}">
+                    <span class="rec-num">{{ loop.index }}</span>
+                </label>
+                <span class="rec-label">{{ rec.play_label }}</span>
+                <span class="rec-market">{{ rec.market }} @ {{ "%.2f" | format(rec.odds_value) if rec.odds_value else "—" }}</span>
+                <span class="rec-conf conf-{{ rec.confidence_class }}">{{ rec.confidence }}</span>
+                <span class="rec-stars" title="Value: {{ rec.value_rating }}/10">{{ rec.value_rating | stars | safe }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="rec-bar rec-loading">
+            <span>⏳ Analisi in corso...</span>
+        </div>
+        {% endif %}
+
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Top 8 Picks Modal -->
+<div id="top-picks-overlay" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span class="modal-title">💡 Top 8 Migliori Giocate</span>
+            <button class="modal-close" id="close-top-picks">&times;</button>
+        </div>
+        <div class="modal-body" id="top-picks-body">
+            <div class="loader-match">Caricamento...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Schedina / Bet Slip -->
+<div id="bet-slip" class="bet-slip">
+    <div class="bet-slip-content">
+        <div class="bet-slip-left">
+            <span class="bet-slip-count">Eventi: <strong id="selected-count">0</strong></span>
+            <span class="bet-slip-odds">Quota Totale: <strong id="total-odds">1.00</strong></span>
+        </div>
+        <div class="bet-slip-center">
+            <label>Puntata (€):</label>
+            <input type="number" id="bet-stake" value="10" min="1" step="1">
+        </div>
+        <div class="bet-slip-right">
+            <span class="potential-win">Vincita Potenziale: <strong id="potential-win">€0.00</strong></span>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.bet-selector');
+    const stakeInput = document.getElementById('bet-stake');
+    const totalOddsEl = document.getElementById('total-odds');
+    const selectedCountEl = document.getElementById('selected-count');
+    const potentialWinEl = document.getElementById('potential-win');
+    const betSlip = document.getElementById('bet-slip');
+
+    function updateSlip() {
+        let selected = [];
+        let multiplier = 1.0;
+        
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                selected.push(cb);
+                multiplier *= parseFloat(cb.dataset.odds);
+            }
+        });
+
+        const count = selected.length;
+        const stake = parseFloat(stakeInput.value) || 0;
+        const win = multiplier * stake;
+
+        selectedCountEl.textContent = count;
+        totalOddsEl.textContent = count > 0 ? multiplier.toFixed(2) : "1.00";
+        potentialWinEl.textContent = "€" + (count > 0 ? win.toFixed(2) : "0.00");
+
+        if (count > 0) {
+            betSlip.classList.add('active');
+        } else {
+            betSlip.classList.remove('active');
+        }
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateSlip));
+    stakeInput.addEventListener('input', updateSlip);
+
+    // Top 8 Picks
+    const btnTop = document.getElementById('btn-top-picks');
+    const overlay = document.getElementById('top-picks-overlay');
+    const closeTop = document.getElementById('close-top-picks');
+    const topBody = document.getElementById('top-picks-body');
+
+    if (btnTop) {
+        btnTop.addEventListener('click', function() {
+            overlay.style.display = 'flex';
+            topBody.innerHTML = '<div class="loader-match">Caricamento...</div>';
+            fetch('/api/top-picks')
+                .then(r => r.json())
+                .then(data => {
+                    const picks = data.picks || [];
+                    if (picks.length === 0) {
+                        topBody.innerHTML = '<p style="text-align:center;padding:2rem;color:#94a3b8">Nessuna giocata disponibile. Avvia prima una scansione.</p>';
+                        return;
+                    }
+                    let html = '<div class="top-picks-list">';
+                    picks.forEach((p, i) => {
+                        const conf = p.confidence === 'ALTA' ? 'high' : p.confidence === 'MEDIA' ? 'medium' : 'low';
+                        html += `
+                        <a href="/match/${p.match_id}" class="top-pick-row">
+                            <span class="tp-rank">${i+1}</span>
+                            <div class="tp-info">
+                                <span class="tp-teams">${p.home_team} vs ${p.away_team}</span>
+                                <span class="tp-league">${p.league}</span>
+                            </div>
+                            <span class="tp-market">${p.market}</span>
+                            <span class="tp-odds">@ ${p.odds_value.toFixed(2)}</span>
+                            <span class="rec-conf conf-${conf}">${p.confidence}</span>
+                            <span class="tp-value">★ ${p.value_rating}/10</span>
+                            ${p.ev_pct ? `<span class="tp-ev">EV ${p.ev_pct > 0 ? '+' : ''}${p.ev_pct}%</span>` : ''}
+                        </a>`;
+                    });
+                    html += '</div>';
+                    topBody.innerHTML = html;
+                })
+                .catch(() => {
+                    topBody.innerHTML = '<p style="text-align:center;padding:2rem;color:#ef4444">Errore nel caricamento.</p>';
+                });
+        });
+    }
+    if (closeTop) closeTop.addEventListener('click', () => overlay.style.display = 'none');
+    if (overlay) overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.style.display = 'none';
+    });
+
+    // Load team stats from Sportmonks DB and inject into match cards
+    const statsRows = document.querySelectorAll('.team-stats-row');
+    if (statsRows.length > 0) {
+        fetch('/api/team-stats-bulk')
+            .then(r => r.json())
+            .then(resp => {
+                if (!resp.success) return;
+                const db = resp.data;
+
+                function findTeam(name) {
+                    const low = name.toLowerCase();
+                    if (db[low]) return db[low];
+                    // Fuzzy: try partial match
+                    for (const k in db) {
+                        const clean1 = low.replace(/fc |afc |sc |ssc |ac |as |ss |cf |club /gi, '').trim();
+                        const clean2 = k.replace(/fc |afc |sc |ssc |ac |as |ss |cf |club /gi, '').trim();
+                        if (clean1.includes(clean2) || clean2.includes(clean1)) return db[k];
+                    }
+                    return null;
+                }
+
+                function pill(emoji, val, cls, title) {
+                    return '<span class="scorer-adv-pill ' + cls + '" title="' + title + '">' + emoji + ' ' + val + '</span>';
+                }
+
+                statsRows.forEach(row => {
+                    const home = findTeam(row.dataset.home);
+                    const away = findTeam(row.dataset.away);
+                    if (!home && !away) return;
+
+                    let html = '';
+                    if (home) {
+                        html += '<div class="dash-team-stats">';
+                        html += '<span class="dash-team-label">' + row.dataset.home.split(' ').pop() + '</span>';
+                        html += pill('🎯', home.shots_pg + '/g', 'pill-shots', 'Tiri/partita');
+                        if (home.goals_pg > 0) html += pill('⚽', home.goals_pg + '/g', 'pill-assists', 'Gol/partita');
+                        if (home.dribbles_pg >= 2) html += pill('💨', home.dribbles_pg + '/g', 'pill-dribbles', 'Dribbling/partita');
+                        if (home.pass_pct > 0) html += pill('📊', home.pass_pct + '%', 'pill-kp', 'Precisione passaggi');
+                        html += '</div>';
+                    }
+                    if (away) {
+                        html += '<div class="dash-team-stats">';
+                        html += '<span class="dash-team-label">' + row.dataset.away.split(' ').pop() + '</span>';
+                        html += pill('🎯', away.shots_pg + '/g', 'pill-shots', 'Tiri/partita');
+                        if (away.goals_pg > 0) html += pill('⚽', away.goals_pg + '/g', 'pill-assists', 'Gol/partita');
+                        if (away.dribbles_pg >= 2) html += pill('💨', away.dribbles_pg + '/g', 'pill-dribbles', 'Dribbling/partita');
+                        if (away.pass_pct > 0) html += pill('📊', away.pass_pct + '%', 'pill-kp', 'Precisione passaggi');
+                        html += '</div>';
+                    }
+                    row.innerHTML = html;
+                });
+            })
+            .catch(() => {});
+    }
+
+    // ── xG / EV Poisson ──
+    fetch('/api/xg-ev')
+        .then(r => r.json())
+        .then(resp => {
+            if (!resp.success || !resp.data) return;
+            const data = resp.data;
+            Object.keys(data).forEach(matchId => {
+                const el = document.getElementById('xg-ev-' + matchId);
+                if (!el) return;
+                const d = data[matchId];
+                el.querySelector('.xg-home').textContent = d.xg_home.toFixed(2);
+                el.querySelector('.xg-away').textContent = d.xg_away.toFixed(2);
+                if (d.best_ev) {
+                    const evEl = el.querySelector('.ev-best');
+                    const evPct = d.best_ev.ev_pct;
+                    evEl.textContent = (evPct >= 0 ? '+' : '') + evPct.toFixed(1) + '% ' + d.best_ev.market;
+                    evEl.style.color = evPct > 5 ? '#10b981' : evPct > 0 ? '#fbbf24' : '#ef4444';
+                    evEl.title = 'Prob.modello ' + d.best_ev.model_prob + '% vs implicita ' + d.best_ev.implied_prob + '% | Quota ' + d.best_ev.odds;
+                }
+                el.style.display = 'flex';
+
+                // Value Bets: mostra badge + dettaglio per EV > 5%
+                const valueBets = (d.ev_markets || []).filter(e => e.ev_pct > 5);
+                if (valueBets.length > 0) {
+                    const badge = el.querySelector('.value-bet-badge');
+                    if (badge) {
+                        badge.style.display = 'inline-flex';
+                        badge.textContent = '💎 ' + valueBets.length + ' VALUE';
+                    }
+                    const vbDiv = document.getElementById('vb-' + matchId);
+                    if (vbDiv) {
+                        let html = '<div class="value-bets-list">';
+                        valueBets.forEach(vb => {
+                            const cls = vb.ev_pct >= 10 ? 'vb-hot' : 'vb-warm';
+                            html += `<span class="vb-chip ${cls}" title="Modello ${vb.model_prob}% vs Book ${vb.implied_prob}%">`;
+                            html += `${vb.market} @${vb.odds} → <strong>+${vb.ev_pct.toFixed(1)}%</strong>`;
+                            html += `</span>`;
+                        });
+                        html += '</div>';
+                        vbDiv.innerHTML = html;
+                        vbDiv.style.display = 'block';
+                    }
+                }
+            });
+        })
+        .catch(() => {});
+});
+</script>
+{% endblock %}

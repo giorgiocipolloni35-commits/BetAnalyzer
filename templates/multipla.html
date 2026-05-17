@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Multipla Builder{% endblock %}
+
+{% block content %}
+<style>
+    .multi-pick-match-box { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .multi-pick-match { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; }
+    .multi-pick-date { font-size: 0.72rem; color: #94a3b8; font-weight: 500; }
+    .multi-pick-row { align-items: center !important; transition: opacity 0.2s; }
+    .multi-pick-row.pick-removed { opacity: 0.25; text-decoration: line-through; pointer-events: none; }
+    .multi-pick-remove { cursor: pointer; font-size: 0.7rem; color: #ef4444; opacity: 0.5; transition: opacity 0.2s; padding: 2px 6px; border-radius: 4px; }
+    .multi-pick-remove:hover { opacity: 1; background: rgba(239,68,68,0.15); }
+    .multi-combo-card { position: relative; }
+    .multi-sources-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .multi-source-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; background: #1e293b; border: 1px solid #334155; color: #94a3b8; }
+    .multi-source-chip.active { border-color: #3b82f6; color: #e2e8f0; background: #1e3a5f; }
+    .multi-stake-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 10px 14px; background: #0f172a; border-radius: 8px; }
+    .multi-stake-input { width: 70px; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 0.85rem; text-align: right; font-weight: 700; }
+    .multi-stake-payout { font-weight: 700; color: #22c55e; font-size: 1rem; }
+    .multi-combo-recalc { font-size: 0.7rem; color: #64748b; margin-left: auto; cursor: pointer; text-decoration: underline; }
+    .multi-combo-recalc:hover { color: #94a3b8; }
+    .multi-confidence-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    .conf-high { background: #22c55e; }
+    .conf-mid { background: #f59e0b; }
+    .conf-low { background: #ef4444; }
+</style>
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">🔗 Multipla Builder</h1>
+        <p class="rigori-desc">Schedine automatiche generate combinando 6 fonti: Dashboard AI, Rigori, Cartellini, Marcatori, Risultato Esatto e Doppio Tempo.</p>
+    </div>
+
+    <div class="rigori-controls">
+        <label class="rigori-select-label">Campionato:</label>
+        <select id="multi-league" class="rigori-select">
+            <option value="">— Seleziona —</option>
+            <option value="italy_serie_a">🇮🇹 Serie A</option>
+            <option value="england_premier_league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+            <option value="spain_la_liga">🇪🇸 La Liga</option>
+            <option value="germany_bundesliga">🇩🇪 Bundesliga</option>
+            <option value="france_ligue_1">🇫🇷 Ligue 1</option>
+            <option value="netherlands_eredivisie">🇳🇱 Eredivisie</option>
+            <option value="champions_league">🏆 Champions League</option>
+            <option value="england_championship">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship</option>
+            <option value="portugal_primeira_liga">🇵🇹 Primeira Liga</option>
+            <option value="brazil_serie_a">🇧🇷 Brasileirão</option>
+        </select>
+        <button type="button" class="btn-run btn-rigori-load" id="btn-multi-load" disabled>
+            <span id="multi-load-icon">🔗</span>
+            <span id="multi-load-text">Genera Schedine</span>
+        </button>
+    </div>
+
+    <div id="multi-status" class="rigori-status" style="display:none"></div>
+    <div id="multi-results" style="display:none"></div>
+</section>
+
+<script>
+(function() {
+    const select = document.getElementById('multi-league');
+    const btn = document.getElementById('btn-multi-load');
+    const icon = document.getElementById('multi-load-icon');
+    const text = document.getElementById('multi-load-text');
+    const status = document.getElementById('multi-status');
+    const results = document.getElementById('multi-results');
+
+    const SRC_ICONS = {
+        dashboard: '📊', rigori: '⚽', cartellini: '🟨',
+        marcatori: '🎯', correct_score: '🎲', doppio_tempo: '⏱️'
+    };
+    const SRC_LABELS = {
+        dashboard: 'Dashboard AI', rigori: 'Rigori', cartellini: 'Cartellini',
+        marcatori: 'Marcatori', correct_score: 'Risultato Esatto', doppio_tempo: 'Doppio Tempo'
+    };
+
+    select.addEventListener('change', function() { btn.disabled = !this.value; });
+
+    function formatDate(d) {
+        if (!d) return '';
+        var dt = new Date(d);
+        return dt.getDate().toString().padStart(2,'0') + '/' +
+               (dt.getMonth()+1).toString().padStart(2,'0') + ' ' +
+               dt.getHours().toString().padStart(2,'0') + ':' +
+               dt.getMinutes().toString().padStart(2,'0');
+    }
+
+    function confDot(prob) {
+        if (prob >= 55) return '<span class="multi-confidence-dot conf-high"></span>';
+        if (prob >= 35) return '<span class="multi-confidence-dot conf-mid"></span>';
+        return '<span class="multi-confidence-dot conf-low"></span>';
+    }
+
+    function renderPickRow(p, removable) {
+        var srcIcon = SRC_ICONS[p.source] || '?';
+        var srcClass = 'multi-src-' + p.source;
+        var dateStr = p.date ? '<span class="multi-pick-date">' + formatDate(p.date) + '</span>' : '';
+        var removeBtn = removable ? '<span class="multi-pick-remove" onclick="removePick(this)" title="Rimuovi">✕</span>' : '';
+
+        return '<div class="multi-pick-row" data-odds="' + (p.odds||0) + '" data-prob="' + p.prob + '">' +
+            removeBtn +
+            '<span class="multi-pick-src ' + srcClass + '">' + srcIcon + '</span>' +
+            '<div class="multi-pick-match-box">' +
+                '<span class="multi-pick-match">' + p.match + '</span>' +
+                dateStr +
+            '</div>' +
+            '<span class="multi-pick-bet">' + confDot(p.prob) + p.bet + '</span>' +
+            '<span class="multi-pick-odds">@' + (p.odds ? p.odds.toFixed(2) : '—') + '</span>' +
+            '<span class="multi-pick-prob">' + p.prob + '%</span>' +
+        '</div>';
+    }
+
+    function renderCombo(ct, combo) {
+        if (!combo || !combo.picks || combo.picks.length === 0) return '';
+
+        var html = '<div class="multi-combo-card" id="combo-' + ct.key + '">';
+        html += '<div class="multi-combo-header" style="border-left: 3px solid ' + ct.color + '">';
+        html += '<div class="multi-combo-title">';
+        html += '<span>' + ct.title + '</span>';
+        html += '<span class="multi-combo-desc">' + ct.desc + '</span>';
+        html += '</div>';
+        html += '<div class="multi-combo-stats">';
+        html += '<span class="multi-combo-quota">Quota: <strong class="combo-odds">' + combo.combined_odds.toFixed(2) + '</strong></span>';
+        html += '<span class="multi-combo-prob">Prob: <strong class="combo-prob">' + combo.combined_prob + '%</strong></span>';
+        html += '</div>';
+        html += '</div>';
+
+        html += '<div class="multi-combo-picks">';
+        combo.picks.forEach(function(p) { html += renderPickRow(p, true); });
+        html += '</div>';
+
+        // Stake row
+        html += '<div class="multi-stake-row">';
+        html += '<span style="font-size:0.8rem;color:#94a3b8;">Puntata €</span>';
+        html += '<input type="number" class="multi-stake-input" value="10" min="1" max="1000" onchange="recalcPayout(this)">';
+        html += '<span style="font-size:0.8rem;color:#94a3b8;">→</span>';
+        html += '<span class="multi-stake-payout">€' + (10 * combo.combined_odds).toFixed(2) + '</span>';
+        html += '</div>';
+
+        html += '</div>';
+        return html;
+    }
+
+    btn.addEventListener('click', function() {
+        const league = select.value;
+        if (!league) return;
+
+        btn.disabled = true;
+        icon.innerHTML = '<div class="btn-spinner"></div>';
+        text.textContent = 'Generazione...';
+        status.style.display = 'none';
+        results.style.display = 'none';
+        results.innerHTML = '';
+
+        fetch('/api/multipla/' + league)
+            .then(r => r.json())
+            .then(data => {
+                icon.textContent = '🔗';
+                text.textContent = 'Genera Schedine';
+                btn.disabled = false;
+
+                if (!data.success) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-error';
+                    status.textContent = '⚠ ' + (data.error || 'Errore sconosciuto');
+                    return;
+                }
+
+                var combos = data.data || {};
+                var allPicks = combos.all_picks || [];
+
+                if (allPicks.length === 0) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-warn';
+                    status.textContent = 'Nessuna pick disponibile. Lancia prima le analisi.';
+                    return;
+                }
+
+                var mainHtml = '';
+
+                // Sources bar
+                var sources = combos.sources_used || [];
+                mainHtml += '<div class="multi-sources-bar">';
+                mainHtml += '<span style="font-size:0.75rem;color:#64748b;align-self:center;">Fonti attive:</span>';
+                sources.forEach(function(s) {
+                    mainHtml += '<span class="multi-source-chip active">' + (SRC_ICONS[s]||'') + ' ' + (SRC_LABELS[s]||s) + '</span>';
+                });
+                mainHtml += '<span style="font-size:0.75rem;color:#64748b;align-self:center;margin-left:auto;">' + combos.total_picks + ' pick totali</span>';
+                mainHtml += '</div>';
+
+                // Combo cards
+                var comboTypes = [
+                    {key: 'sicura', title: '🛡 Schedina SICURA', desc: '4 pick alta probabilità — rischio basso, quota contenuta', color: '#22c55e'},
+                    {key: 'value', title: '💎 Schedina VALUE', desc: '4 pick alto valore atteso — miglior rapporto rischio/rendimento', color: '#3b82f6'},
+                    {key: 'rischio', title: '🔥 Schedina RISCHIO', desc: '6 pick quota alta — probabilità moderata, grande vincita potenziale', color: '#ef4444'},
+                ];
+
+                comboTypes.forEach(function(ct) {
+                    mainHtml += renderCombo(ct, combos[ct.key]);
+                });
+
+                // All picks pool
+                mainHtml += '<div class="multi-combo-card multi-pool">';
+                mainHtml += '<div class="multi-combo-header"><div class="multi-combo-title"><span>📋 Tutte le Pick Disponibili (' + allPicks.length + ')</span></div></div>';
+                mainHtml += '<div class="multi-combo-picks">';
+                allPicks.forEach(function(p) { mainHtml += renderPickRow(p, false); });
+                mainHtml += '</div></div>';
+
+                results.innerHTML = mainHtml;
+                results.style.display = 'block';
+            })
+            .catch(function(e) {
+                icon.textContent = '🔗';
+                text.textContent = 'Genera Schedine';
+                btn.disabled = false;
+                status.style.display = 'block';
+                status.className = 'rigori-status rigori-error';
+                status.textContent = '⚠ Errore di connessione.';
+            });
+    });
+})();
+
+// ── Interactive functions (global scope) ──
+
+function removePick(el) {
+    var row = el.closest('.multi-pick-row');
+    row.classList.add('pick-removed');
+    // Recalculate combo stats
+    var card = row.closest('.multi-combo-card');
+    recalcCombo(card);
+}
+
+function recalcCombo(card) {
+    var rows = card.querySelectorAll('.multi-pick-row:not(.pick-removed)');
+    var odds = 1.0, prob = 1.0, count = 0;
+    rows.forEach(function(r) {
+        var o = parseFloat(r.dataset.odds);
+        var p = parseFloat(r.dataset.prob);
+        if (o > 0 && p > 0) {
+            odds *= o;
+            prob *= p / 100;
+            count++;
+        }
+    });
+    if (count === 0) { odds = 0; prob = 0; }
+
+    var oddsEl = card.querySelector('.combo-odds');
+    var probEl = card.querySelector('.combo-prob');
+    if (oddsEl) oddsEl.textContent = odds.toFixed(2);
+    if (probEl) probEl.textContent = (prob * 100).toFixed(2) + '%';
+
+    // Update payout
+    var stakeInput = card.querySelector('.multi-stake-input');
+    var payoutEl = card.querySelector('.multi-stake-payout');
+    if (stakeInput && payoutEl) {
+        var stake = parseFloat(stakeInput.value) || 10;
+        payoutEl.textContent = '€' + (stake * odds).toFixed(2);
+    }
+}
+
+function recalcPayout(input) {
+    var card = input.closest('.multi-combo-card');
+    recalcCombo(card);
+}
+</script>
+{% endblock %}

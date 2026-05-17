@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Marcatori{% endblock %}
+
+{% block content %}
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">⚽ Analisi Marcatori (Anytime Goalscorer)</h1>
+        <p class="rigori-desc">Giocatori con alta probabilità di segnare, incrociati con la debolezza difensiva dell'avversario.</p>
+    </div>
+
+    <div class="rigori-controls">
+        <label class="rigori-select-label">Campionato:</label>
+        <select id="scorers-league" class="rigori-select">
+            <option value="">— Seleziona —</option>
+            <option value="top10">🏆 Top 10 — Tutti i campionati</option>
+            <option value="italy_serie_a">🇮🇹 Serie A</option>
+            <option value="england_premier_league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+            <option value="spain_la_liga">🇪🇸 La Liga</option>
+            <option value="germany_bundesliga">🇩🇪 Bundesliga</option>
+            <option value="france_ligue_1">🇫🇷 Ligue 1</option>
+            <option value="netherlands_eredivisie">🇳🇱 Eredivisie</option>
+            <option value="champions_league">🏆 Champions League</option>
+            <option value="england_championship">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship</option>
+            <option value="portugal_primeira_liga">🇵🇹 Primeira Liga</option>
+            <option value="brazil_serie_a">🇧🇷 Brasileirão</option>
+            <option value="world_cup">🌍 Mondiali 2026</option>
+        </select>
+        <button type="button" class="btn-run btn-rigori-load" id="btn-scorers-load" disabled>
+            <span id="scorers-load-icon">🔍</span>
+            <span id="scorers-load-text">Analizza</span>
+        </button>
+    </div>
+
+    <div id="scorers-status" class="rigori-status" style="display:none"></div>
+
+    <div id="scorers-results" style="display:none"></div>
+</section>
+
+<script>
+function _shortPos(pos) {
+    var map = {
+        'Goalkeeper': 'POR', 'Defence': 'DIF',
+        'Left-Back': 'TS', 'Right-Back': 'TD', 'Centre-Back': 'DC',
+        'Midfield': 'CEN', 'Central Midfield': 'CC',
+        'Defensive Midfield': 'CDM', 'Attacking Midfield': 'TRQ',
+        'Left Midfield': 'ES', 'Right Midfield': 'ED',
+        'Offence': 'ATT', 'Left Winger': 'AS', 'Right Winger': 'AD',
+        'Centre-Forward': 'ATT', 'Second Striker': 'SS',
+    };
+    return map[pos] || pos.substring(0, 3).toUpperCase();
+}
+function _formatDate(isoStr) {
+    if (!isoStr) return '';
+    try {
+        const d = new Date(isoStr);
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const hours = d.getHours().toString().padStart(2, '0');
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        return `${day}/${month} ${hours}:${minutes}`;
+    } catch(e) { return ''; }
+}
+
+(function() {
+    const select = document.getElementById('scorers-league');
+    const btn = document.getElementById('btn-scorers-load');
+    const icon = document.getElementById('scorers-load-icon');
+    const text = document.getElementById('scorers-load-text');
+    const status = document.getElementById('scorers-status');
+    const results = document.getElementById('scorers-results');
+
+    select.addEventListener('change', function() { btn.disabled = !this.value; });
+
+    btn.addEventListener('click', function() {
+        const league = select.value;
+        if (!league) return;
+
+        btn.disabled = true;
+        icon.innerHTML = '<div class="btn-spinner"></div>';
+        text.textContent = 'Caricamento...';
+        status.style.display = 'none';
+        results.style.display = 'none';
+        results.innerHTML = '';
+
+        fetch('/api/marcatori/' + league)
+            .then(r => r.json())
+            .then(data => {
+                icon.textContent = '🔍';
+                text.textContent = 'Analizza';
+                btn.disabled = false;
+
+                if (!data.success) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-error';
+                    status.textContent = '⚠ ' + (data.error || 'Errore sconosciuto');
+                    return;
+                }
+
+                const matches = data.data || [];
+                if (matches.length === 0) {
+                    status.style.display = 'block';
+                    status.className = 'rigori-status rigori-warn';
+                    status.textContent = 'Nessun dato disponibile.';
+                    return;
+                }
+
+                matches.forEach(function(m) {
+                    if (!m.top_picks || m.top_picks.length === 0) return;
+
+                    const card = document.createElement('div');
+                    card.className = 'cards-match-card';
+
+                    // Defense weakness indicator
+                    var homeDefLabel = m.home_def_weakness >= 1.15 ? '🔓' : m.home_def_weakness <= 0.85 ? '🔒' : '';
+                    var awayDefLabel = m.away_def_weakness >= 1.15 ? '🔓' : m.away_def_weakness <= 0.85 ? '🔒' : '';
+
+                    let html = '<div class="cards-match-header">';
+                    html += '<div style="display:flex; flex-direction:column; gap:4px;">';
+                    html += '<span class="cards-match-teams">';
+                    html += m.home_team + ' <small>(' + m.home_position + '°)</small>';
+                    html += ' vs ';
+                    html += m.away_team + ' <small>(' + m.away_position + '°)</small>';
+                    html += '</span>';
+                    if (m.utcDate) {
+                        html += '<span style="font-size: 0.75rem; color: #94a3b8; font-weight: 500;"><i class="fas fa-clock" style="margin-right:4px;"></i>' + _formatDate(m.utcDate) + '</span>';
+                    }
+                    html += '</div>';
+                    // Defense badges: describe each team's defense clearly
+                    // home_def_weakness = how weak is the AWAY team's defense (affects home scorers)
+                    // away_def_weakness = how weak is the HOME team's defense (affects away scorers)
+                    html += '<span class="cards-match-ref">';
+                    html += '<span class="scorer-def-info" style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; font-size:0.72rem;">';
+
+                    // Away team defense (affects home scorers)
+                    var hdw = m.home_def_weakness;
+                    var hdwPct = Math.round((hdw - 1) * 100);
+                    var hdwIcon = hdw >= 1.15 ? '🔓' : hdw <= 0.85 ? '🛡️' : '⚖️';
+                    var hdwClass = hdw >= 1.15 ? 'mult-high' : hdw <= 0.85 ? 'mult-low' : 'mult-mid';
+                    var hdwDesc = hdw >= 1.15 ? 'difesa debole' : hdw <= 0.85 ? 'difesa forte' : 'difesa media';
+                    html += '<span title="La difesa di ' + m.away_team + ' subisce ' + Math.abs(hdwPct) + '% ' + (hdwPct >= 0 ? 'più' : 'meno') + ' gol della media campionato">';
+                    html += hdwIcon + ' ' + m.away_team + ': <span class="cards-mult ' + hdwClass + '">' + hdwDesc + ' (' + (hdwPct >= 0 ? '+' : '') + hdwPct + '%)</span>';
+                    html += '</span>';
+
+                    // Home team defense (affects away scorers)
+                    var adw = m.away_def_weakness;
+                    var adwPct = Math.round((adw - 1) * 100);
+                    var adwIcon = adw >= 1.15 ? '🔓' : adw <= 0.85 ? '🛡️' : '⚖️';
+                    var adwClass = adw >= 1.15 ? 'mult-high' : adw <= 0.85 ? 'mult-low' : 'mult-mid';
+                    var adwDesc = adw >= 1.15 ? 'difesa debole' : adw <= 0.85 ? 'difesa forte' : 'difesa media';
+                    html += '<span title="La difesa di ' + m.home_team + ' subisce ' + Math.abs(adwPct) + '% ' + (adwPct >= 0 ? 'più' : 'meno') + ' gol della media campionato">';
+                    html += adwIcon + ' ' + m.home_team + ': <span class="cards-mult ' + adwClass + '">' + adwDesc + ' (' + (adwPct >= 0 ? '+' : '') + adwPct + '%)</span>';
+                    html += '</span>';
+
+                    html += '</span>';
+
+                    // Referee badge
+                    if (m.has_referee && m.referee) {
+                        var refTend = m.referee_tendency || 'NELLA MEDIA';
+                        var refClass = refTend === 'SEVERO' ? 'mult-high' : (refTend === 'PERMISSIVO' ? 'mult-low' : 'mult-mid');
+                        var refIcon = refTend === 'SEVERO' ? '🟡' : (refTend === 'PERMISSIVO' ? '🟢' : '⚖️');
+                        var refPpm = m.referee_penalties_pm ? m.referee_penalties_pm + ' rig/g' : '';
+                        html += '<span style="display:flex; align-items:center; gap:6px; font-size:0.72rem; margin-top:4px;">';
+                        html += refIcon + ' <b>' + m.referee + '</b> (' + m.referee_matches + ' gare, ';
+                        html += m.referee_cards_pm + ' cart/g';
+                        if (refPpm) html += ', ' + refPpm;
+                        html += ') <span class="cards-mult ' + refClass + '">' + refTend + '</span>';
+                        html += '</span>';
+                    } else if (m.referee) {
+                        html += '<span style="font-size:0.72rem; color:#64748b; margin-top:4px;">👤 ' + m.referee + ' <em>(dati insufficienti)</em></span>';
+                    }
+
+                    html += '</span></div>';
+
+                    html += '<div class="cards-picks">';
+                    html += '<div class="cards-pick-row cards-pick-header">';
+                    html += '<span class="cards-pick-rank">#</span>';
+                    html += '<span class="cards-pick-player">Giocatore</span>';
+                    html += '<span class="cards-pick-team">Squadra</span>';
+                    html += '<span class="cards-pick-stats">Statistiche</span>';
+                    html += '<span class="prob-badge" style="background:transparent;color:var(--text-muted)">Prob.</span>';
+                    html += '</div>';
+                    m.top_picks.forEach(function(p, i) {
+                        var probClass = p.probability >= 40 ? 'prob-high' : p.probability >= 25 ? 'prob-mid' : 'prob-low';
+                        var loc = p.is_home ? '🏠' : '✈️';
+                        var posLabel = p.position ? ' <span class="cards-role-badge">' + _shortPos(p.position) + '</span>' : '';
+                        var droughtInfo = p.drought > 3 ? ' <span class="scorer-drought">🏜 ' + p.drought + 'gg</span>' : '';
+                        var absentBadge = '';
+                        if (p.absent) {
+                            var reason = (p.absent_reason || '').toLowerCase();
+                            if (reason.indexOf('injur') >= 0 || reason.indexOf('infort') >= 0 || reason.indexOf('muscle') >= 0 || reason.indexOf('knee') >= 0 || reason.indexOf('ankle') >= 0 || reason.indexOf('ligament') >= 0 || reason.indexOf('surgery') >= 0 || reason.indexOf('fractur') >= 0 || reason.indexOf('strain') >= 0 || reason.indexOf('sprain') >= 0) {
+                                absentBadge = ' <span class="cards-absent-badge absent-injured">🏥 INFORTUNATO</span>';
+                            } else if (reason.indexOf('suspen') >= 0 || reason.indexOf('squalif') >= 0 || reason.indexOf('red') >= 0 || reason.indexOf('rosso') >= 0 || reason.indexOf('ammonizion') >= 0 || reason.indexOf('doppia') >= 0) {
+                                absentBadge = ' <span class="cards-absent-badge absent-suspended">🔴 SQUALIFICATO</span>';
+                            } else {
+                                absentBadge = ' <span class="cards-absent-badge absent-other">❌ ' + (p.absent_reason || 'ASSENTE') + '</span>';
+                            }
+                        }
+
+                        // Build advanced stats pills
+                        var advPills = '';
+                        if (p.shots_per_game != null && p.shots_per_game > 0) {
+                            advPills += '<span class="scorer-adv-pill pill-shots" title="Tiri/partita">🎯 ' + p.shots_per_game + '/g';
+                            if (p.shots_on_target_pct != null && p.shots_on_target_pct > 0) {
+                                advPills += ' (' + p.shots_on_target_pct + '%)';
+                            }
+                            advPills += '</span>';
+                        }
+                        if (p.assists_total != null && p.assists_total > 0) {
+                            advPills += '<span class="scorer-adv-pill pill-assists" title="Assist stagionali">👟 ' + p.assists_total + 'a</span>';
+                        }
+                        if (p.big_chances_created != null && p.big_chances_created > 0) {
+                            advPills += '<span class="scorer-adv-pill pill-chances" title="Grandi occasioni create">💎 ' + p.big_chances_created + '</span>';
+                        }
+                        if (p.key_passes_per_game != null && p.key_passes_per_game > 0.5) {
+                            advPills += '<span class="scorer-adv-pill pill-kp" title="Passaggi chiave/partita">🔑 ' + p.key_passes_per_game + '/g</span>';
+                        }
+                        if (p.dribbles_per_game != null && p.dribbles_per_game >= 0.5) {
+                            advPills += '<span class="scorer-adv-pill pill-dribbles" title="Dribbling riusciti/partita">💨 ' + p.dribbles_per_game + '/g</span>';
+                        }
+                        if (p.fouls_drawn_per_game != null && p.fouls_drawn_per_game >= 1.0) {
+                            advPills += '<span class="scorer-adv-pill pill-fouls" title="Falli subiti/partita (potenziale rigore)">⚡ ' + p.fouls_drawn_per_game + '/g</span>';
+                        }
+
+                        var statsHtml = p.goals + '⚽ in ' + p.matches + 'pg (' + p.goals_per_match + '/g)';
+                        if (advPills) {
+                            statsHtml += '<br><span class="scorer-adv-line">' + advPills + '</span>';
+                        }
+
+                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '">';
+                        html += '<span class="cards-pick-rank">' + (i + 1) + '</span>';
+                        html += '<span class="cards-pick-player">' + p.player + posLabel + droughtInfo + absentBadge + '</span>';
+                        html += '<span class="cards-pick-team">' + loc + ' ' + p.team + '</span>';
+                        html += '<span class="cards-pick-stats">' + statsHtml + '</span>';
+                        html += '<span class="prob-badge ' + probClass + '">' + p.probability + '%</span>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+
+                    card.innerHTML = html;
+                    results.appendChild(card);
+                });
+
+                results.style.display = 'block';
+            })
+            .catch(function() {
+                icon.textContent = '🔍';
+                text.textContent = 'Analizza';
+                btn.disabled = false;
+                status.style.display = 'block';
+                status.className = 'rigori-status rigori-error';
+                status.textContent = '⚠ Errore di connessione.';
+            });
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --glass-bg: rgba(30, 41, 59, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.05);
+        --accent-green: #4ade80;
+        --accent-red: #fb7185;
+        --accent-blue: #38bdf8;
+        --accent-yellow: #fbbf24;
+    }
+
+    body { background: #0f172a; font-family: 'Inter', system-ui, sans-serif; }
+
+    .bets-container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .stat-card .value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-card .label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-top: 0.3rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 2fr 1fr 1fr auto;
+        gap: 0.75rem;
+        align-items: end;
+    }
+
+    @media (max-width: 768px) {
+        .form-row { grid-template-columns: 1fr 1fr; }
+    }
+
+    .form-group { display: flex; flex-direction: column; }
+
+    .form-group label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.4rem;
+    }
+
+    .form-control {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 0.6rem 0.8rem;
+        color: #f8fafc;
+        font-size: 0.9rem;
+    }
+
+    .form-control:focus {
+        border-color: var(--accent-green);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
+    }
+
+    .btn-add {
+        background: var(--accent-green);
+        color: #0f172a;
+        border: none;
+        border-radius: 8px;
+        padding: 0.6rem 1.2rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-add:hover { transform: translateY(-2px); background: #86efac; }
+
+    .player-group { display: none; }
+    .player-group.visible { display: flex; flex-direction: column; }
+
+    .bet-list { margin-top: 1rem; }
+
+    .bet-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        margin-bottom: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .bet-item:hover { border-color: rgba(255, 255, 255, 0.15); }
+
+    .bet-match {
+        flex: 2;
+        font-weight: 600;
+        color: #f8fafc;
+    }
+
+    .bet-match .sub { font-size: 0.75rem; color: #64748b; }
+
+    .bet-type-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .type-goal { background: rgba(74, 222, 128, 0.1); color: var(--accent-green); border: 1px solid rgba(74, 222, 128, 0.2); }
+    .type-card { background: rgba(251, 191, 36, 0.1); color: var(--accent-yellow); border: 1px solid rgba(251, 191, 36, 0.2); }
+    .type-1x2 { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.2); }
+    .type-ou { background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); }
+    .type-ggng { background: rgba(251, 113, 133, 0.1); color: var(--accent-red); border: 1px solid rgba(251, 113, 133, 0.2); }
+
+    .bet-odds {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        color: var(--accent-yellow);
+        font-size: 1.1rem;
+    }
+
+    .bet-stake {
+        font-family: 'JetBrains Mono', monospace;
+        color: #94a3b8;
+    }
+
+    .bet-result {
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+
+    .result-pending { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
+    .result-won { background: rgba(74, 222, 128, 0.15); color: var(--accent-green); }
+    .result-lost { background: rgba(251, 113, 133, 0.15); color: var(--accent-red); }
+
+    .bet-actions { display: flex; gap: 0.5rem; }
+
+    .btn-sm {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        color: #94a3b8;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-won:hover { background: rgba(74, 222, 128, 0.2); color: var(--accent-green); border-color: var(--accent-green); }
+    .btn-lost:hover { background: rgba(251, 113, 133, 0.2); color: var(--accent-red); border-color: var(--accent-red); }
+    .btn-del:hover { background: rgba(251, 113, 133, 0.3); color: var(--accent-red); }
+
+    .profit-pos { color: var(--accent-green); }
+    .profit-neg { color: var(--accent-red); }
+
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-tab {
+        padding: 6px 16px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.05);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.2s;
+    }
+
+    .filter-tab.active { background: var(--accent-green); color: #0f172a; border-color: var(--accent-green); }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #64748b;
+    }
+
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bets-container">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-6">
+            <h1 class="display-6 fw-bold text-white mb-1">
+                <span style="color: var(--accent-green);">Le Mie</span> Giocate
+            </h1>
+            <p style="color: #64748b;">Traccia le tue scommesse e verifica i risultati.</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+            <div class="value" style="color: var(--accent-blue);" id="statTotal">-</div>
+            <div class="label">Totali</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" style="color: var(--accent-green);" id="statWon">-</div>
+            <div class="label">Vinte</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" style="color: var(--accent-red);" id="statLost">-</div>
+            <div class="label">Perse</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" style="color: var(--accent-yellow);" id="statPending">-</div>
+            <div class="label">In Attesa</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" id="statWinRate">-</div>
+            <div class="label">Win Rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" id="statProfit">-</div>
+            <div class="label">Profitto</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" id="statROI">-</div>
+            <div class="label">ROI</div>
+        </div>
+    </div>
+
+    <!-- Nuova Giocata -->
+    <div class="glass-card">
+        <h5 class="text-white mb-3" style="font-weight: 700;">Nuova Giocata</h5>
+        <div class="form-row" id="betForm">
+            <div class="form-group">
+                <label>Partita</label>
+                <select class="form-control" id="matchSelect">
+                    <option value="">Caricamento...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Tipo</label>
+                <select class="form-control" id="betType">
+                    <option value="goal">&#9917; Marcatore</option>
+                    <option value="card">&#x1F7E8; Cartellino</option>
+                    <option value="1">1 (Casa)</option>
+                    <option value="X">X (Pareggio)</option>
+                    <option value="2">2 (Trasferta)</option>
+                    <option value="over25">Over 2.5</option>
+                    <option value="under25">Under 2.5</option>
+                    <option value="gg">Goal (GG)</option>
+                    <option value="ng">No Goal (NG)</option>
+                </select>
+            </div>
+            <div class="form-group player-group" id="playerGroup">
+                <label>Giocatore</label>
+                <select class="form-control" id="playerSelect">
+                    <option value="">Seleziona giocatore</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Quota</label>
+                <input type="text" inputmode="decimal" class="form-control" id="oddsInput" placeholder="Es: 3.50">
+            </div>
+            <div class="form-group">
+                <label>Importo</label>
+                <input type="text" inputmode="decimal" class="form-control" id="stakeInput" placeholder="Es: 10">
+            </div>
+            <div class="form-group" style="justify-content: flex-end;">
+                <button class="btn-add" onclick="addBet()">+ Aggiungi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Giocate -->
+    <div class="glass-card">
+        <div class="filter-tabs">
+            <div class="filter-tab active" data-filter="all" onclick="filterBets('all', this)">Tutte</div>
+            <div class="filter-tab" data-filter="pending" onclick="filterBets('pending', this)">In Attesa</div>
+            <div class="filter-tab" data-filter="won" onclick="filterBets('won', this)">Vinte</div>
+            <div class="filter-tab" data-filter="lost" onclick="filterBets('lost', this)">Perse</div>
+        </div>
+        <div class="bet-list" id="betList">
+            <div class="empty-state">
+                <div class="icon">&#x1F3AF;</div>
+                <p>Nessuna giocata registrata.<br>Aggiungi la tua prima scommessa!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let matchesData = [];
+let currentFilter = 'all';
+
+// Carica partite di oggi con formazioni
+async function loadMatches() {
+    try {
+        const res = await fetch('/api/today-lineups');
+        const data = await res.json();
+        matchesData = data.matches || [];
+
+        const sel = document.getElementById('matchSelect');
+        sel.innerHTML = '<option value="">Seleziona partita</option>';
+        matchesData.forEach((m, i) => {
+            sel.innerHTML += `<option value="${i}">${m.home_team} vs ${m.away_team}</option>`;
+        });
+    } catch(e) {
+        console.error('Errore caricamento partite:', e);
+    }
+}
+
+// Quando cambia il match, aggiorna i giocatori
+document.addEventListener('DOMContentLoaded', () => {
+    loadMatches();
+    loadBets();
+
+    document.getElementById('matchSelect').addEventListener('change', updatePlayers);
+    document.getElementById('betType').addEventListener('change', togglePlayerField);
+});
+
+function togglePlayerField() {
+    const type = document.getElementById('betType').value;
+    const pg = document.getElementById('playerGroup');
+    if (type === 'goal' || type === 'card') {
+        pg.classList.add('visible');
+    } else {
+        pg.classList.remove('visible');
+    }
+}
+
+function updatePlayers() {
+    const idx = document.getElementById('matchSelect').value;
+    const sel = document.getElementById('playerSelect');
+    sel.innerHTML = '<option value="">Seleziona giocatore</option>';
+
+    if (idx === '' || !matchesData[idx]) return;
+
+    const m = matchesData[idx];
+
+    if (m.home_players.length > 0) {
+        sel.innerHTML += `<optgroup label="${m.home_team}">`;
+        m.home_players.forEach(p => {
+            sel.innerHTML += `<option value="${p}">${p}</option>`;
+        });
+        sel.innerHTML += '</optgroup>';
+    }
+
+    if (m.away_players.length > 0) {
+        sel.innerHTML += `<optgroup label="${m.away_team}">`;
+        m.away_players.forEach(p => {
+            sel.innerHTML += `<option value="${p}">${p}</option>`;
+        });
+        sel.innerHTML += '</optgroup>';
+    }
+
+    togglePlayerField();
+}
+
+async function addBet() {
+    const idx = document.getElementById('matchSelect').value;
+    if (idx === '' || !matchesData[idx]) return alert('Seleziona una partita');
+
+    const m = matchesData[idx];
+    const betType = document.getElementById('betType').value;
+    const playerName = document.getElementById('playerSelect').value;
+    const odds = parseFloat(document.getElementById('oddsInput').value.replace(',', '.'));
+    const stake = parseFloat(document.getElementById('stakeInput').value.replace(',', '.') || '0');
+
+    if (!odds || odds <= 1) return alert('Inserisci una quota valida (> 1.00)');
+    if ((betType === 'goal' || betType === 'card') && !playerName) return alert('Seleziona un giocatore');
+
+    try {
+        const res = await fetch('/api/my-bets', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                match_id: m.match_id,
+                home_team: m.home_team,
+                away_team: m.away_team,
+                league: m.league,
+                match_date: m.match_date,
+                bet_type: betType,
+                player_name: (betType === 'goal' || betType === 'card') ? playerName : null,
+                odds: odds,
+                stake: stake
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            // Reset form
+            document.getElementById('oddsInput').value = '';
+            document.getElementById('stakeInput').value = '';
+            loadBets();
+        }
+    } catch(e) {
+        alert('Errore salvataggio: ' + e.message);
+    }
+}
+
+async function loadBets() {
+    try {
+        const res = await fetch('/api/my-bets');
+        const data = await res.json();
+        renderStats(data.stats);
+        renderBets(data.bets);
+    } catch(e) {
+        console.error('Errore caricamento giocate:', e);
+    }
+}
+
+function renderStats(s) {
+    document.getElementById('statTotal').textContent = s.total;
+    document.getElementById('statWon').textContent = s.won;
+    document.getElementById('statLost').textContent = s.lost;
+    document.getElementById('statPending').textContent = s.pending;
+    document.getElementById('statWinRate').textContent = s.settled > 0 ? s.win_rate + '%' : '-';
+    document.getElementById('statWinRate').style.color = s.win_rate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    const profitEl = document.getElementById('statProfit');
+    profitEl.textContent = (s.total_profit >= 0 ? '+' : '') + s.total_profit.toFixed(2) + '€';
+    profitEl.style.color = s.total_profit >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    const roiEl = document.getElementById('statROI');
+    roiEl.textContent = s.settled > 0 ? s.roi + '%' : '-';
+    roiEl.style.color = s.roi >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+}
+
+function getTypeBadge(type) {
+    const map = {
+        'goal': ['&#9917; Marcatore', 'type-goal'],
+        'card': ['&#x1F7E8; Cartellino', 'type-card'],
+        '1': ['1 Casa', 'type-1x2'],
+        'X': ['X Pareggio', 'type-1x2'],
+        '2': ['2 Trasferta', 'type-1x2'],
+        'over25': ['Over 2.5', 'type-ou'],
+        'under25': ['Under 2.5', 'type-ou'],
+        'gg': ['GG', 'type-ggng'],
+        'ng': ['NG', 'type-ggng'],
+    };
+    const [label, cls] = map[type] || [type, 'type-1x2'];
+    return `<span class="bet-type-badge ${cls}">${label}</span>`;
+}
+
+function renderBets(bets) {
+    const list = document.getElementById('betList');
+
+    const filtered = currentFilter === 'all' ? bets : bets.filter(b => b.result === currentFilter);
+
+    if (filtered.length === 0) {
+        list.innerHTML = `<div class="empty-state">
+            <div class="icon">&#x1F3AF;</div>
+            <p>Nessuna giocata ${currentFilter !== 'all' ? 'con questo filtro' : 'registrata'}.</p>
+        </div>`;
+        return;
+    }
+
+    list.innerHTML = filtered.map(b => {
+        const resultClass = b.result === 'won' ? 'result-won' : b.result === 'lost' ? 'result-lost' : 'result-pending';
+        const resultLabel = b.result === 'won' ? 'VINTA' : b.result === 'lost' ? 'PERSA' : 'IN ATTESA';
+        const profitHtml = b.result !== 'pending'
+            ? `<span class="${b.profit >= 0 ? 'profit-pos' : 'profit-neg'}" style="font-family: monospace; font-weight: 700;">${b.profit >= 0 ? '+' : ''}${b.profit.toFixed(2)}€</span>`
+            : '';
+        const playerInfo = b.player_name ? `<div class="sub">${b.player_name}</div>` : '';
+        const pendingActions = b.result === 'pending'
+            ? `<button class="btn-sm btn-won" onclick="settleBet(${b.id}, 'won')">&#x2705; Vinta</button>
+               <button class="btn-sm btn-lost" onclick="settleBet(${b.id}, 'lost')">&#x274C; Persa</button>`
+            : '';
+
+        return `<div class="bet-item">
+            <div class="bet-match">
+                ${b.home_team} vs ${b.away_team}
+                ${playerInfo}
+            </div>
+            ${getTypeBadge(b.bet_type)}
+            <div class="bet-odds">${b.odds.toFixed(2)}</div>
+            <div class="bet-stake">€${b.stake.toFixed(2)}</div>
+            <span class="bet-result ${resultClass}">${resultLabel}</span>
+            ${profitHtml}
+            <div class="bet-actions">
+                ${pendingActions}
+                <button class="btn-sm btn-del" onclick="deleteBet(${b.id})">&#x1F5D1;</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function filterBets(filter, el) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    loadBets();
+}
+
+async function settleBet(id, result) {
+    try {
+        await fetch(`/api/my-bets/${id}/settle`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({result})
+        });
+        loadBets();
+    } catch(e) {
+        alert('Errore: ' + e.message);
+    }
+}
+
+async function deleteBet(id) {
+    if (!confirm('Eliminare questa giocata?')) return;
+    try {
+        await fetch(`/api/my-bets/${id}`, {method: 'DELETE'});
+        loadBets();
+    } catch(e) {
+        alert('Errore: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

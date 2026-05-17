@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+
+# Environment
+.env
+
+# Database & cache (persistent data — mounted as volume in production)
+data/
+cache/
+db/betanalyzer.db
+
+# Logs
+*.log
+
+# Reports & debug
+missing_players.json
+last_context.txt
+last_report.txt
+
+# Scratch / debug scripts
+scratch/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.claude/

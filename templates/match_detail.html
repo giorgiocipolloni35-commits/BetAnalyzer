@@ -1,0 +1,518 @@
+{% extends "base.html" %}
+{% block title %}{{ match.home_team }} vs {{ match.away_team }} — BetAnalyzer{% endblock %}
+
+{% block content %}
+<div class="detail-wrap">
+
+    <a href="/" class="back-link">← Torna alla dashboard</a>
+
+    <div class="detail-header">
+        <span class="league-badge league-{{ match.league | replace(' ', '-') | lower }}">{{ match.league }}</span>
+        <h1>{{ match.home_team }} <span class="vs-big">vs</span> {{ match.away_team }}</h1>
+        <p class="detail-date">📅 {{ match.commence_time | format_date }}</p>
+    </div>
+    
+    <!-- xG / EV Poisson Panel -->
+    <div class="xg-ev-panel" id="xg-ev-panel" style="display:none;">
+        <div class="xg-ev-header">
+            <div class="xg-section">
+                <span class="xg-label">⚽ Gol Attesi (xG Poisson)</span>
+                <div class="xg-values">
+                    <span class="xg-team"><strong id="xg-h-name">{{ match.home_team }}</strong> <span id="xg-h-val" class="xg-num">—</span></span>
+                    <span class="xg-sep">—</span>
+                    <span class="xg-team"><strong id="xg-a-name">{{ match.away_team }}</strong> <span id="xg-a-val" class="xg-num">—</span></span>
+                </div>
+            </div>
+        </div>
+        <div class="ev-table-wrap">
+            <table class="ev-table">
+                <thead>
+                    <tr>
+                        <th>Mercato</th>
+                        <th>Prob. Modello</th>
+                        <th>Prob. Implicita</th>
+                        <th>Quota</th>
+                        <th>EV%</th>
+                    </tr>
+                </thead>
+                <tbody id="ev-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="detail-content-row">
+        <div class="main-column">
+            {% if match.recommendations %}
+
+            {% set play_recs = match.recommendations | selectattr('play') | list %}
+            {% set skip_recs = match.recommendations | rejectattr('play') | list %}
+
+            {% if play_recs %}
+            <div class="recs-section">
+                <h3 class="recs-section-title recs-play-title">VALUE BETS ({{ play_recs | length }})</h3>
+                {% for rec in play_recs %}
+                <div class="rec-panel rec-play" data-market="{{ rec.market }}">
+                    <div class="rec-top">
+                        <span class="rec-verdict">{{ loop.index }}. {{ rec.play_label }}</span>
+                        <span class="conf-pill conf-{{ rec.confidence_class }}">{{ rec.confidence }}</span>
+                    </div>
+
+                    <div class="rec-key-stats">
+                        <div class="key-stat">
+                            <span class="key-stat-label">Mercato</span>
+                            <span class="key-stat-value">{{ rec.market }}</span>
+                        </div>
+                        <div class="key-stat">
+                            <span class="key-stat-label">Quota</span>
+                            <span class="key-stat-value">{{ "%.2f" | format(rec.odds_value) if rec.odds_value else "—" }}</span>
+                        </div>
+                        <div class="key-stat">
+                            <span class="key-stat-label">Bookmaker</span>
+                            <span class="key-stat-value">{{ rec.bookmaker }}</span>
+                        </div>
+                        <div class="key-stat">
+                            <span class="key-stat-label">Rating</span>
+                            <span class="key-stat-value rating-base-val">{{ rec.value_rating }}/10</span>
+                        </div>
+                    </div>
+
+                    <div class="value-bar-wrap">
+                        <span class="bar-label">Quote EV</span>
+                        <div class="value-bar">
+                            <div class="value-fill" style="width: {{ (rec.value_rating * 10) | int }}%"></div>
+                        </div>
+                        <span class="value-num">{{ rec.value_rating }}/10</span>
+                    </div>
+
+                    <div class="value-bar-wrap ai-adjusted-bar" style="display:none;">
+                        <span class="bar-label">AI Adjusted</span>
+                        <div class="value-bar value-bar-adjusted">
+                            <div class="value-fill-adjusted" style="width: 0%"></div>
+                        </div>
+                        <span class="value-num adjusted-val">—</span>
+                        <span class="adjusted-delta"></span>
+                    </div>
+
+                    <div class="rec-reasoning">
+                        <p>{{ rec.reasoning }}</p>
+                    </div>
+
+                    {% if rec.tips %}
+                    <ul class="rec-tips">
+                        {% for tip in rec.tips %}
+                        <li>{{ tip }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-warning">Nessuna value bet trovata per questa partita. L'AI non ha individuato mercati con EV positivo sufficiente.</div>
+            {% endif %}
+
+            {% if skip_recs %}
+            <div class="recs-section">
+                <h3 class="recs-section-title recs-skip-title" onclick="this.parentElement.classList.toggle('collapsed')">
+                    MERCATI SCARTATI ({{ skip_recs | length }}) <span class="toggle-arrow">▼</span>
+                </h3>
+                <div class="skip-recs-list">
+                {% for rec in skip_recs %}
+                <div class="rec-panel rec-noplay rec-compact">
+                    <div class="rec-top">
+                        <span class="rec-verdict-small">{{ rec.play_label }}</span>
+                        <span class="rec-market-inline">{{ rec.market }} @ {{ "%.2f" | format(rec.odds_value) if rec.odds_value else "—" }}</span>
+                        <span class="conf-pill conf-{{ rec.confidence_class }}">{{ rec.confidence }}</span>
+                    </div>
+                    <p class="rec-reasoning-compact">{{ rec.reasoning | truncate(120) }}</p>
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="alert alert-info">Analisi AI non ancora disponibile per questa partita.</div>
+            {% endif %}
+        </div>
+
+        <!-- SEZIONE CLASSIFICA COMPLETA -->
+        {% if standings %}
+        <div class="sidebar-card standing-comparison">
+            <h3 class="sidebar-title"><span class="icon">📊</span> Classifica {{ match.league }}</h3>
+            <div class="standing-table-mini full-standings">
+                <div class="standing-row header">
+                    <span>Pos</span>
+                    <span>Team</span>
+                    <span>Pt</span>
+                    <span>DR</span>
+                </div>
+                <div class="standings-scroll-area">
+                {% for s in standings %}
+                <div class="standing-row {{ 'highlight-team' if s.is_match_team else '' }}">
+                    <span class="pos-num">#{{ s.position }}</span>
+                    <span class="team-name {{ 'bold-team' if s.is_match_team else '' }}">{{ s.team_name }}</span>
+                    <span class="points-val">{{ s.points }}</span>
+                    <span class="dr-val">{{ "%+d" | format(s.goals_diff) }}</span>
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="history-sidebar">
+            <h3 class="sidebar-title">📉 Forma Recente</h3>
+            
+            <!-- Home History -->
+            <div class="team-history-box">
+                <h4 class="history-team-name">{{ match.home_team }}</h4>
+                {% if history_home %}
+                    <div class="history-list">
+                        {% for h in history_home %}
+                        <div class="history-item">
+                            <span class="outcome-dot outcome-{{ h.outcome }}">{{ h.outcome }}</span>
+                            <span class="history-text">{{ h.text }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-history">Storico non disponibile.</p>
+                {% endif %}
+            </div>
+
+            <!-- Away History -->
+            <div class="team-history-box">
+                <h4 class="history-team-name">{{ match.away_team }}</h4>
+                {% if history_away %}
+                    <div class="history-list">
+                        {% for h in history_away %}
+                        <div class="history-item">
+                            <span class="outcome-dot outcome-{{ h.outcome }}">{{ h.outcome }}</span>
+                            <span class="history-text">{{ h.text }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-history">Storico non disponibile.</p>
+                {% endif %}
+            </div>
+        <!-- Head-to-Head -->
+        {% if h2h_results %}
+        <div class="history-sidebar" style="margin-top: 1rem;">
+            <h3 class="sidebar-title">⚔️ Scontri Diretti ({{ h2h_results|length }})</h3>
+            <div class="history-list">
+                {% for h in h2h_results %}
+                <div class="history-item" style="justify-content: space-between;">
+                    <span class="history-text" style="font-size: 0.75rem; opacity: 0.5;">{{ h.date }}</span>
+                    <span class="history-text">{{ h.home }} <strong>{{ h.score }}</strong> {{ h.away }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% if h2h_stats %}
+            <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(96,165,250,0.08); border-radius: 8px; font-size: 0.75rem; text-align: center;">
+                <span style="color: #60a5fa; font-weight: 600;">{{ match.home_team }}:</span> {{ h2h_stats.home_wins }}V
+                <span style="color: #94a3b8;">{{ h2h_stats.draws }}P</span>
+                <span style="color: #f472b6; font-weight: 600;">{{ match.away_team }}:</span> {{ h2h_stats.away_wins }}V
+                <span style="display: block; margin-top: 0.3rem; color: #94a3b8;">⚽ Media gol: {{ h2h_stats.avg_goals }}/partita</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+            <!-- NUOVA SEZIONE: LIVE INTELLIGENCE -->
+            <div class="live-intel-section" style="margin-top: 1.5rem;">
+                <div class="live-intel-header">
+                    <div class="pulse-icon"></div>
+                    <h3 style="font-size: 0.9rem; color: #60a5fa; margin:0;">Live Intelligence</h3>
+                </div>
+                
+                <div id="intel-loader" class="intel-loader">
+                    <div class="spinner" style="width: 24px; height: 24px; margin-bottom: 0.5rem;"></div>
+                    <p class="loader-text" style="font-size: 0.75rem;">Analisi profonda in corso...</p>
+                </div>
+
+                <div id="intel-content" class="intel-content">
+                    <span class="intel-news-tag">INTELLIGENCE REPORT</span>
+                    <div id="intel-reasoning" style="font-size: 0.85rem; line-height: 1.4; color: rgba(255,255,255,0.8); margin-bottom: 1rem;">
+                        <!-- Riempito via JS -->
+                    </div>
+
+                    <div id="intel-criteria" class="intel-criteria-grid">
+                        <!-- Riempito via JS -->
+                    </div>
+
+                    <div id="intel-impact" class="ai-adjustment-box" style="display: none;">
+                        <div class="adj-info">
+                            <span class="adj-label">AI IMPACT:</span>
+                            <span id="intel-verdict" class="intel-verdict-tag">--</span>
+                        </div>
+                        <div id="intel-adj-val" class="adj-value">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+function updateAdjustedBars(criteria, totalAdj) {
+    if (!criteria || criteria.length === 0) return;
+
+    // Criteri che influenzano mercati direzionali (1, X, 2)
+    const directionCriteria = ['Forma Recente', 'Posizione in Classifica', 'Motivazione Stagionale',
+        'Impatto Assenti', 'Fattore Casa/Trasferta', 'Convergenza Segnali'];
+    // Criteri che influenzano mercati gol (Over/Under, GG/NG)
+    const goalCriteria = ['Forza Offensiva', 'Solidità Difensiva', 'Trend Gol'];
+
+    let dirScore = 0, goalScore = 0;
+    criteria.forEach(c => {
+        const name = c.name || '';
+        if (directionCriteria.some(d => name.includes(d))) dirScore += (c.score || 0);
+        if (goalCriteria.some(g => name.includes(g))) goalScore += (c.score || 0);
+    });
+    // Valore Quote si applica a tutti
+    const quoteCrit = criteria.find(c => (c.name || '').includes('Valore Quote'));
+    const quoteScore = quoteCrit ? (quoteCrit.score || 0) : 0;
+
+    document.querySelectorAll('.rec-panel[data-market]').forEach(panel => {
+        const market = panel.dataset.market.toUpperCase();
+        const barWrap = panel.querySelector('.ai-adjusted-bar');
+        const fillEl = panel.querySelector('.value-fill-adjusted');
+        const valEl = panel.querySelector('.adjusted-val');
+        const deltaEl = panel.querySelector('.adjusted-delta');
+        if (!barWrap || !fillEl || !valEl || !deltaEl) return;
+
+        const baseText = panel.querySelector('.rating-base-val');
+        const baseRating = baseText ? parseFloat(baseText.textContent) : 5;
+
+        let adjustment = 0;
+        if (market === '1') {
+            adjustment = (dirScore * 0.4 + quoteScore * 0.3);
+        } else if (market === '2') {
+            adjustment = (-dirScore * 0.4 + quoteScore * 0.3);
+        } else if (market === 'X') {
+            adjustment = (-Math.abs(dirScore) * 0.2 + quoteScore * 0.2);
+        } else if (market === '1X') {
+            adjustment = (dirScore * 0.3 + quoteScore * 0.2);
+        } else if (market === 'X2') {
+            adjustment = (-dirScore * 0.3 + quoteScore * 0.2);
+        } else if (market === '12') {
+            adjustment = (Math.abs(dirScore) * 0.2 + quoteScore * 0.2);
+        } else if (market === 'OVER 1.5' || market === 'OVER 2.5' || market === 'OVER 3.5') {
+            adjustment = (goalScore * 0.5 + quoteScore * 0.2);
+        } else if (market === 'UNDER 1.5' || market === 'UNDER 2.5' || market === 'UNDER 3.5') {
+            adjustment = (-goalScore * 0.5 + quoteScore * 0.2);
+        } else if (market === 'GG') {
+            adjustment = (goalScore * 0.4 + quoteScore * 0.2);
+        } else if (market === 'NG') {
+            adjustment = (-goalScore * 0.4 + quoteScore * 0.2);
+        }
+
+        adjustment = Math.round(adjustment * 10) / 10;
+        const adjusted = Math.max(0, Math.min(10, Math.round((baseRating + adjustment) * 10) / 10));
+        const delta = Math.round((adjusted - baseRating) * 10) / 10;
+
+        fillEl.style.width = (adjusted * 10) + '%';
+        valEl.textContent = adjusted.toFixed(1) + '/10';
+
+        const sign = delta >= 0 ? '+' : '';
+        deltaEl.textContent = sign + delta.toFixed(1);
+        deltaEl.className = 'adjusted-delta ' + (delta >= 0 ? 'delta-pos' : 'delta-neg');
+
+        barWrap.style.display = 'flex';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const matchId = "{{ match.id }}";
+    const loader = document.getElementById('intel-loader');
+    const content = document.getElementById('intel-content');
+    const reasoningDiv = document.getElementById('intel-reasoning');
+    const criteriaDiv = document.getElementById('intel-criteria');
+    const verdictSpan = document.getElementById('intel-verdict');
+    const adjValDiv = document.getElementById('intel-adj-val');
+    const impactBox = document.getElementById('intel-impact');
+
+    fetch(window.location.origin + '/api/match/' + matchId + '/deep-analysis')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.analysis) {
+                const ana = data.analysis;
+                
+                // 1. Sintesi
+                reasoningDiv.innerHTML = ana.reasoning.replace(/\n/g, '<br>');
+                
+                // 2. Griglia Criteri
+                if (ana.criteria && ana.criteria.length > 0) {
+                    criteriaDiv.innerHTML = ana.criteria.map(c => {
+                        let scoreClass = 'score-neu';
+                        if (c.score > 0.2) scoreClass = 'score-pos';
+                        if (c.score < -0.2) scoreClass = 'score-neg';
+                        
+                        const scoreSign = c.score > 0 ? '+' : '';
+                        
+                        return `
+                            <div class="criterion-item">
+                                <div class="criterion-header">
+                                    <span class="criterion-name">${c.name}</span>
+                                    <span class="criterion-score ${scoreClass}">${scoreSign}${c.score}</span>
+                                </div>
+                                <div class="criterion-note">${c.note}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                // 3. Calcola total_adjustment dalla somma reale degli score
+                let calcTotal = 0;
+                if (ana.criteria && ana.criteria.length > 0) {
+                    calcTotal = ana.criteria.reduce((sum, c) => sum + (c.score || 0), 0);
+                    calcTotal = Math.round(calcTotal * 10) / 10;
+                }
+                const adjValue = calcTotal;
+
+                // Determina verdict dal punteggio calcolato
+                let verdict = ana.verdict || 'Cautela';
+                if (adjValue >= 2.0) verdict = 'Conferma Valore';
+                else if (adjValue <= -1.0) verdict = 'Evitare';
+                else if (adjValue >= 0.5) verdict = 'Conferma Valore';
+                else verdict = 'Cautela';
+
+                verdictSpan.innerText = verdict;
+                const verdictKey = verdict.split(' ')[0];
+                verdictSpan.className = 'intel-verdict-tag verdict-' + verdictKey;
+
+                const adjSign = adjValue > 0 ? '+' : '';
+                adjValDiv.innerText = adjSign + adjValue.toFixed(1);
+                adjValDiv.className = 'adj-value ' + (adjValue >= 0 ? 'adj-pos' : 'adj-neg');
+                
+                impactBox.style.display = 'flex';
+
+                // 4. Aggiorna le barre AI Adjusted sulle raccomandazioni
+                updateAdjustedBars(ana.criteria, adjValue);
+
+                loader.style.display = 'none';
+                content.style.display = 'block';
+            } else {
+                reasoningDiv.innerHTML = "<em>" + (data.error || "Intelligence non disponibile per questo match.") + "</em>";
+                loader.style.display = 'none';
+                content.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error("Errore Fetch Intelligence:", err);
+            reasoningDiv.innerHTML = "<em>Errore di connessione al sistema intelligence.</em>";
+            loader.style.display = 'none';
+            content.style.display = 'block';
+        });
+});
+
+// ── xG / EV Poisson ──
+fetch('/api/xg-ev')
+    .then(r => r.json())
+    .then(resp => {
+        if (!resp.success || !resp.data) return;
+        const matchId = '{{ match.id }}';
+        const d = resp.data[matchId];
+        if (!d) return;
+
+        document.getElementById('xg-h-val').textContent = d.xg_home.toFixed(2);
+        document.getElementById('xg-a-val').textContent = d.xg_away.toFixed(2);
+
+        const tbody = document.getElementById('ev-table-body');
+        (d.ev_markets || []).forEach(ev => {
+            const evColor = ev.ev_pct > 5 ? '#10b981' : ev.ev_pct > 0 ? '#fbbf24' : '#ef4444';
+            const evSign = ev.ev_pct >= 0 ? '+' : '';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${ev.market}</strong></td>
+                <td>${ev.model_prob}%</td>
+                <td>${ev.implied_prob}%</td>
+                <td>${ev.odds.toFixed(2)}</td>
+                <td style="color:${evColor};font-weight:700">${evSign}${ev.ev_pct.toFixed(1)}%</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        document.getElementById('xg-ev-panel').style.display = 'block';
+    })
+    .catch(() => {});
+</script>
+
+    <h2 class="section-title">📊 Quote per bookmaker</h2>
+    <div class="odds-table-wrap">
+        <table class="odds-table">
+            <thead>
+                <tr>
+                    <th>Bookmaker</th>
+                    <th>1</th>
+                    <th>X</th>
+                    <th>2</th>
+                    <th>1X</th>
+                    <th>X2</th>
+                    <th>12</th>
+                    <th>O1.5</th>
+                    <th>U1.5</th>
+                    <th>O2.5</th>
+                    <th>U2.5</th>
+                    <th>O3.5</th>
+                    <th>U3.5</th>
+                    <th>GG</th>
+                    <th>NG</th>
+                    <th>Marg.</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for o in match.odds %}
+            <tr>
+                <td class="bk-name">{{ o.bookmaker }}</td>
+                <td class="{% if o.home and o.home == match.best_home[0] %}best-odd{% endif %}">
+                    {{ "%.2f" | format(o.home) if o.home else "—" }}
+                </td>
+                <td class="{% if o.draw and o.draw == match.best_draw[0] %}best-odd{% endif %}">
+                    {{ "%.2f" | format(o.draw) if o.draw else "—" }}
+                </td>
+                <td class="{% if o.away and o.away == match.best_away[0] %}best-odd{% endif %}">
+                    {{ "%.2f" | format(o.away) if o.away else "—" }}
+                </td>
+                <td>{{ "%.2f" | format(o.dc_1x) if o.dc_1x else "—" }}</td>
+                <td>{{ "%.2f" | format(o.dc_x2) if o.dc_x2 else "—" }}</td>
+                <td>{{ "%.2f" | format(o.dc_12) if o.dc_12 else "—" }}</td>
+                <td class="{% if o.over15 and o.over15 == match.best_over15[0] %}best-odd{% endif %}">
+                    {{ "%.2f" | format(o.over15) if o.over15 else "—" }}
+                </td>
+                <td>{{ "%.2f" | format(o.under15) if o.under15 else "—" }}</td>
+                <td class="{% if o.over25 and o.over25 == match.best_over25[0] %}best-odd{% endif %}">
+                    {{ "%.2f" | format(o.over25) if o.over25 else "—" }}
+                </td>
+                <td>{{ "%.2f" | format(o.under25) if o.under25 else "—" }}</td>
+                <td class="{% if o.over35 and o.over35 == match.best_over35[0] %}best-odd{% endif %}">
+                    {{ "%.2f" | format(o.over35) if o.over35 else "—" }}
+                </td>
+                <td>{{ "%.2f" | format(o.under35) if o.under35 else "—" }}</td>
+                <td class="{% if o.gg and o.gg == match.best_gg[0] %}best-odd{% endif %}">
+                    {{ "%.2f" | format(o.gg) if o.gg else "—" }}
+                </td>
+                <td>{{ "%.2f" | format(o.ng) if o.ng else "—" }}</td>
+                <td class="margin-cell">
+                    {% if o.home and o.draw and o.away %}
+                        {% set margin = ((1/o.home + 1/o.draw + 1/o.away) - 1) * 100 %}
+                        <span class="margin-val margin-{{ 'ok' if margin < 5 else 'high' }}">
+                            +{{ "%.1f" | format(margin) }}%
+                        </span>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="legend">
+        <span class="legend-item"><span class="best-odd-dot"></span> Quota migliore disponibile</span>
+        <span class="legend-item"><span class="margin-dot ok"></span> Margine bookmaker basso (&lt;5%)</span>
+        <span class="legend-item"><span class="margin-dot high"></span> Margine bookmaker alto (&gt;5%)</span>
+    </div>
+
+</div>
+{% endblock %}

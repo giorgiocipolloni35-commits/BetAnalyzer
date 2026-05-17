@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BETTING TIPS | BetAnalyzer Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid #1e293b; }
+        .back-btn { background: #1e293b; color: #f8fafc; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; transition: all 0.3s; }
+        .back-btn:hover { background: #334155; transform: translateX(-5px); }
+
+        .tips-grid { display: flex; flex-direction: column; gap: 20px; }
+        .prediction-card { background: #1e293b; border-radius: 20px; padding: 25px; border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.3s; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .prediction-card:hover { transform: scale(1.01); box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-color: #3b82f6; }
+
+        .match-info { flex: 1; }
+        .league-label { font-size: 0.75rem; font-weight: 800; color: #3b82f6; text-transform: uppercase; margin-bottom: 5px; display: block; letter-spacing: 1px; }
+        .match-teams { font-size: 1.4rem; font-weight: 700; margin-bottom: 5px; }
+        .match-date { font-size: 0.85rem; color: #94a3b8; display: flex; align-items: center; gap: 5px; }
+
+        .tips-container { display: flex; gap: 15px; }
+        .tip-badge { background: #0f172a; border-radius: 12px; padding: 12px 20px; text-align: center; border: 1px solid #334155; min-width: 100px; }
+        .tip-name { display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 2px; }
+        .tip-prob { font-size: 0.75rem; font-weight: 600; color: #94a3b8; }
+
+        .no-data { text-align: center; padding: 100px 0; color: #94a3b8; }
+        .no-data i { font-size: 4rem; margin-bottom: 20px; display: block; opacity: 0.2; }
+
+        @media (max-width: 768px) {
+            .prediction-card { flex-direction: column; text-align: center; }
+            .tips-container { justify-content: center; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1 style="margin: 0; font-size: 2.5rem; letter-spacing: -1px;">💡 Betting <span style="color: #3b82f6;">Tips</span></h1>
+                <p style="color: #94a3b8; margin: 5px 0 0 0;">Suggerimenti automatici basati sulle statistiche della stagione</p>
+            </div>
+            <a href="{{ url_for('index') }}" class="back-btn">← Home</a>
+        </header>
+
+        <div class="tips-grid">
+            {% if predictions %}
+                {% for p in predictions %}
+                <div class="prediction-card">
+                    <div class="match-info">
+                        <span class="league-label">{{ p.league }}</span>
+                        <div class="match-teams">{{ p.home_team }} <span style="color: #475569; margin: 0 10px;">vs</span> {{ p.away_team }}</div>
+                        <div class="match-date">
+                            <i class="far fa-calendar-alt"></i> 
+                            {{ p.utcDate.split('T')[0] }} | <i class="far fa-clock"></i> {{ p.utcDate.split('T')[1][:5] }}
+                        </div>
+                    </div>
+                    <div class="tips-container">
+                        {% for tip in p.tips %}
+                        <div class="tip-badge" style="border-top: 3px solid {{ tip.color }};">
+                            <span class="tip-name" style="color: {{ tip.color }};">{{ tip.tip }}</span>
+                            <span class="tip-prob">Prob: {{ tip.prob }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-data">
+                    <i class="fas fa-robot"></i>
+                    <h2>Nessun suggerimento disponibile</h2>
+                    <p>L'algoritmo non ha trovato match con probabilità sufficientemente alta per oggi.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Statistiche — BetAnalyzer{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+    <div class="stats-header-row">
+        <div>
+            <h1 class="page-title">Statistiche</h1>
+            <p class="page-subtitle">Track record delle tue predictions</p>
+        </div>
+        <form action="/api/settle" method="POST" style="display:inline;">
+            <button type="submit" class="btn-settle" {% if stats.unsettled == 0 %}disabled{% endif %}>
+                Aggiorna Risultati ({{ stats.unsettled }} pending)
+            </button>
+        </form>
+    </div>
+
+    <div class="stats-cards">
+        <div class="stat-card">
+            <span class="stat-card-num">{{ stats.total }}</span>
+            <span class="stat-card-label">Predictions Totali</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-card-num">{{ stats.settled }}</span>
+            <span class="stat-card-label">Chiuse</span>
+        </div>
+        <div class="stat-card stat-card-highlight">
+            <span class="stat-card-num">{{ stats.hit_rate }}%</span>
+            <span class="stat-card-label">Hit Rate</span>
+        </div>
+        <div class="stat-card {% if stats.profit >= 0 %}stat-card-green{% else %}stat-card-red{% endif %}">
+            <span class="stat-card-num">{{ "%+.2f" | format(stats.profit) }}u</span>
+            <span class="stat-card-label">Profit (unità)</span>
+        </div>
+        <div class="stat-card {% if stats.roi >= 0 %}stat-card-green{% else %}stat-card-red{% endif %}">
+            <span class="stat-card-num">{{ "%+.1f" | format(stats.roi) }}%</span>
+            <span class="stat-card-label">ROI</span>
+        </div>
+    </div>
+
+    {% if stats.by_market %}
+    <h2 class="section-title">Per Mercato</h2>
+    <div class="breakdown-table">
+        <div class="breakdown-row breakdown-header">
+            <span>Mercato</span>
+            <span>Vinte</span>
+            <span>Totali</span>
+            <span>Hit Rate</span>
+            <span>Profit</span>
+        </div>
+        {% for m in stats.by_market %}
+        <div class="breakdown-row">
+            <span class="breakdown-market">{{ m.market }}</span>
+            <span>{{ m.wins }}</span>
+            <span>{{ m.settled }}</span>
+            <span>
+                {% if m.settled > 0 %}
+                <span class="hit-rate-bar">
+                    <span class="hit-rate-fill" style="width: {{ (m.wins / m.settled * 100) | int }}%"></span>
+                </span>
+                {{ "%.0f" | format(m.wins / m.settled * 100) }}%
+                {% else %}—{% endif %}
+            </span>
+            <span class="{% if m.profit and m.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
+                {{ "%+.2f" | format(m.profit or 0) }}u
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if stats.by_league %}
+    <h2 class="section-title">Per Campionato</h2>
+    <div class="breakdown-table">
+        <div class="breakdown-row breakdown-header">
+            <span>Campionato</span>
+            <span>Vinte</span>
+            <span>Totali</span>
+            <span>Hit Rate</span>
+            <span>Profit</span>
+        </div>
+        {% for l in stats.by_league %}
+        <div class="breakdown-row">
+            <span class="breakdown-market">{{ l.league }}</span>
+            <span>{{ l.wins }}</span>
+            <span>{{ l.settled }}</span>
+            <span>
+                {% if l.settled > 0 %}
+                {{ "%.0f" | format(l.wins / l.settled * 100) }}%
+                {% else %}—{% endif %}
+            </span>
+            <span class="{% if l.profit and l.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
+                {{ "%+.2f" | format(l.profit or 0) }}u
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if stats.recent %}
+    <h2 class="section-title">Ultime Predictions</h2>
+    <div class="breakdown-table">
+        <div class="breakdown-row breakdown-header">
+            <span>Data</span>
+            <span>Partita</span>
+            <span>Mercato</span>
+            <span>Quota</span>
+            <span>EV%</span>
+            <span>Esito</span>
+        </div>
+        {% for p in stats.recent %}
+        <div class="breakdown-row">
+            <span class="pred-date">{{ p.match_date[:10] }}</span>
+            <span class="pred-match">{{ p.home_team }} vs {{ p.away_team }}</span>
+            <span>{{ p.market }}</span>
+            <span>{{ "%.2f" | format(p.odds_value) }}</span>
+            <span>{% if p.ev_pct %}{{ "%+.1f" | format(p.ev_pct) }}%{% else %}—{% endif %}</span>
+            <span>
+                {% if p.result == 'W' %}
+                <span class="result-badge result-w">W</span>
+                {% elif p.result == 'L' %}
+                <span class="result-badge result-l">L</span>
+                {% elif p.result == 'P' %}
+                <span class="result-badge result-p">P</span>
+                {% else %}
+                <span class="result-badge result-pending">-</span>
+                {% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if stats.total == 0 %}
+    <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <h2>Nessuna prediction ancora</h2>
+        <p>Lancia un'analisi dalla dashboard — le raccomandazioni GIOCA verranno tracciate automaticamente.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

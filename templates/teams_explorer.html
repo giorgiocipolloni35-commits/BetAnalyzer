@@ -1,0 +1,459 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --glass-bg: rgba(30, 41, 59, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.05);
+        --accent-blue: #38bdf8;
+        --accent-green: #4ade80;
+        --accent-red: #fb7185;
+        --accent-yellow: #fbbf24;
+        --accent-purple: #a78bfa;
+    }
+
+    body { background: #0f172a; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+    .explorer-container { padding: 2rem; max-width: 1500px; margin: 0 auto; }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-title {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #f8fafc;
+    }
+
+    .page-title span { color: var(--accent-blue); }
+
+    .view-toggle {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .view-btn {
+        padding: 0.5rem 1.2rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .view-btn-active {
+        background: var(--accent-blue);
+        color: #0f172a;
+    }
+
+    .view-btn-inactive {
+        background: rgba(255, 255, 255, 0.05);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .view-btn-inactive:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #f8fafc;
+    }
+
+    .filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .filter-group { flex: 1; min-width: 180px; }
+
+    .filter-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .custom-select {
+        width: 100%;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        color: #f8fafc;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    .custom-select:focus {
+        border-color: var(--accent-blue);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+    }
+
+    .btn-apply {
+        background: var(--accent-blue);
+        color: #0f172a;
+        border: none;
+        border-radius: 8px;
+        padding: 0.6rem 1.5rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .btn-apply:hover { transform: translateY(-2px); background: #7dd3fc; }
+
+    /* Table */
+    .team-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .team-table th {
+        background: rgba(15, 23, 42, 0.4);
+        padding: 1rem 0.8rem;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        font-weight: 600;
+        border-bottom: 1px solid var(--glass-border);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 0.2s;
+    }
+
+    .team-table th:hover { color: var(--accent-blue); }
+    .team-table th.sorted { color: var(--accent-yellow); }
+
+    .team-table td {
+        padding: 1rem 0.8rem;
+        border-bottom: 1px solid var(--glass-border);
+        color: #cbd5e1;
+        font-size: 0.9rem;
+    }
+
+    .team-table tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+    .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--accent-blue);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+
+    .team-name {
+        color: #f8fafc;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    .league-tag {
+        font-size: 0.7rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .rating-badge {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 800;
+        font-size: 0.85rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        display: inline-block;
+        min-width: 42px;
+        text-align: center;
+    }
+
+    .rating-high { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+    .rating-mid { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+    .rating-low { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+
+    .role-rating {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        display: inline-block;
+        min-width: 36px;
+        text-align: center;
+    }
+
+    .role-att { background: rgba(251, 113, 133, 0.15); color: var(--accent-red); }
+    .role-mid { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); }
+    .role-def { background: rgba(74, 222, 128, 0.15); color: var(--accent-green); }
+
+    .stat-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        color: #f8fafc;
+    }
+
+    .best-player {
+        font-size: 0.75rem;
+        color: var(--accent-yellow);
+        font-weight: 600;
+    }
+
+    .best-player-rating {
+        font-size: 0.7rem;
+        color: #94a3b8;
+    }
+
+    .stat-bar-container {
+        width: 60px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+        overflow: hidden;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 6px;
+    }
+
+    .stat-bar {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s ease;
+    }
+
+    .count-badge {
+        font-size: 0.65rem;
+        color: #64748b;
+        margin-left: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="explorer-container">
+
+    <!-- Header with view toggle -->
+    <div class="page-header">
+        <h1 class="page-title"><span>Team</span> Scouting</h1>
+        <div class="view-toggle">
+            <a href="/players_explorer" class="view-btn view-btn-inactive"><i class="fas fa-user me-1"></i> Giocatori</a>
+            <a href="/teams_explorer" class="view-btn view-btn-active"><i class="fas fa-shield-alt me-1"></i> Squadre</a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass-card filter-bar">
+        <div class="filter-group">
+            <label class="filter-label">Campionato</label>
+            <select class="custom-select" id="filterLeague">
+                <option value="">Tutti i campionati</option>
+                {% for l in leagues %}
+                <option value="{{ l.id }}" {% if filters.league == l.id %}selected{% endif %}>{{ l.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">Ordina per</label>
+            <select class="custom-select" id="filterSort">
+                <option value="avg_rating" {% if filters.sort == 'avg_rating' %}selected{% endif %}>Media Voto Squadra</option>
+                <option value="attack_rating" {% if filters.sort == 'attack_rating' %}selected{% endif %}>Voto Attacco</option>
+                <option value="midfield_rating" {% if filters.sort == 'midfield_rating' %}selected{% endif %}>Voto Centrocampo</option>
+                <option value="defense_rating" {% if filters.sort == 'defense_rating' %}selected{% endif %}>Voto Difesa</option>
+                <option value="total_goals" {% if filters.sort == 'total_goals' %}selected{% endif %}>Gol Totali</option>
+                <option value="total_assists" {% if filters.sort == 'total_assists' %}selected{% endif %}>Assist Totali</option>
+                <option value="total_dribbles" {% if filters.sort == 'total_dribbles' %}selected{% endif %}>Dribbling Totali</option>
+                <option value="total_recoveries" {% if filters.sort == 'total_recoveries' %}selected{% endif %}>Recuperi Totali</option>
+                <option value="total_aerials" {% if filters.sort == 'total_aerials' %}selected{% endif %}>Duelli Aerei</option>
+                <option value="avg_pass_acc" {% if filters.sort == 'avg_pass_acc' %}selected{% endif %}>Precisione Passaggi</option>
+                <option value="total_key_passes" {% if filters.sort == 'total_key_passes' %}selected{% endif %}>Passaggi Chiave</option>
+                <option value="total_big_chances" {% if filters.sort == 'total_big_chances' %}selected{% endif %}>Big Chances Create</option>
+                <option value="total_shots" {% if filters.sort == 'total_shots' %}selected{% endif %}>Tiri in Porta</option>
+            </select>
+        </div>
+        <div>
+            <button class="btn-apply" onclick="applyFilters()"><i class="fas fa-filter me-1"></i> Filtra</button>
+        </div>
+    </div>
+
+    <!-- Teams Table -->
+    <div class="glass-card" style="overflow-x: auto;">
+        <table class="team-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th>Squadra</th>
+                    <th class="{% if filters.sort == 'avg_rating' %}sorted{% endif %}" onclick="sortBy('avg_rating')">Media Voto</th>
+                    <th class="{% if filters.sort == 'attack_rating' %}sorted{% endif %}" onclick="sortBy('attack_rating')"><i class="fas fa-futbol" style="color: var(--accent-red);"></i> ATT</th>
+                    <th class="{% if filters.sort == 'midfield_rating' %}sorted{% endif %}" onclick="sortBy('midfield_rating')"><i class="fas fa-running" style="color: var(--accent-blue);"></i> CEN</th>
+                    <th class="{% if filters.sort == 'defense_rating' %}sorted{% endif %}" onclick="sortBy('defense_rating')"><i class="fas fa-shield-alt" style="color: var(--accent-green);"></i> DIF</th>
+                    <th>MVP</th>
+                    <th class="{% if filters.sort == 'total_goals' %}sorted{% endif %}" onclick="sortBy('total_goals')"><i class="fas fa-futbol"></i> Gol</th>
+                    <th class="{% if filters.sort == 'total_assists' %}sorted{% endif %}" onclick="sortBy('total_assists')"><i class="fas fa-hands-helping"></i> Ass</th>
+                    <th class="{% if filters.sort == 'total_dribbles' %}sorted{% endif %}" onclick="sortBy('total_dribbles')"><i class="fas fa-running"></i> Drib</th>
+                    <th class="{% if filters.sort == 'total_key_passes' %}sorted{% endif %}" onclick="sortBy('total_key_passes')"><i class="fas fa-key"></i> P.Chiave</th>
+                    <th class="{% if filters.sort == 'total_recoveries' %}sorted{% endif %}" onclick="sortBy('total_recoveries')"><i class="fas fa-hand-paper"></i> Recup</th>
+                    <th class="{% if filters.sort == 'total_aerials' %}sorted{% endif %}" onclick="sortBy('total_aerials')"><i class="fas fa-arrow-up"></i> Aerei</th>
+                    <th class="{% if filters.sort == 'avg_pass_acc' %}sorted{% endif %}" onclick="sortBy('avg_pass_acc')"><i class="fas fa-bullseye"></i> Pass%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in teams %}
+                {% set max_goals = teams | map(attribute='total_goals') | max %}
+                {% set max_assists = teams | map(attribute='total_assists') | max %}
+                {% set max_dribbles = teams | map(attribute='total_dribbles') | max %}
+                {% set max_kp = teams | map(attribute='total_key_passes') | max %}
+                {% set max_rec = teams | map(attribute='total_recoveries') | max %}
+                {% set max_aer = teams | map(attribute='total_aerials') | max %}
+                <tr>
+                    <!-- Rank -->
+                    <td><span class="rank-badge">{{ loop.index }}</span></td>
+
+                    <!-- Team Name -->
+                    <td>
+                        <div>
+                            <span class="team-name">{{ t.team_name }}</span>
+                            <br>
+                            <span class="league-tag">{{ t.league_id | replace('_', ' ') }} &middot; {{ t.num_players }} giocatori</span>
+                        </div>
+                    </td>
+
+                    <!-- Overall Rating -->
+                    <td>
+                        {% if t.avg_rating >= 62 %}
+                        <span class="rating-badge rating-high">{{ t.avg_rating }}</span>
+                        {% elif t.avg_rating >= 55 %}
+                        <span class="rating-badge rating-mid">{{ t.avg_rating }}</span>
+                        {% else %}
+                        <span class="rating-badge rating-low">{{ t.avg_rating }}</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Attack Rating -->
+                    <td>
+                        {% if t.attack_rating > 0 %}
+                        <span class="role-rating role-att">{{ t.attack_rating }}</span>
+                        <span class="count-badge">{{ t.attack_count }}g</span>
+                        {% else %}<span style="color: #475569;">-</span>{% endif %}
+                    </td>
+
+                    <!-- Midfield Rating -->
+                    <td>
+                        {% if t.midfield_rating > 0 %}
+                        <span class="role-rating role-mid">{{ t.midfield_rating }}</span>
+                        <span class="count-badge">{{ t.midfield_count }}g</span>
+                        {% else %}<span style="color: #475569;">-</span>{% endif %}
+                    </td>
+
+                    <!-- Defense Rating -->
+                    <td>
+                        {% if t.defense_rating > 0 %}
+                        <span class="role-rating role-def">{{ t.defense_rating }}</span>
+                        <span class="count-badge">{{ t.defense_count }}g</span>
+                        {% else %}<span style="color: #475569;">-</span>{% endif %}
+                    </td>
+
+                    <!-- MVP -->
+                    <td>
+                        <span class="best-player">{{ t.best_player }}</span><br>
+                        <span class="best-player-rating">{{ t.best_player_rating }}</span>
+                    </td>
+
+                    <!-- Goals -->
+                    <td>
+                        <span class="stat-val">{{ t.total_goals | int }}</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: {{ (t.total_goals / max_goals * 100) | int if max_goals else 0 }}%; background: var(--accent-red);"></div>
+                        </div>
+                    </td>
+
+                    <!-- Assists -->
+                    <td>
+                        <span class="stat-val">{{ t.total_assists | int }}</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: {{ (t.total_assists / max_assists * 100) | int if max_assists else 0 }}%; background: var(--accent-purple);"></div>
+                        </div>
+                    </td>
+
+                    <!-- Dribbles -->
+                    <td>
+                        <span class="stat-val">{{ t.total_dribbles | int }}</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: {{ (t.total_dribbles / max_dribbles * 100) | int if max_dribbles else 0 }}%; background: var(--accent-yellow);"></div>
+                        </div>
+                    </td>
+
+                    <!-- Key Passes -->
+                    <td>
+                        <span class="stat-val">{{ t.total_key_passes | int }}</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: {{ (t.total_key_passes / max_kp * 100) | int if max_kp else 0 }}%; background: var(--accent-blue);"></div>
+                        </div>
+                    </td>
+
+                    <!-- Recoveries -->
+                    <td>
+                        <span class="stat-val">{{ t.total_recoveries | int }}</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: {{ (t.total_recoveries / max_rec * 100) | int if max_rec else 0 }}%; background: var(--accent-green);"></div>
+                        </div>
+                    </td>
+
+                    <!-- Aerials -->
+                    <td>
+                        <span class="stat-val">{{ t.total_aerials | int }}</span>
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: {{ (t.total_aerials / max_aer * 100) | int if max_aer else 0 }}%; background: #818cf8;"></div>
+                        </div>
+                    </td>
+
+                    <!-- Pass Accuracy -->
+                    <td>
+                        <span class="stat-val" style="color: {% if t.avg_pass_acc >= 82 %}var(--accent-green){% elif t.avg_pass_acc >= 75 %}var(--accent-yellow){% else %}var(--accent-red){% endif %}">{{ t.avg_pass_acc }}%</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+function applyFilters() {
+    const league = document.getElementById('filterLeague').value;
+    const sort = document.getElementById('filterSort').value;
+    let url = '/teams_explorer?';
+    if (league) url += `league=${league}&`;
+    url += `sort=${sort}`;
+    window.location.href = url;
+}
+
+function sortBy(field) {
+    const league = document.getElementById('filterLeague').value;
+    let url = `/teams_explorer?sort=${field}`;
+    if (league) url += `&league=${league}`;
+    window.location.href = url;
+}
+</script>
+{% endblock %}

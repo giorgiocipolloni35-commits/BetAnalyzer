@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Doppio Tempo{% endblock %}
+
+{% block content %}
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">&#9200; Doppio Tempo — HT/FT Analysis</h1>
+        <p class="rigori-desc">Analisi esito primo tempo / finale e GG/NG per tempo, basata sullo storico stagionale di ogni squadra.</p>
+    </div>
+
+    <div class="rigori-controls">
+        <label class="rigori-select-label">Campionato:</label>
+        <select id="ht-league" class="rigori-select">
+            <option value="">— Seleziona —</option>
+            <option value="top10">&#127942; Top 10 — Tutti i campionati</option>
+            <option value="italy_serie_a">&#127470;&#127481; Serie A</option>
+            <option value="england_premier_league">&#127988;&#917607;&#917602;&#917605;&#917614;&#917607;&#917631; Premier League</option>
+            <option value="spain_la_liga">&#127466;&#127480; La Liga</option>
+            <option value="germany_bundesliga">&#127465;&#127466; Bundesliga</option>
+            <option value="france_ligue_1">&#127467;&#127479; Ligue 1</option>
+            <option value="netherlands_eredivisie">&#127475;&#127473; Eredivisie</option>
+            <option value="champions_league">&#127942; Champions League</option>
+            <option value="england_championship">&#127988;&#917607;&#917602;&#917605;&#917614;&#917607;&#917631; Championship</option>
+            <option value="portugal_primeira_liga">&#127477;&#127481; Primeira Liga</option>
+            <option value="brazil_serie_a">&#127463;&#127479; Brasileirao</option>
+        </select>
+        <button type="button" class="btn-run btn-rigori-load" id="btn-ht-load" disabled>
+            <span id="ht-load-icon">&#128270;</span>
+            <span id="ht-load-text">Analizza</span>
+        </button>
+    </div>
+
+    <div id="ht-status" class="rigori-status" style="display:none"></div>
+    <div id="ht-results" style="display:none"></div>
+</section>
+
+<style>
+.dt-match {
+    background: #1a1f2e;
+    border: 1px solid #2a3040;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+.dt-match-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #1e2538, #252d44);
+    border-bottom: 1px solid #2a3040;
+}
+.dt-teams {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+.dt-teams span { color: #94a3b8; font-weight: 400; font-size: .85em; }
+.dt-meta { color: #64748b; font-size: .82em; }
+
+.dt-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+.dt-section {
+    padding: 16px 20px;
+}
+.dt-section:first-child { border-right: 1px solid #2a3040; }
+.dt-section-title {
+    font-size: .75em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+/* Prediction cards */
+.dt-preds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.dt-pred {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: .85em;
+    font-weight: 600;
+}
+.dt-pred.htft { background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: #a5b4fc; }
+.dt-pred.ggng { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac; }
+.dt-pred-pct {
+    background: rgba(255,255,255,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: .8em;
+}
+.dt-pred-conf {
+    font-size: .7em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.dt-pred-conf.Alta { background: rgba(34,197,94,0.3); color: #4ade80; }
+.dt-pred-conf.Media { background: rgba(251,191,36,0.3); color: #fbbf24; }
+.dt-pred-conf.Moderata { background: rgba(251,146,60,0.3); color: #fb923c; }
+.dt-pred-conf.Bassa { background: rgba(148,163,184,0.2); color: #94a3b8; }
+
+/* Distribution bars */
+.dt-dist {
+    margin-bottom: 12px;
+}
+.dt-dist-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    gap: 8px;
+}
+.dt-dist-label {
+    width: 75px;
+    font-size: .78em;
+    color: #94a3b8;
+    text-align: right;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.dt-dist-bar-bg {
+    flex: 1;
+    height: 18px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+.dt-dist-bar {
+    height: 100%;
+    border-radius: 4px;
+    min-width: 2px;
+    transition: width 0.5s ease;
+}
+.dt-dist-bar.htft { background: linear-gradient(90deg, #6366f1, #818cf8); }
+.dt-dist-bar.ggng { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.dt-dist-pct {
+    position: absolute;
+    right: 6px;
+    top: 1px;
+    font-size: .7em;
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+/* GG/NG half summary */
+.dt-gg-summary {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.dt-gg-box {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #2a3040;
+}
+.dt-gg-box-label { font-size: .7em; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
+.dt-gg-box-value { font-size: 1.3em; font-weight: 700; margin-top: 2px; }
+.dt-gg-box-value.high { color: #4ade80; }
+.dt-gg-box-value.mid { color: #fbbf24; }
+.dt-gg-box-value.low { color: #94a3b8; }
+
+/* Insights */
+.dt-insights {
+    padding: 12px 20px;
+    border-top: 1px solid #2a3040;
+    background: rgba(99, 102, 241, 0.03);
+}
+.dt-insight {
+    font-size: .82em;
+    color: #cbd5e1;
+    padding: 3px 0;
+}
+
+/* Team half stats */
+.dt-team-stats {
+    padding: 12px 20px;
+    border-top: 1px solid #2a3040;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.dt-ts-header {
+    font-size: .78em;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.dt-ts-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75em;
+    color: #94a3b8;
+    padding: 2px 0;
+}
+.dt-ts-val { color: #e2e8f0; font-weight: 600; }
+
+/* Recent form pills */
+.dt-recent {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+.dt-recent-pill {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: .65em;
+    font-weight: 700;
+    background: rgba(255,255,255,0.05);
+    color: #94a3b8;
+}
+.dt-recent-pill.win { background: rgba(34,197,94,0.2); color: #4ade80; }
+.dt-recent-pill.draw { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.dt-recent-pill.loss { background: rgba(239,68,68,0.2); color: #f87171; }
+</style>
+
+<script>
+function _fmtDate(s) {
+    if (!s) return '';
+    try {
+        const d = new Date(s);
+        return d.getDate().toString().padStart(2,'0') + '/' +
+               (d.getMonth()+1).toString().padStart(2,'0') + ' ' +
+               d.getHours().toString().padStart(2,'0') + ':' +
+               d.getMinutes().toString().padStart(2,'0');
+    } catch(e) { return ''; }
+}
+
+function _ggClass(v) {
+    if (v >= 50) return 'high';
+    if (v >= 30) return 'mid';
+    return 'low';
+}
+
+function _htftPillClass(label) {
+    // Color based on FT result
+    const ft = label.split('/')[1];
+    if (ft === '1') return 'win';
+    if (ft === 'X') return 'draw';
+    return 'loss';
+}
+
+function renderDT(matches) {
+    const c = document.getElementById('ht-results');
+    if (!matches.length) { c.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:40px;">Nessuna partita trovata.</p>'; c.style.display='block'; return; }
+
+    let html = '';
+    matches.forEach(m => {
+        const a = m.analysis || {};
+        const preds = a.predictions || [];
+        const htftPreds = preds.filter(p => p.type === 'htft');
+        const ggngPreds = preds.filter(p => p.type === 'ggng');
+        const ins = a.insights || [];
+
+        // Header
+        html += `<div class="dt-match">`;
+        html += `<div class="dt-match-header">`;
+        html += `<div class="dt-teams">${m.home_team} <span>(${m.home_pos}°)</span> vs ${m.away_team} <span>(${m.away_pos}°)</span></div>`;
+        html += `<div class="dt-meta">${_fmtDate(m.utcDate)}${m.matchday ? ' · G'+m.matchday : ''}</div>`;
+        html += `</div>`;
+
+        // Two-column body
+        html += `<div class="dt-body">`;
+
+        // LEFT: HT/FT
+        html += `<div class="dt-section">`;
+        html += `<div class="dt-section-title">&#9200; Esito Primo Tempo / Finale</div>`;
+
+        // Top predictions
+        if (htftPreds.length) {
+            html += `<div class="dt-preds">`;
+            htftPreds.forEach(p => {
+                html += `<div class="dt-pred htft">`;
+                html += `${p.emoji} ${p.market.replace('HT/FT ','')}`;
+                html += ` <span class="dt-pred-pct">${p.probability}%</span>`;
+                html += ` <span class="dt-pred-conf ${p.confidence}">${p.confidence}</span>`;
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // Distribution bars
+        const htftDist = a.htft_distribution || {};
+        const htftEntries = Object.entries(htftDist).sort((a,b) => b[1]-a[1]);
+        if (htftEntries.length) {
+            html += `<div class="dt-dist">`;
+            htftEntries.forEach(([label, pct]) => {
+                if (pct < 3) return;
+                html += `<div class="dt-dist-row">`;
+                html += `<div class="dt-dist-label">${label}</div>`;
+                html += `<div class="dt-dist-bar-bg"><div class="dt-dist-bar htft" style="width:${Math.min(pct*2.5, 100)}%"></div><span class="dt-dist-pct">${pct}%</span></div>`;
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+        html += `</div>`;
+
+        // RIGHT: GG/NG
+        html += `<div class="dt-section">`;
+        html += `<div class="dt-section-title">&#9917; Gol / NoGol per Tempo</div>`;
+
+        // GG summary boxes
+        html += `<div class="dt-gg-summary">`;
+        html += `<div class="dt-gg-box"><div class="dt-gg-box-label">GG 1&deg; T</div><div class="dt-gg-box-value ${_ggClass(a.gg_ht_pct||0)}">${(a.gg_ht_pct||0).toFixed(0)}%</div></div>`;
+        html += `<div class="dt-gg-box"><div class="dt-gg-box-label">GG 2&deg; T</div><div class="dt-gg-box-value ${_ggClass(a.gg_st_pct||0)}">${(a.gg_st_pct||0).toFixed(0)}%</div></div>`;
+        html += `<div class="dt-gg-box"><div class="dt-gg-box-label">GG Finale</div><div class="dt-gg-box-value ${_ggClass(a.gg_ft_pct||0)}">${(a.gg_ft_pct||0).toFixed(0)}%</div></div>`;
+        html += `</div>`;
+
+        // GG/NG predictions
+        if (ggngPreds.length) {
+            html += `<div class="dt-preds">`;
+            ggngPreds.forEach(p => {
+                html += `<div class="dt-pred ggng">`;
+                html += `${p.emoji} ${p.market.replace('GG/NG ','')}`;
+                html += ` <span class="dt-pred-pct">${p.probability}%</span>`;
+                html += ` <span class="dt-pred-conf ${p.confidence}">${p.confidence}</span>`;
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // GG/NG distribution
+        const ggngDist = a.ggng_distribution || {};
+        const ggngEntries = Object.entries(ggngDist).sort((a,b) => b[1]-a[1]);
+        if (ggngEntries.length) {
+            html += `<div class="dt-dist">`;
+            ggngEntries.forEach(([label, pct]) => {
+                html += `<div class="dt-dist-row">`;
+                html += `<div class="dt-dist-label">${label}</div>`;
+                html += `<div class="dt-dist-bar-bg"><div class="dt-dist-bar ggng" style="width:${Math.min(pct*2.5, 100)}%"></div><span class="dt-dist-pct">${pct}%</span></div>`;
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+        html += `</div>`;
+        html += `</div>`; // end dt-body
+
+        // Team half-time stats
+        const hs = m.home_stats || {};
+        const as_ = m.away_stats || {};
+        html += `<div class="dt-team-stats">`;
+
+        // Home team
+        html += `<div>`;
+        html += `<div class="dt-ts-header">&#127968; ${m.home_team} <span style="color:#64748b;font-weight:400">(${hs.location_matches||0} in casa)</span></div>`;
+        html += `<div class="dt-ts-row"><span>Gol 1&deg; T / partita</span><span class="dt-ts-val">${(hs.goals_1h_avg||0).toFixed(2)} fatti · ${(hs.goals_1h_conceded_avg||0).toFixed(2)} subiti</span></div>`;
+        html += `<div class="dt-ts-row"><span>Gol 2&deg; T / partita</span><span class="dt-ts-val">${(hs.goals_2h_avg||0).toFixed(2)} fatti · ${(hs.goals_2h_conceded_avg||0).toFixed(2)} subiti</span></div>`;
+        html += `<div class="dt-ts-row"><span>In vantaggio al HT</span><span class="dt-ts-val">${(hs.winning_ht_pct||0).toFixed(0)}%</span></div>`;
+        html += `<div class="dt-ts-row"><span>Pari al HT</span><span class="dt-ts-val">${(hs.drawing_ht_pct||0).toFixed(0)}%</span></div>`;
+        if (hs.comeback_wins) html += `<div class="dt-ts-row"><span>&#128170; Rimonte</span><span class="dt-ts-val" style="color:#4ade80">${hs.comeback_wins}</span></div>`;
+        if (hs.bottled_leads) html += `<div class="dt-ts-row"><span>&#9888;&#65039; Vantaggi sprecati</span><span class="dt-ts-val" style="color:#f87171">${hs.bottled_leads}</span></div>`;
+        // Recent form
+        if (hs.recent_htft && hs.recent_htft.length) {
+            html += `<div class="dt-recent">`;
+            hs.recent_htft.forEach(r => { html += `<span class="dt-recent-pill ${_htftPillClass(r)}">${r}</span>`; });
+            html += `</div>`;
+        }
+        html += `</div>`;
+
+        // Away team
+        html += `<div>`;
+        html += `<div class="dt-ts-header">&#9992;&#65039; ${m.away_team} <span style="color:#64748b;font-weight:400">(${as_.location_matches||0} in trasferta)</span></div>`;
+        html += `<div class="dt-ts-row"><span>Gol 1&deg; T / partita</span><span class="dt-ts-val">${(as_.goals_1h_avg||0).toFixed(2)} fatti · ${(as_.goals_1h_conceded_avg||0).toFixed(2)} subiti</span></div>`;
+        html += `<div class="dt-ts-row"><span>Gol 2&deg; T / partita</span><span class="dt-ts-val">${(as_.goals_2h_avg||0).toFixed(2)} fatti · ${(as_.goals_2h_conceded_avg||0).toFixed(2)} subiti</span></div>`;
+        html += `<div class="dt-ts-row"><span>In vantaggio al HT</span><span class="dt-ts-val">${(as_.winning_ht_pct||0).toFixed(0)}%</span></div>`;
+        html += `<div class="dt-ts-row"><span>Pari al HT</span><span class="dt-ts-val">${(as_.drawing_ht_pct||0).toFixed(0)}%</span></div>`;
+        if (as_.comeback_wins) html += `<div class="dt-ts-row"><span>&#128170; Rimonte</span><span class="dt-ts-val" style="color:#4ade80">${as_.comeback_wins}</span></div>`;
+        if (as_.bottled_leads) html += `<div class="dt-ts-row"><span>&#9888;&#65039; Vantaggi sprecati</span><span class="dt-ts-val" style="color:#f87171">${as_.bottled_leads}</span></div>`;
+        if (as_.recent_htft && as_.recent_htft.length) {
+            html += `<div class="dt-recent">`;
+            as_.recent_htft.forEach(r => { html += `<span class="dt-recent-pill ${_htftPillClass(r)}">${r}</span>`; });
+            html += `</div>`;
+        }
+        html += `</div>`;
+
+        html += `</div>`; // end dt-team-stats
+
+        // Insights
+        if (ins.length) {
+            html += `<div class="dt-insights">`;
+            ins.forEach(i => { html += `<div class="dt-insight">${i}</div>`; });
+            html += `</div>`;
+        }
+
+        html += `</div>`; // end dt-match
+    });
+
+    c.innerHTML = html;
+    c.style.display = 'block';
+}
+
+(function() {
+    const select = document.getElementById('ht-league');
+    const btn = document.getElementById('btn-ht-load');
+    const icon = document.getElementById('ht-load-icon');
+    const text = document.getElementById('ht-load-text');
+    const status = document.getElementById('ht-status');
+    const results = document.getElementById('ht-results');
+
+    select.addEventListener('change', () => { btn.disabled = !select.value; });
+
+    btn.addEventListener('click', () => {
+        const lk = select.value;
+        if (!lk) return;
+
+        btn.disabled = true;
+        icon.textContent = '...';
+        text.textContent = 'Caricamento...';
+        status.style.display = 'none';
+        results.style.display = 'none';
+
+        fetch('/api/doppiotempo/' + lk)
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                icon.textContent = '\u{1F50D}';
+                text.textContent = 'Analizza';
+
+                if (!data.success) {
+                    status.textContent = '⚠ ' + (data.error || 'Errore sconosciuto');
+                    status.style.display = 'block';
+                    return;
+                }
+
+                renderDT(data.data || []);
+            })
+            .catch(err => {
+                btn.disabled = false;
+                icon.textContent = '\u{1F50D}';
+                text.textContent = 'Analizza';
+                status.textContent = '⚠ Errore di rete: ' + err.message;
+                status.style.display = 'block';
+            });
+    });
+})();
+</script>
+{% endblock %}

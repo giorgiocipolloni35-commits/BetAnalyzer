@@ -1,0 +1,729 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --glass-bg: rgba(30, 41, 59, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.05);
+        --accent-blue: #38bdf8;
+        --accent-green: #4ade80;
+        --accent-red: #fb7185;
+        --accent-yellow: #fbbf24;
+    }
+
+    body {
+        background: #0f172a;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .explorer-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .filter-group {
+        flex: 1;
+        min-width: 180px;
+    }
+
+    .filter-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .custom-input, .custom-select {
+        width: 100%;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        color: #f8fafc;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    .custom-input:focus, .custom-select:focus {
+        border-color: var(--accent-blue);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+    }
+
+    .btn-apply {
+        background: var(--accent-blue);
+        color: #0f172a;
+        border: none;
+        border-radius: 8px;
+        padding: 0.6rem 1.5rem;
+        font-weight: 700;
+        transition: transform 0.2s;
+    }
+
+    .btn-apply:hover {
+        transform: translateY(-2px);
+        background: #7dd3fc;
+    }
+
+    .scout-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .scout-table th {
+        background: rgba(15, 23, 42, 0.4);
+        padding: 1.2rem 1rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        font-weight: 600;
+        border-bottom: 1px solid var(--glass-border);
+    }
+
+    .scout-table td {
+        padding: 1.2rem 1rem;
+        border-bottom: 1px solid var(--glass-border);
+        color: #cbd5e1;
+    }
+
+    .scout-table tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .player-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .player-link {
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s ease;
+    }
+    .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--accent-blue);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+    .rating-badge {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 800;
+        font-size: 0.9rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .rating-high { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+    .rating-mid { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+    .rating-low { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .player-link:hover .player-name {
+        color: #6366f1;
+        text-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+    }
+    .scout-table tr:hover .player-name {
+        transform: translateX(3px);
+        display: inline-block;
+    }
+
+    .player-name {
+        color: #f8fafc;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .player-team {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .team-badge {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+
+    .role-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+    }
+
+    .role-gk { background: rgba(234, 179, 8, 0.1); color: #fbbf24; border: 1px solid rgba(234, 179, 8, 0.2); }
+    .role-att { background: rgba(251, 113, 133, 0.1); color: var(--accent-red); border: 1px solid rgba(251, 113, 133, 0.2); }
+    .role-cen { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.2); }
+    .role-dif { background: rgba(74, 222, 128, 0.1); color: var(--accent-green); border: 1px solid rgba(74, 222, 128, 0.2); }
+
+    .stat-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+    }
+
+    .stat-main { color: #f8fafc; }
+    .stat-high { color: var(--accent-yellow); }
+    .stat-danger { color: var(--accent-red); }
+
+    .btn-detail {
+        background: rgba(255,255,255,0.05);
+        color: #94a3b8;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 6px;
+        padding: 4px 12px;
+        font-size: 0.75rem;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .btn-detail:hover {
+        background: var(--accent-blue);
+        color: #0f172a;
+        border-color: var(--accent-blue);
+    }
+
+    .pagination-wrap {
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .page-btn {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+
+    .page-btn:hover:not(.disabled) {
+        border-color: var(--accent-blue);
+        color: #f8fafc;
+    }
+
+    .page-btn.disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="explorer-container">
+    <div class="row mb-5 align-items-center">
+        <div class="col-md-6">
+            <h1 class="display-6 fw-bold text-white mb-1">
+                <span style="color: var(--accent-blue);">Scouting</span> Dashboard
+            </h1>
+            <p style="color: #64748b;">Analisi tecnica comparativa avanzata dei giocatori.</p>
+        </div>
+        <div class="col-md-6 text-end">
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                <a href="/players_explorer" style="padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-decoration: none; background: var(--accent-blue); color: #0f172a;"><i class="fas fa-user me-1"></i> Giocatori</a>
+                <a href="/teams_explorer" style="padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; text-decoration: none; background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1);"><i class="fas fa-shield-alt me-1"></i> Squadre</a>
+                <div class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2" style="margin-left: 0.5rem;">
+                    <i class="fas fa-database me-2"></i>{{ pagination.total_count }} Giocatori
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="glass-card mb-4">
+        <form id="filterForm" class="filter-bar">
+            <div class="filter-group" style="flex: 2;">
+                <label class="filter-label">Cerca Nome</label>
+                <input type="text" name="search" class="custom-input" placeholder="Es: Dybala, Mancini..." value="{{ filters.search }}">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Lega</label>
+                <select name="league" class="custom-select">
+                    <option value="">Tutte le Leghe</option>
+                    {% for l in leagues %}
+                    <option value="{{ l.id }}" {% if filters.league == l.id %}selected{% endif %}>{{ l.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Ruolo</label>
+                <select name="role" class="custom-select">
+                    <option value="">Tutti i Ruoli</option>
+                    <option value="24" {% if filters.role == '24' %}selected{% endif %}>🧤 Portieri</option>
+                    <option value="25" {% if filters.role == '25' %}selected{% endif %}>🛡️ Difensori</option>
+                    <option value="26" {% if filters.role == '26' %}selected{% endif %}>🪄 Centrocampisti</option>
+                    <option value="27" {% if filters.role == '27' %}selected{% endif %}>🏹 Attaccanti</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Età</label>
+                <select name="age_group" class="custom-select">
+                    <option value="">Tutte le Età</option>
+                    <option value="u21" {% if filters.age_group == 'u21' %}selected{% endif %}>🌱 U21 (≤21)</option>
+                    <option value="21-25" {% if filters.age_group == '21-25' %}selected{% endif %}>📈 21-25</option>
+                    <option value="26-30" {% if filters.age_group == '26-30' %}selected{% endif %}>🔥 26-30</option>
+                    <option value="30+" {% if filters.age_group == '30+' %}selected{% endif %}>🎖️ 30+</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Ordina Per</label>
+                <select name="sort" class="custom-select">
+                    <option value="rating" {% if not filters.sort or filters.sort == 'rating' %}selected{% endif %}>⭐ Voto (Rating)</option>
+                    <option value="goals" {% if filters.sort == 'goals' %}selected{% endif %}>⚽ Gol Segnati</option>
+                    <option value="assists" {% if filters.sort == 'assists' %}selected{% endif %}>👟 Assist</option>
+                    <option value="key_passes" {% if filters.sort == 'key_passes' %}selected{% endif %}>🪄 Passaggi Chiave</option>
+                    <option value="dribbles" {% if filters.sort == 'dribbles' %}selected{% endif %}>🏃‍♂️ Dribbling</option>
+                    <option value="recoveries" {% if filters.sort == 'recoveries' %}selected{% endif %}>🛡️ Recuperi</option>
+                    <option value="interceptions" {% if filters.sort == 'interceptions' %}selected{% endif %}>🛡️ Intercettazioni</option>
+                    <option value="tackles" {% if filters.sort == 'tackles' %}selected{% endif %}>⚔️ Contrasti</option>
+                    <option value="appearances" {% if filters.sort == 'appearances' %}selected{% endif %}>🏟️ Presenze</option>
+                    <option value="shots_on_target" {% if filters.sort == 'shots_on_target' %}selected{% endif %}>🏹 Tiri in Porta</option>
+                    <option value="big_chances" {% if filters.sort == 'big_chances' %}selected{% endif %}>🌟 Grandi Occasioni</option>
+                    <option value="fouls_drawn" {% if filters.sort == 'fouls_drawn' %}selected{% endif %}>🤕 Falli Subiti</option>
+                    <option value="aerials" {% if filters.sort == 'aerials' %}selected{% endif %}>🦅 Duelli Aerei</option>
+                    <option value="pass_accuracy" {% if filters.sort == 'pass_accuracy' %}selected{% endif %}>🎯 % Passaggi</option>
+                    <option value="fouls_committed" {% if filters.sort == 'fouls_committed' %}selected{% endif %}>⚠️ Falli Commessi</option>
+                    <option value="saves" {% if filters.sort == 'saves' %}selected{% endif %}>🧤 Parate</option>
+                    <option value="clean_sheets" {% if filters.sort == 'clean_sheets' %}selected{% endif %}>🧹 Clean Sheets</option>
+                    <option value="clearances" {% if filters.sort == 'clearances' %}selected{% endif %}>🧹 Respinte</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn-apply">
+                <i class="fas fa-sync-alt me-2"></i>Aggiorna
+            </button>
+        </form>
+    </div>
+
+    <!-- Tabella -->
+    <div class="glass-card">
+        <div class="table-responsive">
+            <table class="scout-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><i class="fas fa-exchange-alt" style="color: var(--accent-purple, #a78bfa);"></i></th>
+                        <th class="ps-4" style="width: 50px;">#</th>
+                        <th>Giocatore</th>
+                        <th>SQUADRA</th>
+                        <th class="text-center">VOTO</th>
+                        <th class="text-center">RUOLO</th>
+                        <th class="text-center">PRES.</th>
+                        {% if filters.role == '24' %}
+                        <th class="text-center">🧤 PARATE</th>
+                        <th class="text-center">🧹 CS</th>
+                        <th class="text-center">❌ GOL SUB.</th>
+                        <th class="text-center">📊 SAVE%</th>
+                        <th class="text-center">📐 PASS%</th>
+                        {% elif filters.role == '25' %}
+                        <th class="text-center">🛡️ RECUP.</th>
+                        <th class="text-center">⚔️ TACKLE</th>
+                        <th class="text-center">✈️ AEREI</th>
+                        <th class="text-center">🧹 CLEAR.</th>
+                        <th class="text-center">⚽ GOL</th>
+                        {% elif filters.role == '26' %}
+                        <th class="text-center">🪄 P. CHIAVE</th>
+                        <th class="text-center">🏃 DRIB.</th>
+                        <th class="text-center">👟 ASSIST</th>
+                        <th class="text-center">⚽ GOL</th>
+                        <th class="text-center">🛡️ RECUP.</th>
+                        {% elif filters.role == '27' %}
+                        <th class="text-center">⚽ GOL</th>
+                        <th class="text-center">👟 ASSIST</th>
+                        <th class="text-center">🎯 TIRI</th>
+                        <th class="text-center">💥 BIG CH.</th>
+                        <th class="text-center">🏃 DRIB.</th>
+                        {% else %}
+                        <th class="text-center">⚽ GOL</th>
+                        <th class="text-center">👟 ASSIST</th>
+                        <th class="text-center">🏃 DRIB.</th>
+                        <th class="text-center">🛡️ RECUP.</th>
+                        <th class="text-center">🪄 P. CHIAVE</th>
+                        {% endif %}
+                        <th class="pe-4 text-end">AZIONE</th>
+                    </tr>
+                </thead>
+                <tbody id="players-table-body">
+                    {% for p in players %}
+                    <tr>
+                        <td class="text-center">
+                            <input type="checkbox" class="compare-check" data-pid="{{ p.player_id }}" data-name="{{ p.name }}" style="width:16px;height:16px;accent-color:#a78bfa;cursor:pointer;">
+                        </td>
+                        <td class="ps-4">
+                            <span class="rank-badge">{{ loop.index + (pagination.page - 1) * 40 }}</span>
+                        </td>
+                        <td>
+                            <div class="player-info">
+                                <a href="/player/{{ p.player_id }}?team_id={{ p.team_id }}&league={{ p.league_id }}" class="player-link">
+                                    <span class="player-name">{{ p.name }}</span>
+                                </a>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="team-badge">{{ p.team_name }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="rating-badge {% if p.rating >= 80 %}rating-high{% elif p.rating >= 60 %}rating-mid{% else %}rating-low{% endif %}">
+                                {{ p.rating }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            {% if p.position_id == 24 %}<span class="role-badge role-gk">POR</span>
+                            {% elif p.position_id == 25 %}<span class="role-badge role-dif">DIF</span>
+                            {% elif p.position_id == 26 %}<span class="role-badge role-cen">CEN</span>
+                            {% elif p.position_id == 27 %}<span class="role-badge role-att">ATT</span>
+                            {% else %}<span class="role-badge" style="background: rgba(255,255,255,0.05); color: #64748b;">ND</span>{% endif %}
+                        </td>
+                        <td class="text-center stat-val stat-main">{{ p.stats.appearances }}</td>
+                        {% if filters.role == '24' %}
+                        <td class="text-center stat-val stat-high">{{ p.stats.saves or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-green);">{{ p.stats.clean_sheets or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-red);">{{ p.stats.goals_conceded or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-yellow);">
+                            {% set sv = (p.stats.saves or 0) %}{% set gc = (p.stats.goals_conceded or 0) %}
+                            {% if sv + gc > 0 %}{{ ((sv / (sv + gc)) * 100)|round(1) }}%{% else %}—{% endif %}
+                        </td>
+                        <td class="text-center stat-val" style="color: var(--accent-blue);">{{ p.stats.accurate_passes_pct or 0 }}%</td>
+                        {% elif filters.role == '25' %}
+                        <td class="text-center stat-val" style="color: var(--accent-green);">
+                            {{ (p.stats.interceptions or 0) + (p.stats.tackles or 0) }}
+                        </td>
+                        <td class="text-center stat-val" style="color: var(--accent-blue);">{{ p.stats.tackles or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-yellow);">{{ p.stats.aerials_won or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-green);">{{ p.stats.clearances or 0 }}</td>
+                        <td class="text-center stat-val stat-high">{{ p.stats.goals or 0 }}</td>
+                        {% elif filters.role == '26' %}
+                        <td class="text-center stat-val" style="color: var(--accent-blue);">{{ p.stats.key_passes or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-yellow);">{{ p.stats.dribbles_success or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-green);">{{ p.stats.assists or 0 }}</td>
+                        <td class="text-center stat-val stat-high">{{ p.stats.goals or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-green);">
+                            {{ (p.stats.interceptions or 0) + (p.stats.tackles or 0) }}
+                        </td>
+                        {% elif filters.role == '27' %}
+                        <td class="text-center stat-val stat-high">{{ p.stats.goals or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-green);">{{ p.stats.assists or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-yellow);">{{ p.stats.shots_on_target or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-red);">{{ p.stats.big_chances_created or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-yellow);">{{ p.stats.dribbles_success or 0 }}</td>
+                        {% else %}
+                        <td class="text-center stat-val stat-high">{{ p.stats.goals or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-green);">{{ p.stats.assists or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-yellow);">{{ p.stats.dribbles_success or 0 }}</td>
+                        <td class="text-center stat-val" style="color: var(--accent-green);">
+                            {{ (p.stats.interceptions or 0) + (p.stats.tackles or 0) }}
+                        </td>
+                        <td class="text-center stat-val" style="color: var(--accent-blue);">{{ p.stats.key_passes or 0 }}</td>
+                        {% endif %}
+                        <td class="pe-4 text-end">
+                            <a href="/player/{{ p.player_id }}?team_id={{ p.team_id }}&league={{ p.league_id }}" class="btn-detail">
+                                Analizza
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginazione -->
+        <div class="pagination-wrap">
+            <span class="text-muted small">Mostrando pagina {{ pagination.page }} di {{ pagination.total_pages }}</span>
+            <div class="d-flex gap-2">
+                <a href="?page={{ pagination.page - 1 }}&{{ pagination.query_params }}" class="page-btn {% if pagination.page <= 1 %}disabled{% endif %}">
+                    <i class="fas fa-chevron-left me-1"></i> Precedente
+                </a>
+                <a href="?page={{ pagination.page + 1 }}&{{ pagination.query_params }}" class="page-btn {% if pagination.page >= pagination.total_pages %}disabled{% endif %}">
+                    Successiva <i class="fas fa-chevron-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Compare Button -->
+<div id="compareBar" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:1000; background:linear-gradient(135deg,#7c3aed,#a78bfa); padding:12px 28px; border-radius:16px; box-shadow:0 8px 32px rgba(124,58,237,0.4); cursor:pointer; transition:all 0.3s;" onclick="openCompare()">
+    <span style="color:white; font-weight:700; font-size:0.95rem;"><i class="fas fa-exchange-alt me-2"></i>Confronta <span id="compareNames"></span></span>
+</div>
+
+<!-- Compare Modal -->
+<div id="compareModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px);" onclick="if(event.target===this)closeCompare()">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:95%; max-width:1000px; max-height:90vh; overflow-y:auto; background:#1e293b; border-radius:20px; border:1px solid rgba(255,255,255,0.1); box-shadow:0 20px 60px rgba(0,0,0,0.5); padding:2rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h2 style="color:#f8fafc; font-size:1.4rem; font-weight:800; margin:0;"><i class="fas fa-exchange-alt" style="color:#a78bfa;"></i> Confronto Giocatori</h2>
+            <button onclick="closeCompare()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <!-- Player Headers -->
+        <div id="compareHeaders" style="display:flex; justify-content:space-around; margin-bottom:1rem;"></div>
+
+        <!-- Radar Chart -->
+        <div style="display:flex; justify-content:center; margin:1rem 0;">
+            <canvas id="radarCanvas" width="500" height="500" style="max-width:100%;"></canvas>
+        </div>
+
+        <!-- Stats Table -->
+        <div id="compareTable" style="margin-top:1rem;"></div>
+    </div>
+</div>
+
+<script>
+// ============ COMPARE LOGIC ============
+let selectedPlayers = [];
+
+document.addEventListener('change', function(e) {
+    if (!e.target.classList.contains('compare-check')) return;
+    const pid = parseInt(e.target.dataset.pid);
+    const name = e.target.dataset.name;
+
+    if (e.target.checked) {
+        if (selectedPlayers.length >= 2) {
+            // Deselect oldest
+            const old = selectedPlayers.shift();
+            document.querySelector(`.compare-check[data-pid="${old.pid}"]`).checked = false;
+        }
+        selectedPlayers.push({pid, name});
+    } else {
+        selectedPlayers = selectedPlayers.filter(p => p.pid !== pid);
+    }
+
+    const bar = document.getElementById('compareBar');
+    const names = document.getElementById('compareNames');
+    if (selectedPlayers.length === 2) {
+        names.textContent = selectedPlayers[0].name.split(' ').pop() + ' vs ' + selectedPlayers[1].name.split(' ').pop();
+        bar.style.display = 'block';
+    } else if (selectedPlayers.length === 1) {
+        names.textContent = selectedPlayers[0].name.split(' ').pop() + ' vs ...';
+        bar.style.display = 'block';
+    } else {
+        bar.style.display = 'none';
+    }
+});
+
+async function openCompare() {
+    if (selectedPlayers.length < 2) return;
+    const resp = await fetch(`/api/player_compare?p1=${selectedPlayers[0].pid}&p2=${selectedPlayers[1].pid}`);
+    const data = await resp.json();
+    if (data.error) { alert(data.error); return; }
+
+    document.getElementById('compareModal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    renderHeaders(data.player1, data.player2);
+    drawRadar(data.player1, data.player2);
+    renderTable(data.player1, data.player2);
+}
+
+function closeCompare() {
+    document.getElementById('compareModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function renderHeaders(p1, p2) {
+    document.getElementById('compareHeaders').innerHTML = `
+        <div style="text-align:center;">
+            <div style="font-size:1.3rem;font-weight:800;color:#38bdf8;">${p1.name}</div>
+            <div style="font-size:0.8rem;color:#94a3b8;">${p1.team} &middot; ${p1.position}</div>
+            <div style="margin-top:6px;"><span style="background:linear-gradient(135deg,#38bdf8,#0ea5e9);color:#0f172a;padding:4px 14px;border-radius:8px;font-weight:800;font-size:1.1rem;">${p1.rating}</span></div>
+        </div>
+        <div style="color:#475569;font-size:2rem;font-weight:200;align-self:center;">VS</div>
+        <div style="text-align:center;">
+            <div style="font-size:1.3rem;font-weight:800;color:#fb7185;">${p2.name}</div>
+            <div style="font-size:0.8rem;color:#94a3b8;">${p2.team} &middot; ${p2.position}</div>
+            <div style="margin-top:6px;"><span style="background:linear-gradient(135deg,#fb7185,#e11d48);color:white;padding:4px 14px;border-radius:8px;font-weight:800;font-size:1.1rem;">${p2.rating}</span></div>
+        </div>`;
+}
+
+// ============ RADAR CHART (Pure Canvas) ============
+function drawRadar(p1, p2) {
+    const canvas = document.getElementById('radarCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const R = Math.min(W, H) / 2 - 60;
+
+    // Stats to show (per-game normalized)
+    const labels = ['Gol/G', 'Assist/G', 'Tiri/G', 'KeyPass/G', 'Dribbling/G', 'Recuperi/G', 'Aerei/G', 'Pass%', 'BigChance/G', 'FalliSub/G'];
+    const n = labels.length;
+
+    // Normalization maxes (reasonable maxes for per-game stats)
+    const maxVals = {
+        'Gol/G': 1.2, 'Assist/G': 0.8, 'Tiri/G': 2.0, 'KeyPass/G': 4.0,
+        'Dribbling/G': 2.5, 'Recuperi/G': 5.0, 'Aerei/G': 6.0, 'Pass%': 100,
+        'BigChance/G': 1.5, 'FalliSub/G': 3.0
+    };
+
+    function normalize(label, val) {
+        return Math.min(1, val / (maxVals[label] || 1));
+    }
+
+    const v1 = labels.map(l => normalize(l, p1.stats[l] || 0));
+    const v2 = labels.map(l => normalize(l, p2.stats[l] || 0));
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Background
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid rings
+    for (let ring = 1; ring <= 5; ring++) {
+        const r = R * (ring / 5);
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+            const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Axes
+    for (let i = 0; i < n; i++) {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + R * Math.cos(angle), cy + R * Math.sin(angle));
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Draw polygon
+    function drawPoly(values, fillColor, strokeColor) {
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+            const idx = i % n;
+            const angle = (Math.PI * 2 * idx / n) - Math.PI / 2;
+            const r = R * values[idx];
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+    }
+
+    drawPoly(v1, 'rgba(56, 189, 248, 0.2)', '#38bdf8');
+    drawPoly(v2, 'rgba(251, 113, 133, 0.2)', '#fb7185');
+
+    // Dots
+    function drawDots(values, color) {
+        for (let i = 0; i < n; i++) {
+            const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+            const r = R * values[i];
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    }
+
+    drawDots(v1, '#38bdf8');
+    drawDots(v2, '#fb7185');
+
+    // Labels
+    ctx.font = '11px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < n; i++) {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        const lr = R + 30;
+        const x = cx + lr * Math.cos(angle);
+        const y = cy + lr * Math.sin(angle);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(labels[i], x, y);
+    }
+}
+
+// ============ STATS TABLE ============
+function renderTable(p1, p2) {
+    const stats = [
+        {label: 'Presenze', k: 'appearances'},
+        {label: 'Gol', k: 'goals'},
+        {label: 'Assist', k: 'assists'},
+        {label: 'Tiri in Porta', k: 'shots_on_target'},
+        {label: 'Passaggi Chiave', k: 'key_passes'},
+        {label: 'Dribbling Riusciti', k: 'dribbles_success'},
+        {label: 'Intercettazioni', k: 'interceptions'},
+        {label: 'Contrasti', k: 'tackles'},
+        {label: 'Duelli Aerei', k: 'aerials_won'},
+        {label: 'Big Chances Create', k: 'big_chances_created'},
+        {label: 'Falli Subiti', k: 'fouls_drawn'},
+        {label: 'Falli Commessi', k: 'fouls_committed'},
+        {label: 'Precisione Passaggi', k: 'accurate_passes_pct', suffix: '%'},
+    ];
+
+    let html = '<table style="width:100%;border-collapse:collapse;">';
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><th style="padding:8px;color:#94a3b8;font-size:0.75rem;text-align:left;">STAT</th>';
+    html += `<th style="padding:8px;color:#38bdf8;font-size:0.75rem;text-align:center;">${p1.name.split(' ').pop()}</th>`;
+    html += `<th style="padding:8px;color:#fb7185;font-size:0.75rem;text-align:center;">${p2.name.split(' ').pop()}</th></tr>`;
+
+    for (const s of stats) {
+        const v1 = p1.raw[s.k] || 0;
+        const v2 = p2.raw[s.k] || 0;
+        const suffix = s.suffix || '';
+        const c1 = v1 > v2 ? 'color:#38bdf8;font-weight:800;' : v1 === v2 ? 'color:#cbd5e1;' : 'color:#64748b;';
+        const c2 = v2 > v1 ? 'color:#fb7185;font-weight:800;' : v2 === v1 ? 'color:#cbd5e1;' : 'color:#64748b;';
+        html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);">`;
+        html += `<td style="padding:8px 12px;color:#94a3b8;font-size:0.85rem;">${s.label}</td>`;
+        html += `<td style="padding:8px;text-align:center;font-family:monospace;font-size:0.95rem;${c1}">${v1}${suffix}</td>`;
+        html += `<td style="padding:8px;text-align:center;font-family:monospace;font-size:0.95rem;${c2}">${v2}${suffix}</td>`;
+        html += '</tr>';
+    }
+    html += '</table>';
+    document.getElementById('compareTable').innerHTML = html;
+}
+
+// ESC to close
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCompare(); });
+</script>
+{% endblock %}
