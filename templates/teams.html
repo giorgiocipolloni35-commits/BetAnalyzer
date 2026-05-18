@@ -61,6 +61,10 @@
         .team-card:hover { border-color: #3b82f6; background: #1e293b; transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
         .team-card img { width: 40px; height: 40px; object-fit: contain; }
         .team-name { font-size: 0.8rem; font-weight: 700; text-align: center; color: #cbd5e1; width: 100%; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.3; }
+        .team-pos { font-size: 0.65rem; font-weight: 800; color: #64748b; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 6px; position: absolute; top: 6px; left: 6px; }
+        .team-pos.top3 { color: #fbbf24; background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.2); }
+        .team-pos.relegation { color: #ef4444; background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); }
+        .team-card { position: relative; }
 
         /* Top XI Button */
         .topxi-btn { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.75rem; transition: all 0.3s; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
@@ -400,6 +404,7 @@
                 <div class="teams-grid">
                     {% for team in data.teams %}
                     <a href="{{ url_for('team_detail', team_id=team.id) }}" class="team-card">
+                        <span class="team-pos {% if team.position <= 3 %}top3{% elif team.position >= (data.teams|length - 2) %}relegation{% endif %}">{{ team.position }}°</span>
                         <img src="https://crests.football-data.org/{{ team.id }}.png" onerror="this.src='https://crests.football-data.org/764.png'" alt="{{ team.name }}">
                         <span class="team-name">{{ team.name }}</span>
                     </a>

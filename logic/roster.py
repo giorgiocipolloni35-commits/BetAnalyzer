@@ -139,7 +139,7 @@ class RosterManager:
                 competitions[league_display_name] = {
                     "league_code": league_code, 
                     "stats": stats, 
-                    "teams": [{"id": s["team_id"], "name": s["name"]} for s in standings],
+                    "teams": [{"id": s["team_id"], "name": s["name"], "position": s.get("position", i+1)} for i, s in enumerate(standings)],
                     "score_frequency": self.pa.get_score_frequency(league_code)
                 }
 
