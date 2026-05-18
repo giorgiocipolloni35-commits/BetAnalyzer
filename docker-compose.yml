@@ -1,0 +1,42 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - betanalyzer-data:/app/data
+      - betanalyzer-cache:/app/cache
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python worker.py
+    volumes:
+      - betanalyzer-data:/app/data
+      - betanalyzer-cache:/app/cache
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  nightly:
+    build: .
+    command: >
+      bash -c "
+        apt-get update -qq && apt-get install -y -qq cron > /dev/null 2>&1 &&
+        env >> /etc/environment &&
+        echo '15 4 * * * root bash /app/nightly_docker.sh' > /etc/cron.d/nightly &&
+        chmod 0644 /etc/cron.d/nightly &&
+        cron -f
+      "
+    volumes:
+      - betanalyzer-data:/app/data
+      - betanalyzer-cache:/app/cache
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  betanalyzer-data:
+  betanalyzer-cache:
