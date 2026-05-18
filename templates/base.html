@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="BetAnalyzer — Analisi quote scommesse con AI per Serie A, Premier League e La Liga">
     <title>{% block title %}BetAnalyzer{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
@@ -91,11 +91,84 @@
     <p>BetAnalyzer — Uso personale. Il gioco è vietato ai minori. Gioca responsabilmente.</p>
 </footer>
 
+<!-- Player detail modal (mobile) -->
+<div class="player-modal-overlay" id="playerModal">
+    <div class="player-modal">
+        <div class="player-modal-handle"></div>
+        <div class="player-modal-header">
+            <span class="player-modal-name" id="pmName"></span>
+            <button class="player-modal-close" id="pmClose">&times;</button>
+        </div>
+        <div class="player-modal-body" id="pmBody"></div>
+    </div>
+</div>
+
 <script>
 // Mobile nav: close on link click
 document.querySelectorAll('.header-nav .nav-link').forEach(a => {
     a.addEventListener('click', () => document.querySelector('.header-nav').classList.remove('open'));
 });
+
+// Player modal (mobile)
+(function() {
+    const overlay = document.getElementById('playerModal');
+    if (!overlay) return;
+    const pmName = document.getElementById('pmName');
+    const pmBody = document.getElementById('pmBody');
+    const pmClose = document.getElementById('pmClose');
+
+    function close() { overlay.classList.remove('active'); }
+    pmClose.addEventListener('click', close);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+
+    window._openPlayerModal = function(data) {
+        pmName.textContent = data.player || '';
+        let html = '';
+
+        // Probability big
+        const probClass = data.probability >= 40 ? 'prob-high' : data.probability >= 25 ? 'prob-mid' : 'prob-low';
+        html += '<div class="pm-prob-big ' + probClass + '">' + data.probability + '%</div>';
+
+        // Badges
+        html += '<div class="pm-badges">';
+        if (data.position) html += '<span class="cards-role-badge" style="font-size:0.75rem;padding:3px 8px;">' + data.position + '</span>';
+        if (data.is_home !== undefined) html += '<span style="font-size:0.8rem;">' + (data.is_home ? '🏠 Casa' : '✈️ Trasferta') + '</span>';
+        if (data.diffidato) html += '<span class="cards-diffida-badge">⚠ DIFFIDATO</span>';
+        if (data.absent) html += '<span class="cards-absent-badge ' + (data.absentClass || '') + '">' + data.absentLabel + '</span>';
+        html += '</div>';
+
+        // Info rows
+        html += '<div class="pm-section-title">Info</div>';
+        html += '<div class="pm-row"><span class="pm-label">Squadra</span><span class="pm-value">' + (data.team || '') + '</span></div>';
+        if (data.matchInfo) html += '<div class="pm-row"><span class="pm-label">Partita</span><span class="pm-value">' + data.matchInfo + '</span></div>';
+
+        // Stats
+        html += '<div class="pm-section-title">Statistiche</div>';
+        if (data.statsRows) {
+            data.statsRows.forEach(function(r) {
+                html += '<div class="pm-row"><span class="pm-label">' + r.label + '</span><span class="pm-value">' + r.value + '</span></div>';
+            });
+        }
+
+        // Advanced pills
+        if (data.advPills && data.advPills.length) {
+            html += '<div class="pm-section-title">Dettagli avanzati</div>';
+            html += '<div class="pm-pills">';
+            data.advPills.forEach(function(pill) {
+                html += '<span class="scorer-adv-pill ' + (pill.cls || '') + '" style="font-size:0.82rem;padding:4px 10px;">' + pill.icon + ' ' + pill.text + '</span>';
+            });
+            html += '</div>';
+        }
+
+        // Drought
+        if (data.drought && data.drought > 3) {
+            html += '<div class="pm-row"><span class="pm-label">Digiuno</span><span class="pm-value" style="color:#f59e0b;">🏜 ' + data.drought + ' giornate</span></div>';
+        }
+
+        pmBody.innerHTML = html;
+        overlay.classList.add('active');
+    };
+})();
 </script>
 
 {% if state.loading %}

@@ -159,7 +159,6 @@ function _formatDate(isoStr) {
                     m.top_picks.forEach(function(p, i) {
                         const probClass = p.probability >= 40 ? 'prob-high' : p.probability >= 25 ? 'prob-mid' : 'prob-low';
                         const loc = p.is_home ? '🏠' : '✈️';
-                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '">';
                         var diffBadge = p.diffidato ? ' <span class="cards-diffida-badge">⚠ DIFFIDATO</span>' : '';
                         var underdogIcon = p.is_underdog ? ' 🛡' : '';
                         var posLabel = p.position ? ' <span class="cards-role-badge">' + _shortPos(p.position) + '</span>' : '';
@@ -197,6 +196,34 @@ function _formatDate(isoStr) {
                             statsHtml += '<br><span class="scorer-adv-line">' + advPills + '</span>';
                         }
 
+                        // Build data for mobile modal
+                        var modalData = {
+                            player: p.player,
+                            probability: p.probability,
+                            position: p.position ? _shortPos(p.position) : '',
+                            team: p.team,
+                            is_home: p.is_home,
+                            matchInfo: m.home_team + ' vs ' + m.away_team,
+                            diffidato: p.diffidato || false,
+                            absent: p.absent || false,
+                            absentLabel: absentBadge.replace(/<[^>]+>/g, ''),
+                            absentClass: p.absent ? (absentBadge.indexOf('injured') >= 0 ? 'absent-injured' : absentBadge.indexOf('suspended') >= 0 ? 'absent-suspended' : 'absent-other') : '',
+                            statsRows: [
+                                {label: 'Gialli stagionali', value: p.yellows_season + ' 🟨'},
+                                {label: 'Presenze', value: p.matches + ' partite'},
+                                {label: 'Media gialli', value: p.yellows_per_match + ' /partita'}
+                            ],
+                            advPills: []
+                        };
+                        if (p.fouls_per_game > 0) modalData.advPills.push({icon:'🦶', text:'Falli: ' + p.fouls_per_game + '/g', cls:'pill-card-fouls'});
+                        if (p.tackles_per_game > 0.5) modalData.advPills.push({icon:'🦵', text:'Tackle: ' + p.tackles_per_game + '/g', cls:'pill-card-tackles'});
+                        if (p.interceptions_per_game > 0.5) modalData.advPills.push({icon:'🧤', text:'Intercetti: ' + p.interceptions_per_game + '/g', cls:'pill-card-inter'});
+                        if (p.aerials_per_game >= 1.0) modalData.advPills.push({icon:'✈️', text:'Aerei: ' + p.aerials_per_game + '/g', cls:'pill-card-aerials'});
+                        if (p.dribbles_att_per_game >= 1.0) modalData.advPills.push({icon:'💨', text:'Dribbling: ' + p.dribbles_att_per_game + '/g', cls:'pill-dribbles'});
+
+                        var dataAttr = " data-modal='" + JSON.stringify(modalData).replace(/'/g, '&#39;') + "'";
+
+                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '"' + dataAttr + '>';
                         html += '<span class="cards-pick-rank">' + (i + 1) + '</span>';
                         html += '<span class="cards-pick-player">' + p.player + posLabel + diffBadge + absentBadge + '</span>';
                         html += '<span class="cards-pick-team">' + loc + ' ' + p.team + underdogIcon + '</span>';
@@ -211,6 +238,18 @@ function _formatDate(isoStr) {
                 });
 
                 results.style.display = 'block';
+
+                // Mobile: attach tap handlers
+                if (window.innerWidth <= 768 && window._openPlayerModal) {
+                    results.querySelectorAll('.cards-pick-row:not(.cards-pick-header)').forEach(function(row) {
+                        row.addEventListener('click', function() {
+                            try {
+                                var d = JSON.parse(this.getAttribute('data-modal'));
+                                window._openPlayerModal(d);
+                            } catch(e) {}
+                        });
+                    });
+                }
             })
             .catch(function() {
                 icon.textContent = '🔍';

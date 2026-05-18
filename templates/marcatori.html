@@ -226,7 +226,35 @@ function _formatDate(isoStr) {
                             statsHtml += '<br><span class="scorer-adv-line">' + advPills + '</span>';
                         }
 
-                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '">';
+                        // Build data for mobile modal
+                        var modalData = {
+                            player: p.player,
+                            probability: p.probability,
+                            position: p.position ? _shortPos(p.position) : '',
+                            team: p.team,
+                            is_home: p.is_home,
+                            matchInfo: m.home_team + ' vs ' + m.away_team,
+                            drought: p.drought || 0,
+                            absent: p.absent || false,
+                            absentLabel: absentBadge.replace(/<[^>]+>/g, ''),
+                            absentClass: p.absent ? (absentBadge.indexOf('injured') >= 0 ? 'absent-injured' : absentBadge.indexOf('suspended') >= 0 ? 'absent-suspended' : 'absent-other') : '',
+                            statsRows: [
+                                {label: 'Gol stagionali', value: p.goals + '⚽'},
+                                {label: 'Presenze', value: p.matches + ' partite'},
+                                {label: 'Media gol', value: p.goals_per_match + ' /partita'}
+                            ],
+                            advPills: []
+                        };
+                        if (p.shots_per_game > 0) modalData.advPills.push({icon:'🎯', text:'Tiri: ' + p.shots_per_game + '/g' + (p.shots_on_target_pct > 0 ? ' (' + p.shots_on_target_pct + '% in porta)' : ''), cls:'pill-shots'});
+                        if (p.assists_total > 0) modalData.advPills.push({icon:'👟', text:p.assists_total + ' assist', cls:'pill-assists'});
+                        if (p.big_chances_created > 0) modalData.advPills.push({icon:'💎', text:p.big_chances_created + ' grandi occasioni', cls:'pill-chances'});
+                        if (p.key_passes_per_game > 0.5) modalData.advPills.push({icon:'🔑', text:p.key_passes_per_game + ' pass.chiave/g', cls:'pill-kp'});
+                        if (p.dribbles_per_game >= 0.5) modalData.advPills.push({icon:'💨', text:p.dribbles_per_game + ' dribbling/g', cls:'pill-dribbles'});
+                        if (p.fouls_drawn_per_game >= 1.0) modalData.advPills.push({icon:'⚡', text:p.fouls_drawn_per_game + ' falli subiti/g', cls:'pill-fouls'});
+
+                        var dataAttr = " data-modal='" + JSON.stringify(modalData).replace(/'/g, '&#39;') + "'";
+
+                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '"' + dataAttr + '>';
                         html += '<span class="cards-pick-rank">' + (i + 1) + '</span>';
                         html += '<span class="cards-pick-player">' + p.player + posLabel + droughtInfo + absentBadge + '</span>';
                         html += '<span class="cards-pick-team">' + loc + ' ' + p.team + '</span>';
@@ -241,6 +269,18 @@ function _formatDate(isoStr) {
                 });
 
                 results.style.display = 'block';
+
+                // Mobile: attach tap handlers
+                if (window.innerWidth <= 768 && window._openPlayerModal) {
+                    results.querySelectorAll('.cards-pick-row:not(.cards-pick-header)').forEach(function(row) {
+                        row.addEventListener('click', function() {
+                            try {
+                                var d = JSON.parse(this.getAttribute('data-modal'));
+                                window._openPlayerModal(d);
+                            } catch(e) {}
+                        });
+                    });
+                }
             })
             .catch(function() {
                 icon.textContent = '🔍';
