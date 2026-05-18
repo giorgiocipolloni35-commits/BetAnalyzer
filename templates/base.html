@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="BetAnalyzer — Analisi quote scommesse con AI per Serie A, Premier League e La Liga">
     <title>{% block title %}BetAnalyzer{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
@@ -17,8 +17,10 @@
             <span class="logo-text">BetAnalyzer</span>
             <span class="logo-sub">AI-Powered</span>
         </div>
+        <button class="nav-toggle" onclick="document.querySelector('.header-nav').classList.toggle('open')">&#9776;</button>
         <nav class="header-nav">
-            <a href="/" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <button class="nav-close" onclick="document.querySelector('.header-nav').classList.remove('open')">&times;</button>
+            <a href="/" class="nav-link" onclick="document.querySelector('.header-nav').classList.remove('open')"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
             <a href="/scans" class="nav-link"><i class="fas fa-history"></i> Cronologia</a>
             <a href="/stats" class="nav-link"><i class="fas fa-chart-bar"></i> Statistiche</a>
             <a href="/rigori" class="nav-link"><i class="fas fa-bullseye"></i> Rigori</a>
@@ -88,6 +90,13 @@
 <footer>
     <p>BetAnalyzer — Uso personale. Il gioco è vietato ai minori. Gioca responsabilmente.</p>
 </footer>
+
+<script>
+// Mobile nav: close on link click
+document.querySelectorAll('.header-nav .nav-link').forEach(a => {
+    a.addEventListener('click', () => document.querySelector('.header-nav').classList.remove('open'));
+});
+</script>
 
 {% if state.loading %}
 <script>

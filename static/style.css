@@ -2203,3 +2203,188 @@ input:checked + .slider:before {
 .slider.round:before {
   border-radius: 50%;
 }
+
+/* ============================================================
+   MOBILE RESPONSIVE
+   ============================================================ */
+
+/* Hamburger button — hidden on desktop */
+.nav-toggle {
+    display: none;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 1.4rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+@media (max-width: 768px) {
+    /* Show hamburger */
+    .nav-toggle { display: block; }
+
+    /* Nav becomes fullscreen overlay */
+    .header-nav {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: var(--bg);
+        z-index: 999;
+        flex-direction: column;
+        padding: 60px 20px 20px;
+        gap: 2px;
+        overflow-y: auto;
+    }
+    .header-nav.open { display: flex; }
+
+    .header-nav .nav-link {
+        font-size: 1rem;
+        padding: 0.7rem 1rem;
+        border-bottom: 1px solid var(--border);
+        border-radius: 0;
+        width: 100%;
+    }
+
+    /* Close button inside nav */
+    .nav-close {
+        position: absolute;
+        top: 12px; right: 16px;
+        font-size: 1.8rem;
+        color: var(--text);
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+
+    /* Header layout */
+    .header-inner {
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    .header-meta {
+        display: none; /* hide quota badges on mobile */
+    }
+
+    /* Main content */
+    main { padding: 0.75rem; }
+
+    /* Dashboard match cards */
+    .matches-grid { grid-template-columns: 1fr !important; }
+
+    /* League filter pills */
+    .league-pills, .filter-bar, .league-filters {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .league-pills .pill, .league-btn, .filter-btn {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.6rem;
+    }
+
+    /* Tables */
+    table { font-size: 0.75rem; }
+    th, td { padding: 0.4rem 0.5rem; }
+
+    /* Cards grid (match picks) */
+    .rec-key-stats { grid-template-columns: repeat(2, 1fr) !important; }
+    .stats-cards { grid-template-columns: repeat(2, 1fr) !important; }
+
+    /* Rigori/Marcatori/Cartellini match sections */
+    .match-section, .rigori-match, .match-card {
+        padding: 12px;
+    }
+
+    /* Footer */
+    footer { font-size: 0.7rem; padding: 0.75rem; }
+
+    /* Freshness badge */
+    .freshness-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        font-size: 0.6rem;
+    }
+    .freshness-sep { display: none; }
+
+    /* Modal */
+    .modal-box { width: 98%; max-height: 95vh; border-radius: 10px; }
+
+    /* Doppio Tempo: two-column → stacked */
+    .dt-body {
+        grid-template-columns: 1fr !important;
+    }
+    .dt-section:first-child {
+        border-right: none !important;
+        border-bottom: 1px solid #2a3040;
+    }
+    .dt-match-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 12px 14px;
+    }
+    .dt-teams { font-size: 0.95em; }
+    .dt-section { padding: 12px 14px; }
+    .dt-team-stats {
+        grid-template-columns: 1fr !important;
+    }
+    .dt-gg-summary {
+        flex-direction: column;
+        gap: 6px;
+    }
+    .dt-preds {
+        gap: 4px;
+    }
+    .dt-pred {
+        font-size: 0.75em;
+        padding: 4px 8px;
+    }
+
+    /* Rigori/controls */
+    .rigori-controls {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+    .rigori-select { width: 100%; }
+    .rigori-header h1, .rigori-title {
+        font-size: 1.1rem;
+    }
+
+    /* Value bets, my bets grids */
+    .vb-grid, .mb-grid { grid-template-columns: 1fr !important; }
+
+    /* Arbitri page */
+    .arb-grid { grid-template-columns: 1fr !important; }
+
+    /* Teams page */
+    .team-cards-grid { grid-template-columns: 1fr !important; }
+
+    /* Horizontal overflow on tables */
+    .table-wrap, .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Generic 2-col grids → single col */
+    .two-col, .grid-2 { grid-template-columns: 1fr !important; }
+
+    /* Multipla page */
+    .multipla-grid { grid-template-columns: 1fr !important; }
+
+    /* Worker page */
+    .worker-grid { grid-template-columns: 1fr !important; }
+}
+
+/* Small phone tweaks */
+@media (max-width: 400px) {
+    .logo-text { font-size: 1rem; }
+    .logo-sub { font-size: 0.6rem; }
+    main { padding: 0.5rem; }
+    .nav-link { font-size: 0.9rem; }
+    .dt-pred { font-size: 0.7em; }
+    .dt-dist-label { width: 55px; font-size: 0.7em; }
+}
