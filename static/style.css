@@ -1531,12 +1531,17 @@ footer {
 .delta-neg { color: var(--red); background: rgba(239,68,68,0.12); }
 
 /* ---- NAVIGATION ---- */
-.header-nav {
+/* Desktop nav (inside header) */
+.header-nav-desktop {
     display: flex;
     gap: 0.25rem;
     flex-wrap: wrap;
 }
-.nav-close { display: none; }   /* hidden on desktop, shown in mobile overlay */
+/* Mobile nav overlay (outside header, hidden by default) */
+.header-nav {
+    display: none;
+}
+.nav-close { display: none; }
 .nav-link {
     color: var(--text-muted);
     text-decoration: none;
@@ -2357,23 +2362,25 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 768px) {
-    /* Show hamburger */
+    /* Show hamburger, hide desktop nav */
     .nav-toggle { display: block; }
+    .header-nav-desktop { display: none !important; }
 
     /* Nav close visible on mobile */
     .nav-close { display: block; }
 
-    /* Nav becomes fullscreen overlay */
+    /* Mobile nav overlay (lives outside header — no stacking context issues) */
     .header-nav {
         display: none;
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
         background: var(--bg);
-        z-index: 999;
+        z-index: 99999;
         flex-direction: column;
         padding: 60px 20px 20px;
         gap: 2px;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     .header-nav.open { display: flex; }
 

@@ -5,11 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="BetAnalyzer — Analisi quote scommesse con AI per Serie A, Premier League e La Liga">
     <title>{% block title %}BetAnalyzer{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+<!-- Mobile nav overlay (outside header to avoid sticky stacking context) -->
+<nav class="header-nav" id="mobileNav">
+    <button class="nav-close" onclick="document.getElementById('mobileNav').classList.remove('open')">&times;</button>
+    <a href="/" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+    <a href="/scans" class="nav-link"><i class="fas fa-history"></i> Cronologia</a>
+    <a href="/stats" class="nav-link"><i class="fas fa-chart-bar"></i> Statistiche</a>
+    <a href="/rigori" class="nav-link"><i class="fas fa-bullseye"></i> Rigori</a>
+    <a href="/cartellini" class="nav-link"><i class="fas fa-square"></i> Cartellini</a>
+    <a href="/marcatori" class="nav-link"><i class="fas fa-futbol"></i> Marcatori</a>
+    <a href="/arbitri" class="nav-link" style="color: #fbbf24;"><i class="fas fa-gavel"></i> Arbitri</a>
+    <a href="/doppiotempo" class="nav-link"><i class="fas fa-clock"></i> Doppio Tempo</a>
+    <a href="/risultato-esatto" class="nav-link"><i class="fas fa-crosshairs"></i> Risultato Esatto</a>
+    <a href="/multipla" class="nav-link"><i class="fas fa-layer-group"></i> Multipla</a>
+    <a href="/value-bets" class="nav-link" style="color: #a855f7;"><i class="fas fa-gem"></i> Value</a>
+    <a href="/my-bets" class="nav-link" style="color: #4ade80;"><i class="fas fa-receipt"></i> Giocate</a>
+    <a href="/teams" class="nav-link"><i class="fas fa-shield-alt"></i> Squadre</a>
+    <a href="/players_explorer" class="nav-link" style="color: #4ade80;"><i class="fas fa-search"></i> Scouting</a>
+    <a href="/worker" class="nav-link" style="color: #38bdf8; font-weight: bold;"><i class="fas fa-satellite-dish"></i> Live</a>
+</nav>
+
 <header>
     <div class="header-inner">
         <div class="logo">
@@ -17,10 +37,10 @@
             <span class="logo-text">BetAnalyzer</span>
             <span class="logo-sub">AI-Powered</span>
         </div>
-        <button class="nav-toggle" onclick="document.querySelector('.header-nav').classList.toggle('open')">&#9776;</button>
-        <nav class="header-nav">
-            <button class="nav-close" onclick="document.querySelector('.header-nav').classList.remove('open')">&times;</button>
-            <a href="/" class="nav-link" onclick="document.querySelector('.header-nav').classList.remove('open')"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+        <button class="nav-toggle" onclick="document.getElementById('mobileNav').classList.toggle('open')">&#9776;</button>
+        <!-- Desktop nav (hidden on mobile, shown inline on desktop) -->
+        <nav class="header-nav-desktop">
+            <a href="/" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
             <a href="/scans" class="nav-link"><i class="fas fa-history"></i> Cronologia</a>
             <a href="/stats" class="nav-link"><i class="fas fa-chart-bar"></i> Statistiche</a>
             <a href="/rigori" class="nav-link"><i class="fas fa-bullseye"></i> Rigori</a>
@@ -105,8 +125,8 @@
 
 <script>
 // Mobile nav: close on link click
-document.querySelectorAll('.header-nav .nav-link').forEach(a => {
-    a.addEventListener('click', () => document.querySelector('.header-nav').classList.remove('open'));
+document.querySelectorAll('#mobileNav .nav-link').forEach(a => {
+    a.addEventListener('click', () => document.getElementById('mobileNav').classList.remove('open'));
 });
 
 // Player modal (mobile)
