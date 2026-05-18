@@ -120,6 +120,8 @@
             <a href="{{ url_for('index') }}" class="back-btn"><i class="fas fa-chevron-left"></i> Home</a>
         </header>
 
+        {% include "freshness_badge.html" ignore missing %}
+
         {% for name, data in competitions.items() %}
             <div class="league-section">
                 <div class="league-header">

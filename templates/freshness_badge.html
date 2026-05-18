@@ -1,0 +1,31 @@
+{% if freshness %}
+<div class="freshness-bar">
+    {% for item in freshness %}
+    <span class="freshness-item">
+        <span class="freshness-label">{{ item.label }}:</span>
+        <span class="freshness-time">{{ item.time }}</span>
+        <span class="freshness-source">({{ item.source }})</span>
+    </span>
+    {% if not loop.last %}<span class="freshness-sep">&middot;</span>{% endif %}
+    {% endfor %}
+</div>
+<style>
+.freshness-bar {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 6px 14px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+.freshness-label { color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.freshness-time { color: #38bdf8; font-weight: 600; }
+.freshness-source { color: #64748b; font-style: italic; }
+.freshness-sep { color: #475569; margin: 0 4px; }
+</style>
+{% endif %}

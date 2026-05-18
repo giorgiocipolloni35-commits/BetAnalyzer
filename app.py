@@ -39,6 +39,42 @@ CACHE_MINUTES     = int(os.getenv("CACHE_MINUTES", 30))
 SPORTMONKS_KEY    = os.getenv("SPORTMONKS_API_KEY", "")
 FOOTBALL_DATA_KEY = os.getenv("FOOTBALL_DATA_API_KEY", "")
 
+
+# ------------------------------------------------------------------ #
+#  Data freshness helper                                               #
+# ------------------------------------------------------------------ #
+def get_data_freshness(*sources):
+    """Return freshness info for template badge.
+
+    Each source is a tuple: (label, path_or_type, detail)
+    - label: display name (e.g. "Partite", "Giocatori")
+    - path_or_type: file path or "db:table_name"
+    - detail: extra info (e.g. "Football-Data API", "Sportmonks DB")
+    """
+    items = []
+    for label, path_or_type, detail in sources:
+        ts = None
+        if path_or_type.startswith("db:"):
+            # Get latest updated_at from a DB table
+            table = path_or_type.split(":", 1)[1]
+            try:
+                import sqlite3
+                db_path = os.path.join("data", "betanalyzer.db")
+                if os.path.exists(db_path):
+                    conn = sqlite3.connect(db_path)
+                    row = conn.execute(f"SELECT MAX(updated_at) FROM {table}").fetchone()
+                    conn.close()
+                    if row and row[0]:
+                        ts = row[0][:16].replace("T", " ")
+            except Exception:
+                pass
+        elif os.path.exists(path_or_type):
+            mtime = os.path.getmtime(path_or_type)
+            ts = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+
+        items.append({"label": label, "time": ts or "N/A", "source": detail})
+    return items
+
 # Stato globale (in-memory, per semplicità)
 _state = {
     "matches": [],
@@ -362,6 +398,11 @@ def index():
     # Ultimo aggiornamento dati (dai log launchd)
     last_sync = _get_last_sync_info()
 
+    freshness = get_data_freshness(
+        ("Quote", "cache/sportmonks_matches.json", "Sportmonks API / Worker"),
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+        ("Giocatori", "db:player_stats_cache", "Sportmonks DB / Nightly Sync"),
+    )
     return render_template(
         "index.html",
         matches=matches,
@@ -371,7 +412,8 @@ def index():
         leagues=leagues,
         league_counts=league_counts,
         last_sync=last_sync,
-        worker_enabled=worker_enabled
+        worker_enabled=worker_enabled,
+        freshness=freshness
     )
 
 
@@ -1004,8 +1046,12 @@ def players_explorer():
     
     leagues_list = [{"id": k, "name": k.replace("_", " ").title()} for k in LEAGUE_CODES.keys()]
     
-    return render_template("players_explorer.html", 
-                           players=players, 
+    freshness = get_data_freshness(
+        ("Giocatori", "db:player_info", "Sportmonks DB / Nightly Sync"),
+        ("Statistiche", "db:player_stats_cache", "Sportmonks DB / Nightly Sync"),
+    )
+    return render_template("players_explorer.html",
+                           players=players,
                            leagues=leagues_list,
                            filters=filters,
                            pagination={
@@ -1014,7 +1060,8 @@ def players_explorer():
                                "total_count": total,
                                "query_params": q_params
                            },
-                           state=_state)
+                           state=_state,
+                           freshness=freshness)
 
 
 @app.route("/api/player_compare")
@@ -1276,7 +1323,10 @@ def api_team_stats_bulk():
 @app.route("/rigori")
 def rigori_page():
     """Pagina analisi rigori."""
-    return render_template("rigori.html", state=_state)
+    freshness = get_data_freshness(
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+    )
+    return render_template("rigori.html", state=_state, freshness=freshness)
 
 
 LEAGUE_KEYS_ALL = [
@@ -2044,7 +2094,11 @@ def _mark_absent_players(matches_data, league_key: str = ""):
 
 @app.route("/marcatori")
 def marcatori_page():
-    return render_template("marcatori.html", state=_state)
+    freshness = get_data_freshness(
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+        ("Giocatori", "db:player_stats_cache", "Sportmonks DB / Nightly Sync"),
+    )
+    return render_template("marcatori.html", state=_state, freshness=freshness)
 
 
 @app.route("/api/marcatori/<league_key>")
@@ -2089,7 +2143,11 @@ def api_marcatori(league_key):
 
 @app.route("/cartellini")
 def cartellini_page():
-    return render_template("cartellini.html", state=_state)
+    freshness = get_data_freshness(
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+        ("Giocatori", "db:player_stats_cache", "Sportmonks DB / Nightly Sync"),
+    )
+    return render_template("cartellini.html", state=_state, freshness=freshness)
 
 
 @app.route("/api/cartellini/<league_key>")
@@ -2139,7 +2197,10 @@ def api_cartellini(league_key):
 
 @app.route("/arbitri")
 def arbitri_page():
-    return render_template("arbitri.html", state=_state)
+    freshness = get_data_freshness(
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+    )
+    return render_template("arbitri.html", state=_state, freshness=freshness)
 
 
 @app.route("/api/arbitri/<league_key>")
@@ -2159,7 +2220,10 @@ def api_arbitri(league_key):
 
 @app.route("/doppiotempo")
 def doppiotempo_page():
-    return render_template("doppiotempo.html", state=_state)
+    freshness = get_data_freshness(
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+    )
+    return render_template("doppiotempo.html", state=_state, freshness=freshness)
 
 
 @app.route("/api/doppiotempo/<league_key>")
@@ -2206,7 +2270,10 @@ def api_doppiotempo(league_key):
 
 @app.route("/risultato-esatto")
 def risultato_esatto_page():
-    return render_template("risultato_esatto.html", state=_state)
+    freshness = get_data_freshness(
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+    )
+    return render_template("risultato_esatto.html", state=_state, freshness=freshness)
 
 
 @app.route("/api/correct_score/<league_key>")
@@ -2439,7 +2506,11 @@ def teams_list():
     from logic.roster import RosterManager
     rm = RosterManager(FOOTBALL_DATA_KEY)
     competitions = rm.get_all_competitions_with_stats()
-    return render_template("teams.html", competitions=competitions, state=_state)
+    freshness = get_data_freshness(
+        ("Classifica", "data/competitions_stats_cache.json", "Football-Data API / Precache"),
+        ("Giocatori", "db:player_info", "Sportmonks DB / Nightly Sync"),
+    )
+    return render_template("teams.html", competitions=competitions, state=_state, freshness=freshness)
 
 @app.route("/team/<int:team_id>")
 def team_detail(team_id):
