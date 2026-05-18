@@ -43,7 +43,8 @@
     </div>
 
     <div id="rigori-results" style="display:none">
-        <div class="rigori-table-wrap">
+        <!-- Desktop: table -->
+        <div class="rigori-table-wrap rigori-desktop">
             <table class="rigori-table">
                 <thead>
                     <tr>
@@ -63,6 +64,8 @@
                 <tbody id="rigori-tbody"></tbody>
             </table>
         </div>
+        <!-- Mobile: cards -->
+        <div class="rigori-mobile" id="rigori-cards"></div>
     </div>
 </section>
 
@@ -112,7 +115,12 @@
                     return;
                 }
 
+                const isMobile = window.innerWidth <= 768;
+                const cardsContainer = document.getElementById('rigori-cards');
+
                 tbody.innerHTML = '';
+                cardsContainer.innerHTML = '';
+
                 teams.forEach(function(t, i) {
                     const prob = t.probability_score;
                     const probClass = prob >= 55 ? 'prob-high' : prob >= 35 ? 'prob-mid' : 'prob-low';
@@ -149,62 +157,120 @@
                         ? `<span class="factor-pill fp-referee" title="Arbitro ${f.arbitro}/${w.arbitro}&#10;${refHint}"><b>ARB</b>${f.arbitro}</span>`
                         : `<span class="factor-pill fp-no-data" title="${refHint}"><b>ARB</b>—</span>`;
 
+                    // Takers HTML (shared)
+                    const takersHtml = (t.penalty_takers || []).length === 0
+                        ? '<span class="no-data">—</span>'
+                        : (t.penalty_takers || []).slice(0, 2).map(function(tk) {
+                            const conv = tk.scored + '/' + tk.taken;
+                            const pct = Math.round(tk.scored / tk.taken * 100);
+                            const cls = tk.absent ? 'tk-absent' : pct >= 70 ? 'tk-good' : pct >= 40 ? 'tk-mid' : 'tk-bad';
+                            var absentIcon = '';
+                            var absentHint = '';
+                            if (tk.absent) {
+                                var reason = (tk.absent_reason || '').toLowerCase();
+                                if (reason.indexOf('squalif') >= 0 || reason.indexOf('ammonizion') >= 0 || reason.indexOf('rosso') >= 0 || reason.indexOf('doppia') >= 0) {
+                                    absentIcon = ' 🔴';
+                                    absentHint = ' — SQUALIFICATO: ' + (tk.absent_reason || '');
+                                } else {
+                                    absentIcon = ' 🏥';
+                                    absentHint = ' — INFORTUNATO: ' + (tk.absent_reason || '');
+                                }
+                            }
+                            return '<span class="taker-pill ' + cls + '" title="' + tk.player + ': ' + conv + ' segnati (' + pct + '%)' + absentHint + '">' + tk.player.split(' ').pop() + ' <b>' + conv + '</b>' + absentIcon + '</span>';
+                          }).join('');
+
+                    // Factors HTML (shared)
+                    const factorsHtml = `
+                        <span class="factor-pill fp-drought"><b>AST</b>${f.astinenza}</span>
+                        <span class="factor-pill fp-attack"><b>ATT</b>${f.attacco}</span>
+                        <span class="factor-pill fp-defense"><b>DIF</b>${f.difesa_avv}</span>
+                        ${refPill}
+                        <span class="factor-pill fp-home"><b>${f.casa >= 8 ? '🏠' : '✈️'}</b>${f.casa}</span>
+                        <span class="factor-pill fp-history"><b>STO</b>${f.storico}</span>`;
+
+                    // Advanced stats pills
+                    const advHtml = t.advanced_stats && Object.keys(t.advanced_stats).length > 0 ? `
+                        <div class="scorer-adv-line" style="margin-top:4px">
+                            ${t.advanced_stats.shots_pg ? `<span class="scorer-adv-pill pill-shots">🎯 ${t.advanced_stats.shots_pg}/g</span>` : ''}
+                            ${t.advanced_stats.fouls_drawn_pg ? `<span class="scorer-adv-pill pill-fouls">⚡ ${t.advanced_stats.fouls_drawn_pg}/g</span>` : ''}
+                            ${t.advanced_stats.dribbles_pg ? `<span class="scorer-adv-pill pill-dribbles">💨 ${t.advanced_stats.dribbles_pg}/g</span>` : ''}
+                            ${t.advanced_stats.big_chances ? `<span class="scorer-adv-pill pill-chances">💎 ${t.advanced_stats.big_chances}</span>` : ''}
+                            ${t.advanced_stats.key_passes_pg ? `<span class="scorer-adv-pill pill-kp">🔑 ${t.advanced_stats.key_passes_pg}/g</span>` : ''}
+                        </div>` : '';
+
+                    // === DESKTOP TABLE ROW ===
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${i + 1}</td>
                         <td class="team-cell">${t.team}</td>
-                        <td><span class="abs-badge ${absClass}" title="${droughtHint}">${abs} gg</span></td>
+                        <td><span class="abs-badge ${absClass}">${abs} gg</span></td>
                         <td class="last-pen-cell">${t.last_penalty || '<span class="no-data">mai</span>'}</td>
                         <td>${t.penalties_scored !== undefined ? t.penalties_scored : t.penalties_total}✓ ${t.penalties_total}tot / ${t.matches_played}pg</td>
                         <td>${t.next_match || '—'}</td>
                         <td>${t.referee || '<span class="no-data">da assegnare</span>'}</td>
-                        <td>
-                            ${hasRef ? `<span class="ref-stat">${t.referee_matches} gare</span>${refPpm ? `<span class="ref-rate">${refPpm}</span>` : ''}` : '<span class="no-data">—</span>'}
-                        </td>
-                        <td class="takers-cell">${(t.penalty_takers || []).length === 0
-                            ? '<span class="no-data">—</span>'
-                            : (t.penalty_takers || []).slice(0, 2).map(function(tk) {
-                                const conv = tk.scored + '/' + tk.taken;
-                                const pct = Math.round(tk.scored / tk.taken * 100);
-                                const cls = tk.absent ? 'tk-absent' : pct >= 70 ? 'tk-good' : pct >= 40 ? 'tk-mid' : 'tk-bad';
-                                var absentIcon = '';
-                                var absentHint = '';
-                                if (tk.absent) {
-                                    var reason = (tk.absent_reason || '').toLowerCase();
-                                    if (reason.indexOf('squalif') >= 0 || reason.indexOf('ammonizion') >= 0 || reason.indexOf('rosso') >= 0 || reason.indexOf('doppia') >= 0) {
-                                        absentIcon = ' 🔴';
-                                        absentHint = ' — SQUALIFICATO: ' + (tk.absent_reason || '');
-                                    } else {
-                                        absentIcon = ' 🏥';
-                                        absentHint = ' — INFORTUNATO: ' + (tk.absent_reason || '');
-                                    }
-                                }
-                                return '<span class="taker-pill ' + cls + '" title="' + tk.player + ': ' + conv + ' segnati (' + pct + '%)' + absentHint + '">' + tk.player.split(' ').pop() + ' <b>' + conv + '</b>' + absentIcon + '</span>';
-                              }).join('')
-                        }</td>
-                        <td class="factors-cell">
-                            <span class="factor-pill fp-drought" title="Astinenza ${f.astinenza}/${w.astinenza}&#10;${droughtHint}"><b>AST</b>${f.astinenza}</span>
-                            <span class="factor-pill fp-attack" title="Attacco ${f.attacco}/${w.attacco}&#10;${attackHint}"><b>ATT</b>${f.attacco}</span>
-                            <span class="factor-pill fp-defense" title="Difesa avv. ${f.difesa_avv}/${w.difesa_avv}&#10;Gol subiti + cartellini avversario"><b>DIF</b>${f.difesa_avv}</span>
-                            ${refPill}
-                            <span class="factor-pill fp-home" title="Casa ${f.casa}/${w.casa}&#10;${homeHint}"><b>${f.casa >= 8 ? '🏠' : '✈️'}</b>${f.casa}</span>
-                            <span class="factor-pill fp-history" title="Storico ${f.storico}/${w.storico}&#10;${histHint}"><b>STO</b>${f.storico}</span>
-                            ${t.advanced_stats && Object.keys(t.advanced_stats).length > 0 ? `
-                            <div class="scorer-adv-line" style="margin-top:4px">
-                                ${t.advanced_stats.shots_pg ? `<span class="scorer-adv-pill pill-shots" title="Tiri squadra/partita">🎯 ${t.advanced_stats.shots_pg}/g</span>` : ''}
-                                ${t.advanced_stats.fouls_drawn_pg ? `<span class="scorer-adv-pill pill-fouls" title="Falli subiti squadra/partita">⚡ ${t.advanced_stats.fouls_drawn_pg}/g</span>` : ''}
-                                ${t.advanced_stats.dribbles_pg ? `<span class="scorer-adv-pill pill-dribbles" title="Dribbling riusciti squadra/partita">💨 ${t.advanced_stats.dribbles_pg}/g</span>` : ''}
-                                ${t.advanced_stats.big_chances ? `<span class="scorer-adv-pill pill-chances" title="Grandi occasioni create (totale stagione)">💎 ${t.advanced_stats.big_chances}</span>` : ''}
-                                ${t.advanced_stats.key_passes_pg ? `<span class="scorer-adv-pill pill-kp" title="Passaggi chiave squadra/partita">🔑 ${t.advanced_stats.key_passes_pg}/g</span>` : ''}
-                            </div>
-                            ` : ''}
-                        </td>
+                        <td>${hasRef ? `<span class="ref-stat">${t.referee_matches} gare</span>${refPpm ? `<span class="ref-rate">${refPpm}</span>` : ''}` : '<span class="no-data">—</span>'}</td>
+                        <td class="takers-cell">${takersHtml}</td>
+                        <td class="factors-cell">${factorsHtml}${advHtml}</td>
                         <td><span class="prob-badge ${probClass}">${prob}%</span></td>
                     `;
                     tbody.appendChild(row);
+
+                    // === MOBILE CARD ===
+                    const card = document.createElement('div');
+                    card.className = 'rig-card';
+                    card.innerHTML = `
+                        <div class="rig-card-summary">
+                            <span class="rig-card-rank">${i + 1}</span>
+                            <span class="rig-card-team">${t.team}</span>
+                            <span class="abs-badge ${absClass}" style="font-size:0.72rem;padding:2px 6px;">${abs}gg</span>
+                            <span class="prob-badge ${probClass}" style="font-size:0.78rem;padding:2px 8px;">${prob}%</span>
+                            <span class="rig-card-chevron">›</span>
+                        </div>
+                        <div class="rig-card-detail" style="display:none;">
+                            <div class="rig-card-section">
+                                <div class="pm-row"><span class="pm-label">Prossima</span><span class="pm-value">${t.next_match || '—'}</span></div>
+                                <div class="pm-row"><span class="pm-label">Ultimo rigore</span><span class="pm-value">${t.last_penalty || 'Mai'}</span></div>
+                                <div class="pm-row"><span class="pm-label">Rigori stagione</span><span class="pm-value">${t.penalties_scored !== undefined ? t.penalties_scored : t.penalties_total}✓ su ${t.penalties_total} tot / ${t.matches_played} pg</span></div>
+                            </div>
+                            <div class="rig-card-section">
+                                <div class="pm-section-title" style="margin-top:0;">Arbitro</div>
+                                <div class="pm-row"><span class="pm-label">Nome</span><span class="pm-value">${t.referee || 'Da assegnare'}</span></div>
+                                ${hasRef ? `
+                                <div class="pm-row"><span class="pm-label">Partite</span><span class="pm-value">${t.referee_matches} gare</span></div>
+                                ${refPpm ? `<div class="pm-row"><span class="pm-label">Rigori/gara</span><span class="pm-value">${refPpm}</span></div>` : ''}
+                                ${refCardsPm ? `<div class="pm-row"><span class="pm-label">Cartellini/gara</span><span class="pm-value">${refCardsPm}</span></div>` : ''}
+                                ` : ''}
+                            </div>
+                            <div class="rig-card-section">
+                                <div class="pm-section-title" style="margin-top:0;">Rigoristi</div>
+                                <div style="padding:4px 0;">${takersHtml}</div>
+                            </div>
+                            <div class="rig-card-section">
+                                <div class="pm-section-title" style="margin-top:0;">Fattori</div>
+                                <div class="rig-factors-grid">${factorsHtml}</div>
+                                ${advHtml}
+                            </div>
+                        </div>
+                    `;
+                    // Toggle detail on tap
+                    card.querySelector('.rig-card-summary').addEventListener('click', function() {
+                        const det = card.querySelector('.rig-card-detail');
+                        const chev = card.querySelector('.rig-card-chevron');
+                        if (det.style.display === 'none') {
+                            det.style.display = 'block';
+                            chev.textContent = '‹';
+                            chev.style.transform = 'rotate(-90deg)';
+                        } else {
+                            det.style.display = 'none';
+                            chev.textContent = '›';
+                            chev.style.transform = '';
+                        }
+                    });
+                    cardsContainer.appendChild(card);
                 });
+
                 results.style.display = 'block';
-                legend.style.display = 'flex';
+                legend.style.display = isMobile ? 'none' : 'flex';
             })
             .catch(function() {
                 icon.textContent = '🔍';

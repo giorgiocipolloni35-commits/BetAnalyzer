@@ -1806,6 +1806,68 @@ footer {
 .tk-good { background: rgba(76,175,80,0.2); color: #81c784; }
 .tk-mid  { background: rgba(255,183,77,0.2); color: #ffb74d; }
 .tk-bad  { background: rgba(229,115,115,0.2); color: #ef9a9a; }
+.tk-absent { background: rgba(148,163,184,0.15); color: #64748b; text-decoration: line-through; opacity: 0.6; }
+
+/* ---- RIGORI MOBILE CARDS ---- */
+.rigori-mobile { display: none; }
+
+.rig-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+.rig-card-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+.rig-card-summary:active { background: rgba(255,255,255,0.03); }
+.rig-card-rank {
+    width: 1.4rem; min-width: 1.4rem;
+    text-align: center;
+    font-weight: 800;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+.rig-card-team {
+    flex: 1;
+    font-weight: 700;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rig-card-chevron {
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    font-weight: 700;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+.rig-card-detail {
+    border-top: 1px solid var(--border);
+    padding: 0;
+}
+.rig-card-section {
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.rig-card-section:last-child { border-bottom: none; }
+.rig-factors-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 6px 0;
+}
+.rig-factors-grid .factor-pill {
+    font-size: 0.72rem;
+    height: 24px;
+    padding: 0 6px;
+}
 .tk-absent { background: rgba(229,115,115,0.3); color: #ef5350; text-decoration: line-through; }
 
 /* ---- RIGORI LEGEND ---- */
@@ -2480,6 +2542,11 @@ input:checked + .slider:before {
 
     /* Worker page */
     .worker-grid { grid-template-columns: 1fr !important; }
+
+    /* Rigori: hide table, show cards */
+    .rigori-desktop { display: none !important; }
+    .rigori-mobile { display: block !important; }
+    .rigori-legend { display: none !important; }
 
     /* Player rows: compact for mobile, tap to open modal */
     .cards-pick-row:not(.cards-pick-header) {
