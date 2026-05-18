@@ -27,6 +27,9 @@
     line-height: 1.5;
 }
 
+html, body {
+    overflow-x: hidden;       /* prevent horizontal scroll on mobile */
+}
 body {
     background: var(--bg);
     color: var(--text);
@@ -439,7 +442,7 @@ main {
 /* ---- MATCHES GRID ---- */
 .matches-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
     gap: 1rem;
 }
 
@@ -1531,7 +1534,9 @@ footer {
 .header-nav {
     display: flex;
     gap: 0.25rem;
+    flex-wrap: wrap;
 }
+.nav-close { display: none; }   /* hidden on desktop, shown in mobile overlay */
 .nav-link {
     color: var(--text-muted);
     text-decoration: none;
@@ -2225,6 +2230,9 @@ input:checked + .slider:before {
     /* Show hamburger */
     .nav-toggle { display: block; }
 
+    /* Nav close visible on mobile */
+    .nav-close { display: block; }
+
     /* Nav becomes fullscreen overlay */
     .header-nav {
         display: none;
@@ -2363,11 +2371,38 @@ input:checked + .slider:before {
     /* Teams page */
     .team-cards-grid { grid-template-columns: 1fr !important; }
 
-    /* Horizontal overflow on tables */
-    .table-wrap, .table-container {
+    /* Prevent ANY horizontal overflow */
+    main, section, .rigori-page, .page-wrap, .detail-wrap {
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+
+    /* Horizontal scroll on tables only */
+    .table-wrap, .table-container, .odds-table-wrap, .rigori-table-wrap {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        max-width: 100%;
     }
+
+    /* Long text wrapping */
+    .dt-teams, .teams, .match-card, .team-name {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Odds row: allow wrapping on very small screens */
+    .odds-row { flex-wrap: wrap; }
+    .odd-box-wrapper { min-width: 0; }
+    .odd-box { padding: 0.35rem 0.15rem; }
+    .odd-label { font-size: 0.7rem; }
+    .odd-value { font-size: 0.8rem; }
+
+    /* Setup guide arrows */
+    .setup-guide { flex-direction: column; gap: 6px; }
+    .setup-guide .arrow { display: none; }
+
+    /* Header padding tighter */
+    header { padding: 0.5rem 0.75rem; }
 
     /* Generic 2-col grids → single col */
     .two-col, .grid-2 { grid-template-columns: 1fr !important; }
@@ -2377,6 +2412,35 @@ input:checked + .slider:before {
 
     /* Worker page */
     .worker-grid { grid-template-columns: 1fr !important; }
+
+    /* Breakdown tables */
+    .breakdown-row {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 4px;
+        font-size: 0.72rem;
+    }
+    .breakdown-table:last-of-type .breakdown-row {
+        grid-template-columns: 1fr 1fr 1fr !important;
+    }
+    .pred-match { white-space: normal !important; }
+
+    /* Scan table */
+    .scan-table-wrap { overflow-x: auto; max-width: 100%; }
+
+    /* Match detail page */
+    .detail-grid, .match-detail-grid { grid-template-columns: 1fr !important; }
+    .detail-sidebar { order: -1; }
+
+    /* Controls bar */
+    .controls-bar, .action-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .controls-bar select, .controls-bar button,
+    .action-bar select, .action-bar button {
+        width: 100%;
+    }
 }
 
 /* Small phone tweaks */
