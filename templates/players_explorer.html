@@ -243,6 +243,203 @@
         opacity: 0.3;
         cursor: not-allowed;
     }
+
+    /* ========== MOBILE RESPONSIVE ========== */
+    @media (max-width: 768px) {
+        .explorer-container {
+            padding: 0.75rem;
+        }
+
+        /* Header: stack vertically */
+        .explorer-container > .row {
+            display: flex !important;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 1rem !important;
+        }
+        .explorer-container > .row .col-md-6 {
+            width: 100%;
+            text-align: left !important;
+        }
+        .explorer-container > .row h1 {
+            font-size: 1.3rem !important;
+        }
+        .explorer-container > .row p {
+            font-size: 0.75rem;
+            margin-bottom: 0;
+        }
+        .explorer-container > .row .col-md-6:last-child > div {
+            justify-content: flex-start !important;
+            flex-wrap: wrap;
+        }
+        .explorer-container > .row .col-md-6:last-child a,
+        .explorer-container > .row .col-md-6:last-child .badge {
+            font-size: 0.72rem !important;
+            padding: 0.35rem 0.7rem !important;
+        }
+
+        /* Filters: stack vertically */
+        .filter-bar {
+            flex-direction: column;
+            gap: 0.6rem;
+            padding: 1rem;
+        }
+        .filter-group {
+            min-width: 100% !important;
+            flex: unset !important;
+        }
+        .btn-apply {
+            width: 100%;
+            padding: 0.6rem;
+        }
+
+        /* Hide desktop table */
+        .scout-table-desktop {
+            display: none !important;
+        }
+
+        /* Show mobile card list */
+        .scout-mobile-list {
+            display: block !important;
+        }
+
+        /* Pagination */
+        .pagination-wrap {
+            flex-direction: column;
+            gap: 10px;
+            padding: 1rem;
+            align-items: stretch;
+        }
+        .pagination-wrap .d-flex {
+            display: flex;
+            gap: 8px;
+        }
+        .pagination-wrap .d-flex .page-btn {
+            flex: 1;
+            text-align: center;
+        }
+
+        /* Compare bar */
+        #compareBar {
+            bottom: 14px !important;
+            padding: 10px 18px !important;
+            font-size: 0.82rem;
+            border-radius: 12px !important;
+            width: calc(100% - 32px);
+            left: 16px !important;
+            transform: none !important;
+            text-align: center;
+        }
+
+        /* Compare modal */
+        #compareModal > div {
+            width: 98% !important;
+            padding: 1rem !important;
+            border-radius: 14px !important;
+        }
+        #compareModal h2 {
+            font-size: 1rem !important;
+        }
+        #compareHeaders {
+            flex-direction: column !important;
+            gap: 10px;
+        }
+        #compareHeaders > div:nth-child(2) {
+            display: none;
+        }
+        #radarCanvas {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+    }
+
+    /* --- Mobile player cards --- */
+    .scout-mobile-list {
+        display: none;
+    }
+    .scout-mob-card {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.15s;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .scout-mob-card:active {
+        background: rgba(255,255,255,0.04);
+    }
+    .scout-mob-rank {
+        font-size: 0.72rem;
+        color: var(--accent-blue);
+        font-weight: 700;
+        min-width: 24px;
+        text-align: center;
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 6px;
+        padding: 2px 0;
+    }
+    .scout-mob-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .scout-mob-name {
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: #f8fafc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .scout-mob-team {
+        font-size: 0.68rem;
+        color: #64748b;
+        margin-top: 1px;
+    }
+    .scout-mob-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+    }
+    .scout-mob-pill {
+        font-size: 0.65rem;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.05);
+        color: #cbd5e1;
+    }
+    .scout-mob-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    .scout-mob-rating {
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-weight: 800;
+        font-size: 0.82rem;
+    }
+    .scout-mob-role {
+        font-size: 0.6rem;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    .scout-mob-chevron {
+        color: #475569;
+        font-size: 0.9rem;
+        margin-top: 2px;
+    }
 </style>
 {% endblock %}
 
@@ -332,8 +529,8 @@
         </form>
     </div>
 
-    <!-- Tabella -->
-    <div class="glass-card">
+    <!-- Tabella Desktop -->
+    <div class="glass-card scout-table-desktop">
         <div class="table-responsive">
             <table class="scout-table">
                 <thead>
@@ -471,6 +668,66 @@
                 </a>
                 <a href="?page={{ pagination.page + 1 }}&{{ pagination.query_params }}" class="page-btn {% if pagination.page >= pagination.total_pages %}disabled{% endif %}">
                     Successiva <i class="fas fa-chevron-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile card list -->
+    <div class="scout-mobile-list">
+        {% for p in players %}
+        <a href="/player/{{ p.player_id }}?team_id={{ p.team_id }}&league={{ p.league_id }}" class="scout-mob-card">
+            <span class="scout-mob-rank">{{ loop.index + (pagination.page - 1) * 40 }}</span>
+            <div class="scout-mob-info">
+                <div class="scout-mob-name">{{ p.name }}</div>
+                <div class="scout-mob-team">{{ p.team_name }}</div>
+                <div class="scout-mob-stats">
+                    <span class="scout-mob-pill">{{ p.stats.appearances }} pres</span>
+                    {% if filters.role == '24' %}
+                    <span class="scout-mob-pill" style="color:var(--accent-yellow);">🧤 {{ p.stats.saves or 0 }}</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-green);">🧹 {{ p.stats.clean_sheets or 0 }} CS</span>
+                    {% elif filters.role == '25' %}
+                    <span class="scout-mob-pill" style="color:var(--accent-green);">🛡️ {{ (p.stats.interceptions or 0) + (p.stats.tackles or 0) }} rec</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-yellow);">✈️ {{ p.stats.aerials_won or 0 }} ae</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-blue);">⚽ {{ p.stats.goals or 0 }}</span>
+                    {% elif filters.role == '26' %}
+                    <span class="scout-mob-pill" style="color:var(--accent-blue);">🪄 {{ p.stats.key_passes or 0 }} kp</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-green);">👟 {{ p.stats.assists or 0 }} a</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-yellow);">⚽ {{ p.stats.goals or 0 }}</span>
+                    {% elif filters.role == '27' %}
+                    <span class="scout-mob-pill" style="color:var(--accent-yellow);">⚽ {{ p.stats.goals or 0 }}</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-green);">👟 {{ p.stats.assists or 0 }} a</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-red);">🎯 {{ p.stats.shots_on_target or 0 }} t</span>
+                    {% else %}
+                    <span class="scout-mob-pill" style="color:var(--accent-yellow);">⚽ {{ p.stats.goals or 0 }}</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-green);">👟 {{ p.stats.assists or 0 }} a</span>
+                    <span class="scout-mob-pill" style="color:var(--accent-blue);">🪄 {{ p.stats.key_passes or 0 }} kp</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="scout-mob-right">
+                <span class="scout-mob-rating {% if p.rating >= 80 %}rating-high{% elif p.rating >= 60 %}rating-mid{% else %}rating-low{% endif %}">
+                    {{ p.rating }}
+                </span>
+                {% if p.position_id == 24 %}<span class="scout-mob-role role-gk">POR</span>
+                {% elif p.position_id == 25 %}<span class="scout-mob-role role-dif">DIF</span>
+                {% elif p.position_id == 26 %}<span class="scout-mob-role role-cen">CEN</span>
+                {% elif p.position_id == 27 %}<span class="scout-mob-role role-att">ATT</span>
+                {% endif %}
+                <span class="scout-mob-chevron">›</span>
+            </div>
+        </a>
+        {% endfor %}
+
+        <!-- Mobile pagination -->
+        <div class="pagination-wrap">
+            <span style="font-size:0.75rem;color:#64748b;">Pagina {{ pagination.page }} di {{ pagination.total_pages }}</span>
+            <div class="d-flex gap-2" style="display:flex;gap:8px;">
+                <a href="?page={{ pagination.page - 1 }}&{{ pagination.query_params }}" class="page-btn {% if pagination.page <= 1 %}disabled{% endif %}">
+                    <i class="fas fa-chevron-left"></i> Prec
+                </a>
+                <a href="?page={{ pagination.page + 1 }}&{{ pagination.query_params }}" class="page-btn {% if pagination.page >= pagination.total_pages %}disabled{% endif %}">
+                    Succ <i class="fas fa-chevron-right"></i>
                 </a>
             </div>
         </div>
