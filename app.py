@@ -2091,6 +2091,78 @@ def _mark_absent_players(matches_data, league_key: str = ""):
                         pick["absent_reason"] = reason
                         break
 
+    # ── Source 4: Worker lineup cache (starters / bench / not in squad) ──
+    lineup_cache_path = os.path.join("data", "lineups_cache.json")
+    if os.path.exists(lineup_cache_path):
+        try:
+            with open(lineup_cache_path, "r") as f:
+                lineup_cache = json.load(f)
+        except Exception:
+            lineup_cache = {}
+
+        if lineup_cache:
+            for match_data in matches_data:
+                home_team = match_data.get("home_team", "")
+                away_team = match_data.get("away_team", "")
+
+                # Find matching lineup entry (fuzzy)
+                lineup_entry = None
+                home_low = home_team.lower()
+                away_low = away_team.lower()
+                for lk, lv in lineup_cache.items():
+                    lh = lv.get("home_team", "").lower()
+                    la = lv.get("away_team", "").lower()
+                    if (home_low in lh or lh in home_low) and (away_low in la or la in away_low):
+                        lineup_entry = lv
+                        break
+
+                if not lineup_entry:
+                    continue
+
+                # Build name sets (lowercased)
+                starters_home = {n.lower() for n in lineup_entry.get("starters_home", [])}
+                starters_away = {n.lower() for n in lineup_entry.get("starters_away", [])}
+                bench_home = {n.lower() for n in lineup_entry.get("bench_home", [])}
+                bench_away = {n.lower() for n in lineup_entry.get("bench_away", [])}
+
+                has_lineups = bool(starters_home or starters_away)
+                if not has_lineups:
+                    continue
+
+                # Mark lineup_status on "has_lineup" match
+                match_data["has_lineup"] = True
+                match_data["formation_home"] = lineup_entry.get("formation_home")
+                match_data["formation_away"] = lineup_entry.get("formation_away")
+
+                for pick in match_data.get("top_picks", []):
+                    if pick.get("absent"):
+                        continue  # already marked absent, skip
+
+                    player_low = pick.get("player", "").lower()
+                    is_home = pick.get("is_home", False)
+
+                    starters = starters_home if is_home else starters_away
+                    bench = bench_home if is_home else bench_away
+
+                    # Fuzzy match against lineup names
+                    def _in_set(name_low, name_set):
+                        for n in name_set:
+                            if n in name_low or name_low in n:
+                                return True
+                            # Cognome match
+                            parts_n = n.split()
+                            parts_p = name_low.split()
+                            if len(parts_n) >= 2 and len(parts_p) >= 2 and parts_n[-1] == parts_p[-1]:
+                                return True
+                        return False
+
+                    if _in_set(player_low, starters):
+                        pick["lineup_status"] = "starter"
+                    elif _in_set(player_low, bench):
+                        pick["lineup_status"] = "bench"
+                    else:
+                        pick["lineup_status"] = "out"
+
 
 @app.route("/marcatori")
 def marcatori_page():

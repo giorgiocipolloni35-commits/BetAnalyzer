@@ -124,6 +124,12 @@ function _formatDate(isoStr) {
                     if (m.utcDate) {
                         html += '<span style="font-size: 0.75rem; color: #94a3b8; font-weight: 500;"><i class="fas fa-clock" style="margin-right:4px;"></i>' + _formatDate(m.utcDate) + '</span>';
                     }
+                    if (m.has_lineup) {
+                        html += '<span class="lineup-match-badge">📋 FORMAZIONI UFFICIALI';
+                        if (m.formation_home) html += ' · ' + m.formation_home;
+                        if (m.formation_away) html += ' vs ' + m.formation_away;
+                        html += '</span>';
+                    }
                     html += '</div>';
                     // Defense badges: describe each team's defense clearly
                     // home_def_weakness = how weak is the AWAY team's defense (affects home scorers)
@@ -196,6 +202,16 @@ function _formatDate(isoStr) {
                             }
                         }
 
+                        // Lineup status badge (from worker lineup cache)
+                        var lineupBadge = '';
+                        if (p.lineup_status === 'bench') {
+                            lineupBadge = ' <span class="lineup-badge lineup-bench">⚪ PANCHINA</span>';
+                        } else if (p.lineup_status === 'out') {
+                            lineupBadge = ' <span class="lineup-badge lineup-out">🚫 FUORI ROSA</span>';
+                        } else if (p.lineup_status === 'starter') {
+                            lineupBadge = ' <span class="lineup-badge lineup-starter">✅ TITOLARE</span>';
+                        }
+
                         // Build advanced stats pills
                         var advPills = '';
                         if (p.shots_per_game != null && p.shots_per_game > 0) {
@@ -238,6 +254,7 @@ function _formatDate(isoStr) {
                             absent: p.absent || false,
                             absentLabel: absentBadge.replace(/<[^>]+>/g, ''),
                             absentClass: p.absent ? (absentBadge.indexOf('injured') >= 0 ? 'absent-injured' : absentBadge.indexOf('suspended') >= 0 ? 'absent-suspended' : 'absent-other') : '',
+                            lineup_status: p.lineup_status || null,
                             statsRows: [
                                 {label: 'Gol stagionali', value: p.goals + '⚽'},
                                 {label: 'Presenze', value: p.matches + ' partite'},
@@ -256,7 +273,7 @@ function _formatDate(isoStr) {
 
                         html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '"' + dataAttr + '>';
                         html += '<span class="cards-pick-rank">' + (i + 1) + '</span>';
-                        html += '<span class="cards-pick-player">' + p.player + posLabel + droughtInfo + absentBadge + '</span>';
+                        html += '<span class="cards-pick-player">' + p.player + posLabel + droughtInfo + absentBadge + lineupBadge + '</span>';
                         html += '<span class="cards-pick-team">' + loc + ' ' + p.team + '</span>';
                         html += '<span class="cards-pick-stats">' + statsHtml + '</span>';
                         html += '<span class="prob-badge ' + probClass + '">' + p.probability + '%</span>';

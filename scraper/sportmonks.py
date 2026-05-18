@@ -471,32 +471,45 @@ class SportmonksClient:
                 home_id = participants[0]["id"]
                 away_id = participants[1]["id"]
 
-            result = {"home": [], "away": [], "formation": {"home": data.get("formation_home"), "away": data.get("formation_away")}}
-            
+            result = {
+                "home": [], "away": [],
+                "home_bench": [], "away_bench": [],
+                "formation": {"home": data.get("formation_home"), "away": data.get("formation_away")}
+            }
+
             for l in lineups_raw:
-                if l.get("type_id") != 11: continue
-                
+                tid = l.get("type_id")
+                if tid not in (11, 12):  # 11=starter, 12=bench
+                    continue
+
                 player = l.get("player", {})
                 pos_id = player.get("position_id", 5) # 1=GK, 2=DEF, 3=MID, 4=ATK
-                
+
                 p_data = {
                     "id": player.get("id"),
                     "name": player.get("display_name") or player.get("name") or "Unknown",
                     "role_id": pos_id,
                     "number": l.get("jersey_number"),
-                    "season_id": data.get("season_id")
+                    "season_id": data.get("season_id"),
+                    "starter": tid == 11
                 }
-                
+
                 if l.get("team_id") == home_id:
-                    result["home"].append(p_data)
+                    if tid == 11:
+                        result["home"].append(p_data)
+                    else:
+                        result["home_bench"].append(p_data)
                 elif l.get("team_id") == away_id:
-                    result["away"].append(p_data)
-            
+                    if tid == 11:
+                        result["away"].append(p_data)
+                    else:
+                        result["away_bench"].append(p_data)
+
             # Ordinamento tattico per ID posizione
             result["home"].sort(key=lambda x: x["role_id"])
             result["away"].sort(key=lambda x: x["role_id"])
             
-            logger.info(f"Lineups recuperate e ordinate: Home={len(result['home'])}, Away={len(result['away'])}")
+            logger.info(f"Lineups recuperate: Home={len(result['home'])}+{len(result['home_bench'])}bench, Away={len(result['away'])}+{len(result['away_bench'])}bench")
             return result
         except Exception as e:
             logger.error(f"Errore recupero lineups fixture {fixture_id}: {e}")

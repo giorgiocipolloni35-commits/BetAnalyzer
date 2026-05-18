@@ -223,6 +223,53 @@ class BetAnalyzerWorker:
         minutes_to_kickoff = (kickoff_utc - now).total_seconds() / 60
         return self.LINEUP_WINDOW_END <= minutes_to_kickoff <= self.LINEUP_WINDOW_START
 
+    def _save_lineup_cache(self, m_dict, lineups):
+        """Salva le formazioni ufficiali in un file cache per cartellini/marcatori."""
+        cache_path = os.path.join(os.path.dirname(self.db_path), "lineups_cache.json")
+        try:
+            # Leggi cache esistente
+            cache = {}
+            if os.path.exists(cache_path):
+                with open(cache_path, "r") as f:
+                    cache = json.load(f)
+
+            # Chiave: "HomeTeam vs AwayTeam" normalizzata
+            key = f"{m_dict['home']} vs {m_dict['away']}"
+
+            # Nomi titolari e panchinari
+            starters_home = [p["name"] for p in lineups.get("home", [])]
+            starters_away = [p["name"] for p in lineups.get("away", [])]
+            bench_home = [p["name"] for p in lineups.get("home_bench", [])]
+            bench_away = [p["name"] for p in lineups.get("away_bench", [])]
+
+            cache[key] = {
+                "home_team": m_dict["home"],
+                "away_team": m_dict["away"],
+                "league_key": m_dict.get("league_key", ""),
+                "starters_home": starters_home,
+                "starters_away": starters_away,
+                "bench_home": bench_home,
+                "bench_away": bench_away,
+                "formation_home": lineups.get("formation", {}).get("home"),
+                "formation_away": lineups.get("formation", {}).get("away"),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "kickoff": m_dict.get("kickoff_utc", "").isoformat() if hasattr(m_dict.get("kickoff_utc", ""), "isoformat") else str(m_dict.get("kickoff_utc", ""))
+            }
+
+            # Pulisci entries più vecchie di 24h
+            cutoff = datetime.now(timezone.utc).isoformat()
+            for k in list(cache.keys()):
+                ts = cache[k].get("timestamp", "")
+                if ts and ts < (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat():
+                    del cache[k]
+
+            with open(cache_path, "w") as f:
+                json.dump(cache, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"💾 Lineup salvate in cache: {key} (T:{len(starters_home)}+{len(starters_away)}, P:{len(bench_home)}+{len(bench_away)})")
+        except Exception as e:
+            logger.error(f"Errore salvataggio lineup cache: {e}")
+
     def is_alert_sent(self, alert_id):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -1181,6 +1228,9 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
                     if not official_lineups:
                         logger.info(f"⏳ {label} — formazioni non ancora disponibili, riprovo tra {self.CHECK_INTERVAL}s")
                         continue
+
+                    # 6b. Salva lineup in cache per cartellini/marcatori
+                    self._save_lineup_cache(m, official_lineups)
 
                     # 7. Formazioni trovate! Lancia analisi AI + invio email
                     logger.info(f"🚀 {label} — Avvio analisi completa + invio email a {alert_email}")

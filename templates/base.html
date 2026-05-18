@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="BetAnalyzer — Analisi quote scommesse con AI per Serie A, Premier League e La Liga">
     <title>{% block title %}BetAnalyzer{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2.7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
@@ -154,6 +154,9 @@ document.querySelectorAll('#mobileNav .nav-link').forEach(a => {
         if (data.position) html += '<span class="cards-role-badge" style="font-size:0.75rem;padding:3px 8px;">' + data.position + '</span>';
         if (data.is_home !== undefined) html += '<span style="font-size:0.8rem;">' + (data.is_home ? '🏠 Casa' : '✈️ Trasferta') + '</span>';
         if (data.diffidato) html += '<span class="cards-diffida-badge">⚠ DIFFIDATO</span>';
+        if (data.lineup_status === 'starter') html += '<span class="lineup-badge lineup-starter" style="font-size:0.78rem;padding:3px 8px;">✅ TITOLARE</span>';
+        if (data.lineup_status === 'bench') html += '<span class="lineup-badge lineup-bench" style="font-size:0.78rem;padding:3px 8px;">⚪ PANCHINA</span>';
+        if (data.lineup_status === 'out') html += '<span class="lineup-badge lineup-out" style="font-size:0.78rem;padding:3px 8px;">🚫 FUORI ROSA</span>';
         if (data.absent) html += '<span class="cards-absent-badge ' + (data.absentClass || '') + '">' + data.absentLabel + '</span>';
         html += '</div>';
 
