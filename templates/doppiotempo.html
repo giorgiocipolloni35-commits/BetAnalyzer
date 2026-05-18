@@ -451,6 +451,72 @@ function renderDT(matches) {
                 html += `</div>`;
             }
 
+            // Referee impact insights
+            const refInsights = [];
+            const hs_ = m.home_stats || {};
+            const as__ = m.away_stats || {};
+
+            // Goals: compare referee avg with match expected
+            const teamGoalsAvg = ((hs_.goals_1h_avg||0)+(hs_.goals_2h_avg||0)+(as__.goals_1h_avg||0)+(as__.goals_2h_avg||0));
+            if (rs.goals_avg > teamGoalsAvg + 0.3) {
+                refInsights.push(`&#9889; ${m.referee} ha una media gol (${rs.goals_avg}/g) <b>superiore</b> a quanto suggeriscono le squadre (${teamGoalsAvg.toFixed(1)}/g) — partita potenzialmente più aperta`);
+            } else if (rs.goals_avg < teamGoalsAvg - 0.3) {
+                refInsights.push(`&#128274; ${m.referee} ha una media gol (${rs.goals_avg}/g) <b>inferiore</b> a quanto suggeriscono le squadre (${teamGoalsAvg.toFixed(1)}/g) — potrebbe frenare il gioco`);
+            }
+
+            // GG: referee vs match prediction
+            const ggPred = ggngPreds.find(p => p.market && p.market.includes('GG/'));
+            if (ggPred && rs.gg_ft_pct > 55) {
+                refInsights.push(`&#9989; ${m.referee} ha GG nel <b>${rs.gg_ft_pct}%</b> delle partite — rafforza la previsione GG`);
+            } else if (ggPred && rs.gg_ft_pct < 40) {
+                refInsights.push(`&#10060; ${m.referee} ha GG solo nel <b>${rs.gg_ft_pct}%</b> delle partite — attenzione alla previsione GG`);
+            }
+
+            // Half preference
+            if (rs.goals_2t_avg > rs.goals_ht_avg + 0.3) {
+                refInsights.push(`&#128337; Le partite di ${m.referee} si accendono nel 2° tempo (${rs.goals_2t_avg} gol vs ${rs.goals_ht_avg} nel 1°T)`);
+            } else if (rs.goals_ht_avg > rs.goals_2t_avg + 0.3) {
+                refInsights.push(`&#9200; Con ${m.referee} si segna di più nel 1° tempo (${rs.goals_ht_avg} gol vs ${rs.goals_2t_avg} nel 2°T)`);
+            }
+
+            // Cards distribution
+            if (rs.cards_2t_avg > rs.cards_1t_avg + 0.5) {
+                refInsights.push(`&#129668; ${m.referee} concentra i cartellini nel 2° tempo (${rs.cards_2t_avg}/g vs ${rs.cards_1t_avg}/g nel 1°T)`);
+            } else if (rs.cards_1t_avg > rs.cards_2t_avg + 0.5) {
+                refInsights.push(`&#129668; ${m.referee} ammonisce di più nel 1° tempo (${rs.cards_1t_avg}/g vs ${rs.cards_2t_avg}/g nel 2°T)`);
+            }
+
+            // Cards severity
+            if (rs.cards_avg >= 5.0) {
+                refInsights.push(`&#128680; <b>Arbitro severo:</b> ${rs.cards_avg} cartellini/partita — aspettati una gara nervosa`);
+            } else if (rs.cards_avg <= 2.5) {
+                refInsights.push(`&#128154; <b>Arbitro permissivo:</b> ${rs.cards_avg} cartellini/partita — lascia correre`);
+            }
+
+            // Top HT/FT combo vs prediction
+            if (rs.top_htft && rs.top_htft.length && htftPreds.length) {
+                const topRefCombo = rs.top_htft[0].combo;
+                const topPredCombo = htftPreds[0].market.replace('HT/FT ','');
+                if (topRefCombo === topPredCombo) {
+                    refInsights.push(`&#127919; L'esito più frequente di ${m.referee} (<b>${topRefCombo}</b>, ${rs.top_htft[0].pct}%) coincide con la previsione — segnale forte`);
+                }
+            }
+
+            // Penalties
+            if (rs.penalties_total >= 5) {
+                const penPerMatch = (rs.penalties_total / rs.matches).toFixed(2);
+                refInsights.push(`&#9888;&#65039; ${m.referee} assegna rigori con frequenza (${rs.penalties_total} in ${rs.matches} gare, ${penPerMatch}/g) — potrebbe influire sui gol`);
+            }
+
+            if (refInsights.length) {
+                html += `<div style="margin-top:10px;padding:10px 14px;background:rgba(251,191,36,0.03);border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;">`;
+                html += `<div style="font-size:0.7rem;color:#fbbf24;font-weight:700;text-transform:uppercase;margin-bottom:6px;">Impatto Arbitro</div>`;
+                refInsights.forEach(ri => {
+                    html += `<div style="font-size:0.78rem;color:#cbd5e1;margin-bottom:4px;line-height:1.4;">${ri}</div>`;
+                });
+                html += `</div>`;
+            }
+
             html += `</div></div>`;
         }
 
