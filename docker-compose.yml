@@ -4,8 +4,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - betanalyzer-data:/app/data
-      - betanalyzer-cache:/app/cache
+      - /data/coolify/betanalyzer:/app/data
+      - cache:/app/cache
     env_file:
       - .env
     restart: unless-stopped
@@ -14,8 +14,8 @@ services:
     build: .
     command: python worker.py
     volumes:
-      - betanalyzer-data:/app/data
-      - betanalyzer-cache:/app/cache
+      - /data/coolify/betanalyzer:/app/data
+      - cache:/app/cache
     env_file:
       - .env
     restart: unless-stopped
@@ -31,12 +31,11 @@ services:
         cron -f
       "
     volumes:
-      - betanalyzer-data:/app/data
-      - betanalyzer-cache:/app/cache
+      - /data/coolify/betanalyzer:/app/data
+      - cache:/app/cache
     env_file:
       - .env
     restart: unless-stopped
 
 volumes:
-  betanalyzer-data:
-  betanalyzer-cache:
+  cache:
