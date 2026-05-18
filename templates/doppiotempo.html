@@ -393,6 +393,67 @@ function renderDT(matches) {
 
         html += `</div>`; // end dt-team-stats
 
+        // Referee stats
+        if (m.referee && m.referee_stats) {
+            const rs = m.referee_stats;
+            html += `<div style="background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:14px 18px;margin-top:12px;">`;
+            html += `<div style="font-weight:700;color:#fbbf24;font-size:0.85rem;margin-bottom:10px;display:flex;align-items:center;gap:6px;">`;
+            html += `<i class="fas fa-gavel"></i> Arbitro: ${m.referee} <span style="color:#64748b;font-weight:400;font-size:0.75rem;">(${rs.matches} partite)</span></div>`;
+
+            html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;font-size:0.78rem;">`;
+
+            // Goals per half
+            html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;text-align:center;">`;
+            html += `<div style="color:#94a3b8;font-size:0.65rem;text-transform:uppercase;font-weight:700;">Gol/partita</div>`;
+            html += `<div style="font-weight:800;color:#f8fafc;font-size:1rem;">${rs.goals_avg}</div>`;
+            html += `<div style="color:#64748b;font-size:0.65rem;">1°T: ${rs.goals_ht_avg} · 2°T: ${rs.goals_2t_avg}</div>`;
+            html += `</div>`;
+
+            // GG %
+            html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;text-align:center;">`;
+            html += `<div style="color:#94a3b8;font-size:0.65rem;text-transform:uppercase;font-weight:700;">GG (entrambe segnano)</div>`;
+            html += `<div style="font-weight:800;color:#4ade80;font-size:1rem;">${rs.gg_ft_pct}%</div>`;
+            html += `<div style="color:#64748b;font-size:0.65rem;">GG 1°T: ${rs.gg_ht_pct}%</div>`;
+            html += `</div>`;
+
+            // Cards per half
+            html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;text-align:center;">`;
+            html += `<div style="color:#94a3b8;font-size:0.65rem;text-transform:uppercase;font-weight:700;">Cartellini/partita</div>`;
+            html += `<div style="font-weight:800;color:#fbbf24;font-size:1rem;">${rs.cards_avg}</div>`;
+            html += `<div style="color:#64748b;font-size:0.65rem;">1°T: ${rs.cards_1t_avg} · 2°T: ${rs.cards_2t_avg}</div>`;
+            html += `</div>`;
+
+            // Results
+            html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;text-align:center;">`;
+            html += `<div style="color:#94a3b8;font-size:0.65rem;text-transform:uppercase;font-weight:700;">Risultati</div>`;
+            html += `<div style="font-size:0.75rem;margin-top:4px;">`;
+            html += `<span style="color:#4ade80;">Casa ${rs.home_win_pct}%</span> · `;
+            html += `<span style="color:#94a3b8;">X ${rs.draw_pct}%</span> · `;
+            html += `<span style="color:#f87171;">Ospite ${rs.away_win_pct}%</span>`;
+            html += `</div></div>`;
+
+            // Top HT/FT combos
+            if (rs.top_htft && rs.top_htft.length) {
+                html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;text-align:center;">`;
+                html += `<div style="color:#94a3b8;font-size:0.65rem;text-transform:uppercase;font-weight:700;">Top HT/FT</div>`;
+                html += `<div style="margin-top:4px;">`;
+                rs.top_htft.forEach(h => {
+                    html += `<span style="display:inline-block;background:#1e293b;border-radius:4px;padding:2px 8px;margin:2px;font-weight:700;font-size:0.75rem;">${h.combo} <span style="color:#3b82f6;">${h.pct}%</span></span>`;
+                });
+                html += `</div></div>`;
+            }
+
+            // Penalties
+            if (rs.penalties_total > 0) {
+                html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;text-align:center;">`;
+                html += `<div style="color:#94a3b8;font-size:0.65rem;text-transform:uppercase;font-weight:700;">Rigori assegnati</div>`;
+                html += `<div style="font-weight:800;color:#a855f7;font-size:1rem;">${rs.penalties_total}</div>`;
+                html += `</div>`;
+            }
+
+            html += `</div></div>`;
+        }
+
         // Insights
         if (ins.length) {
             html += `<div class="dt-insights">`;

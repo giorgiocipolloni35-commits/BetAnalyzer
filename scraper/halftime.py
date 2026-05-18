@@ -112,6 +112,9 @@ class HalfTimeAnalyzer:
             else:
                 return {"matches": [], "error": "Nessuna partita programmata"}
 
+        # Build referee HT/FT stats from cache
+        ref_stats = self._build_referee_htft_stats(cache)
+
         match_results = []
         seen = set()
 
@@ -141,6 +144,15 @@ class HalfTimeAnalyzer:
                 team_positions.get(away_id, 0),
             )
 
+            # Referee info for this match
+            ref_name = None
+            ref_info = None
+            refs = m.get("referees", [])
+            if refs:
+                ref_name = refs[0].get("name")
+            if ref_name and ref_name in ref_stats:
+                ref_info = ref_stats[ref_name]
+
             match_results.append({
                 "home_team": team_names.get(home_id, home.get("name", "?")),
                 "away_team": team_names.get(away_id, away.get("name", "?")),
@@ -151,6 +163,8 @@ class HalfTimeAnalyzer:
                 "home_stats": self._format_team_summary(h_stats, "home"),
                 "away_stats": self._format_team_summary(a_stats, "away"),
                 "analysis": analysis,
+                "referee": ref_name,
+                "referee_stats": ref_info,
             })
 
         # Sort by confidence of best prediction
@@ -160,6 +174,101 @@ class HalfTimeAnalyzer:
         )
 
         return {"matches": match_results}
+
+    def _build_referee_htft_stats(self, cache: dict) -> dict:
+        """Build HT/FT stats per referee from historical matches."""
+        refs = {}
+        for mid, d in cache.items():
+            ref = d.get("referee")
+            if not ref:
+                continue
+            score = d.get("score") or {}
+            ft = score.get("fullTime") or {}
+            ht = score.get("halfTime") or {}
+            fh = ft.get("home")
+            fa = ft.get("away")
+            hh = ht.get("home")
+            ha = ht.get("away")
+            if fh is None or fa is None or hh is None or ha is None:
+                continue
+
+            if ref not in refs:
+                refs[ref] = {
+                    "matches": 0, "goals_ht": 0, "goals_2t": 0, "goals_total": 0,
+                    "gg_ht": 0, "gg_ft": 0,
+                    "cards_1t": 0, "cards_2t": 0, "cards_total": 0,
+                    "penalties": 0,
+                    "home_wins": 0, "away_wins": 0, "draws": 0,
+                    "htft": {},  # HT/FT combo counts
+                }
+            r = refs[ref]
+            r["matches"] += 1
+
+            ht_goals = hh + ha
+            ft_goals = fh + fa
+            second_half_goals = ft_goals - ht_goals
+            r["goals_ht"] += ht_goals
+            r["goals_2t"] += second_half_goals
+            r["goals_total"] += ft_goals
+
+            # GG (both teams score)
+            if hh > 0 and ha > 0:
+                r["gg_ht"] += 1
+            if fh > 0 and fa > 0:
+                r["gg_ft"] += 1
+
+            # Result
+            if fh > fa: r["home_wins"] += 1
+            elif fh < fa: r["away_wins"] += 1
+            else: r["draws"] += 1
+
+            # HT/FT combo
+            ht_r = "1" if hh > ha else ("X" if hh == ha else "2")
+            ft_r = "1" if fh > fa else ("X" if fh == fa else "2")
+            combo = f"{ht_r}/{ft_r}"
+            r["htft"][combo] = r["htft"].get(combo, 0) + 1
+
+            # Cards by half
+            for c in d.get("cards", []):
+                minute = c.get("minute") or 0
+                r["cards_total"] += 1
+                if minute <= 45:
+                    r["cards_1t"] += 1
+                else:
+                    r["cards_2t"] += 1
+
+            # Penalties
+            for g in d.get("goals", []):
+                if g.get("type") == "PENALTY":
+                    r["penalties"] += 1
+
+        # Compute averages
+        result = {}
+        for name, r in refs.items():
+            m = r["matches"]
+            if m < 3:
+                continue
+            # Sort HT/FT combos by frequency
+            htft_sorted = sorted(r["htft"].items(), key=lambda x: -x[1])
+            top_htft = [{"combo": k, "count": v, "pct": round(v / m * 100)} for k, v in htft_sorted[:3]]
+
+            result[name] = {
+                "matches": m,
+                "goals_avg": round(r["goals_total"] / m, 2),
+                "goals_ht_avg": round(r["goals_ht"] / m, 2),
+                "goals_2t_avg": round(r["goals_2t"] / m, 2),
+                "gg_ht_pct": round(r["gg_ht"] / m * 100),
+                "gg_ft_pct": round(r["gg_ft"] / m * 100),
+                "cards_avg": round(r["cards_total"] / m, 1),
+                "cards_1t_avg": round(r["cards_1t"] / m, 1),
+                "cards_2t_avg": round(r["cards_2t"] / m, 1),
+                "penalties_total": r["penalties"],
+                "home_win_pct": round(r["home_wins"] / m * 100),
+                "away_win_pct": round(r["away_wins"] / m * 100),
+                "draw_pct": round(r["draws"] / m * 100),
+                "top_htft": top_htft,
+            }
+        return result
 
     def _build_team_stats(self, cache: dict) -> dict:
         """Build HT/FT and GG/NG stats per team from cache."""
