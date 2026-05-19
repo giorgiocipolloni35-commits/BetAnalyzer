@@ -2632,26 +2632,72 @@ def team_detail(team_id):
     
     # Timing and grouping
     all_impacts = []
-    players_by_role = {"Goalkeeper": [], "Defence": [], "Midfield": [], "Offence": []}
-    role_map = {
-        "Goalkeeper": "Goalkeeper",
-        "Defence": "Defence", "Centre-Back": "Defence", "DC": "Defence",
-        "Midfield": "Midfield", "Central Midfield": "Midfield", "Defensive Midfield": "Midfield", "CEN": "Midfield", "CDM": "Midfield", "CC": "Midfield",
-        "Left-Back": "Midfield", "Right-Back": "Midfield", "TS": "Midfield", "TD": "Midfield", "Terzino sinistro": "Midfield", "Terzino destro": "Midfield",
-        "Offence": "Offence", "Attacker": "Offence", "Centre-Forward": "Offence", "Left Winger": "Offence", "Right Winger": "Offence", "ATT": "Offence", "Attacking Midfield": "Offence", "Trequartista": "Offence"
+    players_by_role = {
+        "Portieri": [],
+        "Difensori Centrali": [],
+        "Terzini": [],
+        "Centrocampisti Difensivi": [],
+        "Centrocampisti Centrali": [],
+        "Trequartisti": [],
+        "Ali": [],
+        "Attaccanti": [],
     }
+    role_map = {
+        "Goalkeeper": "Portieri",
+        "Defence": "Difensori Centrali", "Centre-Back": "Difensori Centrali", "DC": "Difensori Centrali",
+        "Left-Back": "Terzini", "Right-Back": "Terzini", "TS": "Terzini", "TD": "Terzini", "Terzino sinistro": "Terzini", "Terzino destro": "Terzini",
+        "Defensive Midfield": "Centrocampisti Difensivi", "CDM": "Centrocampisti Difensivi",
+        "Midfield": "Centrocampisti Centrali", "Central Midfield": "Centrocampisti Centrali", "CEN": "Centrocampisti Centrali", "CC": "Centrocampisti Centrali",
+        "Attacking Midfield": "Trequartisti", "Trequartista": "Trequartisti",
+        "Left Winger": "Ali", "Right Winger": "Ali",
+        "Offence": "Attaccanti", "Attacker": "Attaccanti", "Centre-Forward": "Attaccanti", "ATT": "Attaccanti",
+    }
+    # Fallback map for Dream Team (old 4-group keys)
+    _dream_role_map = {
+        "Portieri": "Goalkeeper", "Difensori Centrali": "Defence", "Terzini": "Defence",
+        "Centrocampisti Difensivi": "Midfield", "Centrocampisti Centrali": "Midfield",
+        "Trequartisti": "Midfield", "Ali": "Offence", "Attaccanti": "Offence",
+    }
+
+    # Mapping ruoli italiani Transfermarkt → nostri gruppi granulari
+    tm_role_map = {
+        "Portiere": "Portieri",
+        "Difensore centrale": "Difensori Centrali", "Difesa": "Difensori Centrali",
+        "Terzino sinistro": "Terzini", "Terzino destro": "Terzini",
+        "Centrocampista difensivo": "Centrocampisti Difensivi", "Mediano": "Centrocampisti Difensivi", "Pivot": "Centrocampisti Difensivi",
+        "Centrocampista": "Centrocampisti Centrali", "Centrocampista centrale": "Centrocampisti Centrali", "Mezzala": "Centrocampisti Centrali",
+        "Trequartista": "Trequartisti", "Fantasista": "Trequartisti",
+        "Ala sinistra": "Ali", "Ala destra": "Ali", "Esterno sinistro": "Ali", "Esterno destro": "Ali",
+        "Attaccante": "Attaccanti", "Attaccante centrale": "Attaccanti", "Centravanti": "Attaccanti", "Punta centrale": "Attaccanti", "Seconda punta": "Attaccanti", "Punta": "Attaccanti",
+    }
+
+    # Fetch TM positions for all players (cache makes repeated calls instant)
+    team_name_for_tm = team.get("name", "")
+    tm_position_overrides = {}
+    for p in players:
+        pname = p.get("name", "")
+        tm_info = tm.get_player_info(pname, team_name_for_tm)
+        if tm_info and tm_info.get("detailed_role") and tm_info["detailed_role"] != "N/D":
+            tm_grp = tm_role_map.get(tm_info["detailed_role"])
+            if tm_grp:
+                tm_position_overrides[pname] = tm_grp
 
     real_matches_played = team.get("played", team_stats.get("matches_played", 0))
     min_appearances = max(5, int(real_matches_played * 0.40))
 
     for p in players:
-        orig_role = p.get("role") or p.get("position") or "Offence"
-        mapped_role = role_map.get(orig_role, "Offence")
+        pname = p.get("name", "")
+        # Use TM override if available, else Football-Data position
+        if pname in tm_position_overrides:
+            mapped_role = tm_position_overrides[pname]
+        else:
+            orig_role = p.get("role") or p.get("position") or "Offence"
+            mapped_role = role_map.get(orig_role, "Attaccanti")
         if p.get("appearances", 0) >= min_appearances:
             all_impacts.append({
                 "id": p["id"],
-                "name": p["name"], 
-                "wr": p.get("win_rate_with", 0), 
+                "name": p["name"],
+                "wr": p.get("win_rate_with", 0),
                 "drop": p.get("impact_drop", 0),
                 "played": p.get("appearances", 0)
             })
@@ -2696,6 +2742,12 @@ def team_detail(team_id):
         "Right-Back": 5, "Terzino destro": 5, "TD": 5, "Right Midfield": 5, "Right Winger": 5, "Ala destra": 5
     }
 
+    # Build merged pools for Dream Team (old 4-group logic)
+    _dream_pools = {"Goalkeeper": [], "Defence": [], "Midfield": [], "Offence": []}
+    for grp_name, grp_players in players_by_role.items():
+        dream_key = _dream_role_map.get(grp_name, "Offence")
+        _dream_pools[dream_key].extend(grp_players)
+
     dream_team = {"Goalkeeper": [], "Defence": [], "Midfield": [], "Offence": [], "formation": formation_str}
     for role in ["Goalkeeper", "Defence", "Midfield", "Offence"]:
         if role == "Goalkeeper": count = 1
@@ -2704,14 +2756,14 @@ def team_detail(team_id):
         else: count = f_parts[2]
 
         # Try with standard min_appearances first, then relax if not enough players
-        valid_players = [p for p in players_by_role.get(role, []) if p.get("appearances", 0) >= min_appearances]
+        valid_players = [p for p in _dream_pools.get(role, []) if p.get("appearances", 0) >= min_appearances]
         if len(valid_players) < count:
             # Relax to 20% of matches
             fallback_min = max(3, int(real_matches_played * 0.20))
-            valid_players = [p for p in players_by_role.get(role, []) if p.get("appearances", 0) >= fallback_min]
+            valid_players = [p for p in _dream_pools.get(role, []) if p.get("appearances", 0) >= fallback_min]
         if len(valid_players) < count:
             # Last resort: any player with at least 1 appearance
-            valid_players = [p for p in players_by_role.get(role, []) if p.get("appearances", 0) >= 1]
+            valid_players = [p for p in _dream_pools.get(role, []) if p.get("appearances", 0) >= 1]
         sorted_players = sorted(valid_players, key=lambda x: x.get("impact_drop", -100), reverse=True)
 
         selected = sorted_players[:count]

@@ -916,13 +916,19 @@
     {% endif %}
 
     {% for role, role_players in players_by_role.items() %}
+    {% if role_players %}
     <section class="role-section">
         <h3 class="role-title">
-            {% if role == 'Goalkeeper' %}🧤
-            {% elif role in ['Defence', 'Centre-Back', 'Left-Back', 'Right-Back'] %}🛡️
-            {% elif role in ['Midfield', 'Central Midfield', 'Attacking Midfield', 'Defensive Midfield'] %}⚙️
-            {% else %}⚽{% endif %}
-            {{ role }}
+            {% if role == 'Portieri' %}🧤
+            {% elif role == 'Difensori Centrali' %}🛡️
+            {% elif role == 'Terzini' %}🔰
+            {% elif role == 'Centrocampisti Difensivi' %}🔒
+            {% elif role == 'Centrocampisti Centrali' %}⚙️
+            {% elif role == 'Trequartisti' %}🎯
+            {% elif role == 'Ali' %}💨
+            {% elif role == 'Attaccanti' %}⚽
+            {% else %}📋{% endif %}
+            {{ role }} <span style="font-size: 0.8rem; opacity: 0.6;">({{ role_players|length }})</span>
         </h3>
         
         <div class="player-grid">
@@ -976,6 +982,7 @@
             {% endfor %}
         </div>
     </section>
+    {% endif %}
     {% endfor %}
 </div>
 {% endblock %}
