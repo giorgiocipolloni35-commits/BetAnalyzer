@@ -2605,6 +2605,11 @@ def teams_list():
     )
     return render_template("teams.html", competitions=competitions, state=_state, freshness=freshness)
 
+@app.route("/api/league-records/<league_key>")
+def api_league_records(league_key):
+    from scraper.league_records import get_league_records
+    return jsonify(get_league_records(league_key))
+
 @app.route("/team/<int:team_id>")
 def team_detail(team_id):
     lk = request.args.get("league")

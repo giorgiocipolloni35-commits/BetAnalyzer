@@ -277,6 +277,56 @@
             .player-team-pitch { display: none; }
             .player-stats-pitch { display: none; }
         }
+        /* ---- RECORDS MODAL ---- */
+        .records-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        .record-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .record-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #cbd5e1;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .record-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .record-row:last-child { border-bottom: none; }
+        .record-medal { font-size: 1rem; min-width: 22px; text-align: center; }
+        .record-name {
+            flex: 1;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .record-val {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+        .record-val b { color: #e2e8f0; }
+        .record-val small { color: #64748b; }
+
+        @media (max-width: 768px) {
+            .records-grid { grid-template-columns: 1fr; }
+            #records-modal .modal-content { width: 100%; max-width: 100%; border-radius: 0; max-height: 100vh; }
+        }
     </style>
 </head>
 <body>
@@ -293,9 +343,12 @@
                 <div class="league-header">
                     <div class="league-title-row">
                         <h2 class="league-title">{{ name }}</h2>
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             <button class="topxi-btn" onclick="showTopXI('{{ name|replace(' ', '-') }}', '{{ name }}')">
                                 <i class="fas fa-star"></i> Top XI
+                            </button>
+                            <button class="topxi-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);" onclick="showRecords('{{ data.league_code }}', '{{ name }}')">
+                                <i class="fas fa-trophy"></i> Record
                             </button>
                             <button class="betting-toggle" onclick="toggleBetting('{{ name|replace(' ', '-') }}')">
                                 <i class="fas fa-chart-pie"></i> Analisi Betting
@@ -437,6 +490,22 @@
         </div>
     </div>
 
+    <!-- Records Modal -->
+    <div class="modal-overlay" id="records-modal" onclick="if(event.target===this)closeRecordsModal()">
+        <div class="modal-content" style="max-width:700px;">
+            <div class="modal-header">
+                <h2 id="records-modal-title"><i class="fas fa-trophy" style="margin-right:8px;color:#a855f7;"></i> Record Campionato</h2>
+                <button class="modal-close" onclick="closeRecordsModal()">&times;</button>
+            </div>
+            <div id="records-modal-body" style="padding:16px 20px;max-height:75vh;overflow-y:auto;">
+                <div class="pitch-loading">
+                    <div class="spinner"></div>
+                    <span style="color:#94a3b8;font-size:0.85rem;">Caricamento record...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         function toggleBetting(leagueId) {
             const panel = document.getElementById('bet-panel-' + leagueId);
@@ -561,7 +630,70 @@
         }
 
         // Chiudi con ESC
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeRecordsModal(); } });
+
+        // === RECORDS MODAL ===
+        function closeRecordsModal() {
+            document.getElementById('records-modal').classList.remove('active');
+        }
+
+        function showRecords(leagueCode, leagueName) {
+            const modal = document.getElementById('records-modal');
+            const title = document.getElementById('records-modal-title');
+            const body = document.getElementById('records-modal-body');
+            title.innerHTML = '<i class="fas fa-trophy" style="margin-right:8px;color:#a855f7;"></i> ' + leagueName + ' — Record';
+            body.innerHTML = '<div class="pitch-loading"><div class="spinner"></div><span style="color:#94a3b8;font-size:0.85rem;">Caricamento record...</span></div>';
+            modal.classList.add('active');
+
+            fetch('/api/league-records/' + leagueCode)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        body.innerHTML = '<p style="color:#ef4444;">Errore: ' + (data.error || '') + '</p>';
+                        return;
+                    }
+                    var rec = data.records;
+                    var html = '<div class="records-grid">';
+
+                    // Team records
+                    html += recordSection('🟨 Più cartellini', rec.team_most_yellows, 'gialli');
+                    html += recordSection('🟥 Più rossi', rec.team_most_reds, 'rossi');
+                    html += recordSection('🎴 Più cartellini totali', rec.team_most_cards, 'cart.');
+                    html += recordSection('⚽ Più rigori a favore', rec.team_most_penalties_for, 'rigori');
+                    html += recordSection('🛡 Meno rigori a favore', rec.team_least_penalties_for, 'rigori');
+                    html += recordSection('🌅 Più gol nel 1° tempo', rec.team_most_goals_1st, 'gol 1°T');
+                    html += recordSection('🌙 Più gol nel 2° tempo', rec.team_most_goals_2nd, 'gol 2°T');
+                    html += recordSection('🤝 Più pareggi', rec.team_most_draws, 'pareggi');
+
+                    // Referee records
+                    html += recordSection('👨‍⚖️ Arbitro: più gialli', rec.ref_most_yellows, 'gialli');
+                    html += recordSection('👨‍⚖️ Arbitro: più rossi', rec.ref_most_reds, 'rossi');
+                    html += recordSection('👨‍⚖️ Arbitro: più rigori', rec.ref_most_penalties, 'rigori');
+                    html += recordSection('👨‍⚖️ Arbitro: meno rigori', rec.ref_least_penalties, 'rigori');
+
+                    html += '</div>';
+                    body.innerHTML = html;
+                })
+                .catch(err => {
+                    body.innerHTML = '<p style="color:#ef4444;">Errore di connessione</p>';
+                });
+        }
+
+        function recordSection(title, items, unit) {
+            if (!items || items.length === 0) return '';
+            var html = '<div class="record-card">';
+            html += '<div class="record-title">' + title + '</div>';
+            items.forEach(function(item, i) {
+                var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+                html += '<div class="record-row">';
+                html += '<span class="record-medal">' + medal + '</span>';
+                html += '<span class="record-name">' + item.name + '</span>';
+                html += '<span class="record-val"><b>' + item.value + '</b> ' + unit + ' <small>(' + item.per_game + '/g)</small></span>';
+                html += '</div>';
+            });
+            html += '</div>';
+            return html;
+        }
     </script>
 </body>
 </html>
