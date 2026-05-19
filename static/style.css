@@ -1967,6 +1967,40 @@ footer {
     letter-spacing: 0.02em;
 }
 
+/* Role filter bar */
+.cards-role-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.cards-role-pill {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.cards-role-pill:hover {
+    background: rgba(255,255,255,0.1);
+    color: #e2e8f0;
+}
+.cards-role-pill.active {
+    background: rgba(59,130,246,0.2);
+    color: #60a5fa;
+}
+.cards-role-pill small {
+    font-weight: 400;
+    opacity: 0.7;
+    margin-left: 2px;
+}
+
 /* Diffida badge */
 .cards-diffida-badge {
     font-size: 0.65rem;
