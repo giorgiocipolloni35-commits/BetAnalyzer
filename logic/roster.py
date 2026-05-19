@@ -118,17 +118,19 @@ class RosterManager:
                     stats["nogol_pct"] = round(((stats["matches"] - stats["btts"]) / stats["matches"]) * 100, 1)
                     stats["avg_cards"] = round((stats["yellows"] + stats["reds"]) / stats["matches"], 2)
                 
-                # Find top comeback teams
-                top_made = sorted(team_comebacks.values(), key=lambda x: (x["made"] / x["matches"] if x["matches"] > 0 else 0), reverse=True)
-                top_suffered = sorted(team_comebacks.values(), key=lambda x: (x["suffered"] / x["matches"] if x["matches"] > 0 else 0), reverse=True)
-                
+                # Find top comeback teams (tiebreak by absolute count)
+                top_made = sorted(team_comebacks.values(), key=lambda x: (x["made"] / x["matches"] if x["matches"] > 0 else 0, x["made"]), reverse=True)
+                top_suffered = sorted(team_comebacks.values(), key=lambda x: (x["suffered"] / x["matches"] if x["matches"] > 0 else 0, x["suffered"]), reverse=True)
+
                 if top_made and top_made[0]["made"] > 0:
-                    stats["top_comeback"] = f"{top_made[0]['name']} ({round((top_made[0]['made'] / top_made[0]['matches']) * 100, 1)}%)"
+                    pct = round((top_made[0]['made'] / top_made[0]['matches']) * 100, 1)
+                    stats["top_comeback"] = f"{top_made[0]['name']} ({top_made[0]['made']}x · {pct}%)"
                 else:
                     stats["top_comeback"] = "-"
-                    
+
                 if top_suffered and top_suffered[0]["suffered"] > 0:
-                    stats["top_suffered"] = f"{top_suffered[0]['name']} ({round((top_suffered[0]['suffered'] / top_suffered[0]['matches']) * 100, 1)}%)"
+                    pct = round((top_suffered[0]['suffered'] / top_suffered[0]['matches']) * 100, 1)
+                    stats["top_suffered"] = f"{top_suffered[0]['name']} ({top_suffered[0]['suffered']}x · {pct}%)"
                 else:
                     stats["top_suffered"] = "-"
 
