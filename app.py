@@ -2698,14 +2698,22 @@ def team_detail(team_id):
 
     dream_team = {"Goalkeeper": [], "Defence": [], "Midfield": [], "Offence": [], "formation": formation_str}
     for role in ["Goalkeeper", "Defence", "Midfield", "Offence"]:
-        valid_players = [p for p in players_by_role.get(role, []) if p.get("appearances", 0) >= min_appearances]
-        sorted_players = sorted(valid_players, key=lambda x: x.get("impact_drop", -100), reverse=True)
-        
         if role == "Goalkeeper": count = 1
         elif role == "Defence": count = f_parts[0]
         elif role == "Midfield": count = f_parts[1]
         else: count = f_parts[2]
-        
+
+        # Try with standard min_appearances first, then relax if not enough players
+        valid_players = [p for p in players_by_role.get(role, []) if p.get("appearances", 0) >= min_appearances]
+        if len(valid_players) < count:
+            # Relax to 20% of matches
+            fallback_min = max(3, int(real_matches_played * 0.20))
+            valid_players = [p for p in players_by_role.get(role, []) if p.get("appearances", 0) >= fallback_min]
+        if len(valid_players) < count:
+            # Last resort: any player with at least 1 appearance
+            valid_players = [p for p in players_by_role.get(role, []) if p.get("appearances", 0) >= 1]
+        sorted_players = sorted(valid_players, key=lambda x: x.get("impact_drop", -100), reverse=True)
+
         selected = sorted_players[:count]
         # Ordiniamo i selezionati per lateralità (da sinistra a destra)
         selected.sort(key=lambda x: lateral_map.get(x.get("role"), 3))
