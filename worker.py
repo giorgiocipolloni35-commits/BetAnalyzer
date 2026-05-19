@@ -1002,6 +1002,28 @@ class BetAnalyzerWorker:
                         w_notes = weather_data.get("betting_impact", {})
                         if w_notes.get("cartellini"):
                             context_parts.append(f"  ⛅ NOTA METEO CARTELLINI: {w_notes['cartellini']}")
+                # === FATIGUE & CALENDARIO ===
+                try:
+                    from scraper.fatigue import analyze_fatigue
+                    fatigue = analyze_fatigue(
+                        home_team_id=h_id, away_team_id=a_id,
+                        match_date=m_dict.get("commence_time", ""),
+                        api_key=os.getenv("FOOTBALL_DATA_API_KEY"),
+                        home_name=home, away_name=away,
+                    )
+                    if fatigue.get("insight"):
+                        context_parts.append(f"\n⚡ FATIGUE & CALENDARIO: {fatigue['insight']}")
+                        h_fat = fatigue.get("home", {})
+                        a_fat = fatigue.get("away", {})
+                        context_parts.append(f"  {home}: fatigue={h_fat.get('fatigue_score',0)}/100 riposo={h_fat.get('rest_days','?')}gg partite14gg={h_fat.get('matches_14d',0)}")
+                        context_parts.append(f"  {away}: fatigue={a_fat.get('fatigue_score',0)}/100 riposo={a_fat.get('rest_days','?')}gg partite14gg={a_fat.get('matches_14d',0)}")
+                        if fatigue.get("advantage") != "neutral":
+                            adv = home if fatigue["advantage"] == "home" else away
+                            context_parts.append(f"  ⚡ VANTAGGIO FATICA: {adv} (differenza: {abs(fatigue.get('fatigue_diff',0))} punti)")
+                        logger.info(f"  Fatigue: {home}={h_fat.get('fatigue_score',0)} {away}={a_fat.get('fatigue_score',0)} adv={fatigue.get('advantage')}")
+                except Exception as e:
+                    logger.warning(f"Fatigue analysis error: {e}")
+
             else:
                 logger.warning(f"Team IDs NON trovati per {home} o {away}")
 
