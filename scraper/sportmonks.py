@@ -450,7 +450,7 @@ class SportmonksClient:
             url = f"{self.base_url}/fixtures/{clean_id}"
             params = {
                 "api_token": self.api_key,
-                "include": "lineups.player;participants"
+                "include": "lineups.player;participants;formations"
             }
             r = requests.get(url, params=params, timeout=10)
             r.raise_for_status()
@@ -471,10 +471,19 @@ class SportmonksClient:
                 home_id = participants[0]["id"]
                 away_id = participants[1]["id"]
 
+            # Parse formations array
+            formation_home = None
+            formation_away = None
+            for fm in data.get("formations", []):
+                if fm.get("location") == "home":
+                    formation_home = fm.get("formation")
+                elif fm.get("location") == "away":
+                    formation_away = fm.get("formation")
+
             result = {
                 "home": [], "away": [],
                 "home_bench": [], "away_bench": [],
-                "formation": {"home": data.get("formation_home"), "away": data.get("formation_away")}
+                "formation": {"home": formation_home, "away": formation_away}
             }
 
             for l in lineups_raw:

@@ -910,6 +910,46 @@ class BetAnalyzerWorker:
                 h_team_goals = h_team_stats.get("goals_for", 0) if h_team_stats else 0
                 a_team_goals = a_team_stats.get("goals_for", 0) if a_team_stats else 0
 
+                # Formazioni ufficiali (modulo tattico) + consiglio cartellini difensori
+                if official_lineups:
+                    form_home = official_lineups.get("formation", {}).get("home")
+                    form_away = official_lineups.get("formation", {}).get("away")
+                    if form_home or form_away:
+                        # Dati storici: differenza cartellini centrali vs terzini per lega
+                        _cb_vs_fb = {
+                            "england_premier_league": ("CENTRALI", "+5%"),
+                            "italy_serie_a": ("CENTRALI", "+30%"),
+                            "spain_la_liga": ("CENTRALI", "+15%"),
+                            "germany_bundesliga": ("CENTRALI", "+40%"),
+                            "france_ligue_1": ("CENTRALI", "+16%"),
+                            "netherlands_eredivisie": ("CENTRALI", "+15%"),
+                            "champions_league": ("CENTRALI", "+10%"),
+                            "england_championship": ("CENTRALI", "+10%"),
+                            "portugal_primeira_liga": ("CENTRALI", "+15%"),
+                            "brazil_serie_a": ("CENTRALI", "+10%"),
+                        }
+                        def _parse_formation(formation):
+                            if not formation: return 0
+                            try: return int(formation.split("-")[0])
+                            except: return 0
+                        h_ndef = _parse_formation(form_home)
+                        a_ndef = _parse_formation(form_away)
+                        league_pref, league_diff = _cb_vs_fb.get(league_key, ("CENTRALI", "+10%"))
+
+                        if h_ndef == 4 and a_ndef == 4:
+                            consiglio = f"🎯 ENTRAMBE A 4: investi sui CENTRALI ({league_pref} {league_diff} in questo campionato). Terzini meno esposti."
+                        elif h_ndef == 3 and a_ndef == 3:
+                            consiglio = f"🎯 ENTRAMBE A 3: i braccetti (difensori laterali) fanno più falli. Investi sui DIFENSORI LARGHI di entrambe."
+                        elif h_ndef == 3 or a_ndef == 3:
+                            team3 = home if h_ndef == 3 else away
+                            team4 = away if h_ndef == 3 else home
+                            consiglio = f"🎯 {team3} gioca a 3 (braccetti esposti), {team4} a 4 (centrali favoriti). Mescola: braccetti di {team3} + centrali di {team4}."
+                        else:
+                            consiglio = f"🎯 Investi sui {league_pref} ({league_diff} in questo campionato)."
+
+                        context_parts.append(f"\n⚙️ MODULO UFFICIALE: {home} [{form_home or '?'}] vs {away} [{form_away or '?'}]")
+                        context_parts.append(f"  {consiglio}")
+
                 context_parts.append(f"\nROSA TITOLARE {home} ({len(h_lineup)} giocatori):")
                 for p in h_lineup:
                     context_parts.append(self._build_player_profile(p, scorer_picks, card_picks, h_sm, h_team_goals))
