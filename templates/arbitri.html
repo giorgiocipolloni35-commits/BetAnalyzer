@@ -35,6 +35,39 @@
     <!-- League averages bar -->
     <div id="ref-league-avg" class="ref-league-avg" style="display:none"></div>
 
+    <!-- Filtri -->
+    <div id="ref-filters" class="ref-filters" style="display:none">
+        <div class="ref-filter-group">
+            <input type="text" id="ref-filter-name" class="ref-filter-input" placeholder="🔍 Cerca arbitro...">
+        </div>
+        <div class="ref-filter-group">
+            <select id="ref-filter-league" class="ref-filter-select">
+                <option value="">🏟 Tutti i campionati</option>
+            </select>
+        </div>
+        <div class="ref-filter-group">
+            <select id="ref-filter-tend" class="ref-filter-select">
+                <option value="">⚖ Tutte le tendenze</option>
+                <option value="severo">🔴 Solo Severi</option>
+                <option value="permissivo">🟢 Solo Permissivi</option>
+                <option value="medio">⚪ Solo Nella Media</option>
+            </select>
+        </div>
+        <div class="ref-filter-group">
+            <select id="ref-filter-sort" class="ref-filter-select">
+                <option value="matches">📊 Ordina: Gare ↓</option>
+                <option value="cards_pg">🟨 Cartellini/g ↓</option>
+                <option value="penalties_pg">⚽ Rigori/g ↓</option>
+                <option value="goals_pg">🥅 Gol/g ↓</option>
+                <option value="yellows_pg">🟨 Gialli/g ↓</option>
+                <option value="reds_pg">🟥 Rossi/g ↓</option>
+                <option value="home_win_pct">🏠 % Casa ↓</option>
+                <option value="away_win_pct">✈️ % Trasferta ↓</option>
+            </select>
+        </div>
+        <span id="ref-filter-count" class="ref-filter-count"></span>
+    </div>
+
     <div id="ref-results" style="display:none">
         <!-- Desktop: full table -->
         <div class="ref-desktop">
@@ -172,6 +205,41 @@
 .dev-bar-center { position: absolute; left: 50%; top: -2px; width: 1px; height: 10px; background: #64748b; }
 .dev-bar-fill { position: absolute; top: 0; height: 100%; border-radius: 3px; }
 
+/* ---- FILTER BAR ---- */
+.ref-filters {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 12px 16px; margin-bottom: 14px;
+    background: var(--card-bg, #1e293b); border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.ref-filter-group { flex: 1; min-width: 150px; }
+.ref-filter-input, .ref-filter-select {
+    width: 100%; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04); color: #e2e8f0;
+    font-size: 0.78rem; outline: none; transition: border-color 0.2s;
+}
+.ref-filter-input:focus, .ref-filter-select:focus {
+    border-color: #3b82f6;
+}
+.ref-filter-select option { background: #1e293b; color: #e2e8f0; }
+.ref-filter-count {
+    font-size: 0.75rem; color: #94a3b8; font-weight: 600;
+    white-space: nowrap; padding: 6px 12px;
+    background: rgba(255,255,255,0.04); border-radius: 6px;
+}
+
+@media (max-width: 768px) {
+    .ref-filters {
+        gap: 8px; padding: 10px 12px;
+    }
+    .ref-filter-group { min-width: 100%; flex-basis: 100%; }
+    .ref-filter-group:nth-child(3),
+    .ref-filter-group:nth-child(4) { min-width: calc(50% - 4px); flex-basis: calc(50% - 4px); }
+    .ref-filter-input, .ref-filter-select { font-size: 0.75rem; padding: 7px 10px; }
+    .ref-filter-count { width: 100%; text-align: center; }
+}
+
 /* ---- MOBILE CARD LAYOUT ---- */
 .ref-mobile { display: none; }
 
@@ -293,8 +361,73 @@
     const tbody = document.getElementById('ref-tbody');
     const avgBar = document.getElementById('ref-league-avg');
     const mobileList = document.getElementById('ref-mobile-list');
+    const filtersBar = document.getElementById('ref-filters');
+    const filterName = document.getElementById('ref-filter-name');
+    const filterLeague = document.getElementById('ref-filter-league');
+    const filterTend = document.getElementById('ref-filter-tend');
+    const filterSort = document.getElementById('ref-filter-sort');
+    const filterCount = document.getElementById('ref-filter-count');
+
+    var allRefs = [];   // stored after load
+    var leagueAvg = {}; // stored after load
 
     select.addEventListener('change', function() { btn.disabled = !this.value; });
+
+    // --- Filter event listeners ---
+    filterName.addEventListener('input', applyFilters);
+    filterLeague.addEventListener('change', applyFilters);
+    filterTend.addEventListener('change', applyFilters);
+    filterSort.addEventListener('change', applyFilters);
+
+    function computeTendency(r) {
+        var cardsDev = leagueAvg.cards_pg > 0 ? ((r.cards_pg - leagueAvg.cards_pg) / leagueAvg.cards_pg * 100) : 0;
+        if (cardsDev > 12) return 'severo';
+        if (cardsDev < -12) return 'permissivo';
+        return 'medio';
+    }
+
+    function applyFilters() {
+        var nameQ = filterName.value.trim().toLowerCase();
+        var leagueQ = filterLeague.value;
+        var tendQ = filterTend.value;
+        var sortQ = filterSort.value;
+
+        var filtered = allRefs.filter(function(r) {
+            if (nameQ && r.name.toLowerCase().indexOf(nameQ) === -1) return false;
+            if (leagueQ && (!r.leagues || r.leagues.indexOf(leagueQ) === -1)) return false;
+            if (tendQ && computeTendency(r) !== tendQ) return false;
+            return true;
+        });
+
+        // Sort
+        filtered.sort(function(a, b) {
+            switch (sortQ) {
+                case 'cards_pg': return b.cards_pg - a.cards_pg;
+                case 'penalties_pg': return b.penalties_pg - a.penalties_pg;
+                case 'goals_pg': return b.goals_pg - a.goals_pg;
+                case 'yellows_pg': return b.yellows_pg - a.yellows_pg;
+                case 'reds_pg': return b.reds_pg - a.reds_pg;
+                case 'home_win_pct': return b.home_win_pct - a.home_win_pct;
+                case 'away_win_pct': return b.away_win_pct - a.away_win_pct;
+                default: return b.matches - a.matches;
+            }
+        });
+
+        renderRefs(filtered, leagueAvg);
+        filterCount.textContent = filtered.length + ' / ' + allRefs.length + ' arbitri';
+    }
+
+    function populateLeagueDropdown(refs) {
+        var leagues = {};
+        refs.forEach(function(r) {
+            if (r.leagues) r.leagues.forEach(function(l) { leagues[l] = true; });
+        });
+        var sorted = Object.keys(leagues).sort();
+        filterLeague.innerHTML = '<option value="">🏟 Tutti i campionati</option>';
+        sorted.forEach(function(l) {
+            filterLeague.innerHTML += '<option value="' + l + '">' + l + '</option>';
+        });
+    }
 
     btn.addEventListener('click', function() {
         const league = select.value;
@@ -328,8 +461,13 @@
                     status.style.display = 'block';
                     status.className = 'rigori-status rigori-warn';
                     status.textContent = 'Nessun dato disponibile.';
+                    filtersBar.style.display = 'none';
                     return;
                 }
+
+                // Store globally for filter/sort
+                allRefs = refs;
+                leagueAvg = avg;
 
                 // League averages bar
                 avgBar.innerHTML = '<span style="font-weight:700;color:#e2e8f0;">Media campionato:</span>' +
@@ -342,122 +480,16 @@
                     '<span class="avg-item"><span class="avg-label">Arbitri:</span> <span class="avg-val">' + refs.length + '</span></span>';
                 avgBar.style.display = 'flex';
 
-                // Build desktop table
-                tbody.innerHTML = '';
-                // Build mobile cards
-                mobileList.innerHTML = '';
+                // Show filters + populate nationality dropdown + reset
+                populateLeagueDropdown(refs);
+                filterName.value = '';
+                filterTend.value = '';
+                filterSort.value = 'matches';
+                filtersBar.style.display = 'flex';
 
-                refs.forEach(function(r, i) {
-                    // Tendency
-                    var cardsDev = avg.cards_pg > 0 ? ((r.cards_pg - avg.cards_pg) / avg.cards_pg * 100) : 0;
-                    var tendClass, tendLabel;
-                    if (cardsDev > 12) { tendClass = 'ref-severo'; tendLabel = 'SEVERO'; }
-                    else if (cardsDev < -12) { tendClass = 'ref-permissivo'; tendLabel = 'PERMISSIVO'; }
-                    else { tendClass = 'ref-medio'; tendLabel = 'NELLA MEDIA'; }
-
-                    // Penalty deviation
-                    var pensDev = avg.penalties_pg > 0 ? ((r.penalties_pg - avg.penalties_pg) / avg.penalties_pg * 100) : 0;
-                    var pensDevBadge = '';
-                    if (pensDev > 30) pensDevBadge = '<span class="dev-badge dev-high">+' + Math.round(pensDev) + '%</span>';
-                    else if (pensDev < -30) pensDevBadge = '<span class="dev-badge dev-low">' + Math.round(pensDev) + '%</span>';
-
-                    // Cards deviation badge
-                    var cardsDevBadge = '';
-                    if (cardsDev > 12) cardsDevBadge = '<span class="dev-badge dev-high">+' + Math.round(cardsDev) + '%</span>';
-                    else if (cardsDev < -12) cardsDevBadge = '<span class="dev-badge dev-low">' + Math.round(cardsDev) + '%</span>';
-
-                    // === DESKTOP TABLE ROW ===
-                    var row = document.createElement('tr');
-                    row.innerHTML =
-                        '<td>' + (i + 1) + '</td>' +
-                        '<td style="font-weight:600;">' + r.name +
-                            (r.nationality ? ' <span style="font-size:0.65rem;color:#64748b;">' + r.nationality + '</span>' : '') +
-                            (r.leagues && r.leagues.length > 0 ? '<br><span style="font-size:0.62rem;color:#64748b;">' + r.leagues.join(', ') + '</span>' : '') +
-                        '</td>' +
-                        '<td><b>' + r.matches + '</b></td>' +
-                        '<td>' + r.yellows_pg + '</td>' +
-                        '<td>' + r.reds_pg + '</td>' +
-                        '<td><b>' + r.cards_pg + '</b>' + cardsDevBadge + '</td>' +
-                        '<td><b>' + r.penalties_pg + '</b>' + pensDevBadge + '</td>' +
-                        '<td>' + r.goals_pg + '</td>' +
-                        '<td style="font-size:0.7rem;">' +
-                            '<span style="color:#3b82f6;">' + r.home_win_pct + '%</span> / ' +
-                            '<span style="color:#94a3b8;">' + r.draw_pct + '%</span> / ' +
-                            '<span style="color:#f97316;">' + r.away_win_pct + '%</span>' +
-                            buildResultDevBadge(r, avg) +
-                        '</td>' +
-                        '<td><span class="ref-tendency ' + tendClass + '">' + tendLabel + '</span></td>' +
-                        '<td><button class="ref-expand-btn" data-idx="' + i + '">Dettagli</button></td>';
-                    tbody.appendChild(row);
-
-                    // Desktop detail row (hidden)
-                    var detailRow = document.createElement('tr');
-                    detailRow.className = 'ref-detail-row';
-                    detailRow.id = 'ref-detail-' + i;
-                    detailRow.style.display = 'none';
-                    var detailTd = document.createElement('td');
-                    detailTd.colSpan = 11;
-                    detailTd.innerHTML = buildDetailHTML(r, avg);
-                    detailRow.appendChild(detailTd);
-                    tbody.appendChild(detailRow);
-
-                    // === MOBILE CARD ===
-                    var mobCard = document.createElement('div');
-                    mobCard.className = 'ref-mob-card';
-
-                    var leagueInfo = (r.leagues && r.leagues.length > 0) ? r.leagues.join(', ') : '';
-                    var natInfo = r.nationality ? ' ' + r.nationality : '';
-
-                    var mobHtml = '<div class="ref-mob-summary">';
-                    mobHtml += '<span class="ref-mob-rank">' + (i + 1) + '</span>';
-                    mobHtml += '<div class="ref-mob-info">';
-                    mobHtml += '<div class="ref-mob-name">' + r.name + natInfo + '</div>';
-                    mobHtml += '<div class="ref-mob-meta">';
-                    mobHtml += '<span class="ref-mob-stat"><b>' + r.matches + '</b> gare</span>';
-                    mobHtml += '<span class="ref-mob-stat">🟨 <b>' + r.cards_pg + '</b>/g' + cardsDevBadge + '</span>';
-                    mobHtml += '<span class="ref-mob-stat">⚽ <b>' + r.penalties_pg + '</b> rig/g' + pensDevBadge + '</span>';
-                    if (leagueInfo) {
-                        mobHtml += '<span style="font-size:0.62rem;color:#64748b;">' + leagueInfo + '</span>';
-                    }
-                    mobHtml += '</div>';
-                    mobHtml += '</div>';
-                    mobHtml += '<div class="ref-mob-right">';
-                    mobHtml += '<span class="ref-tendency ' + tendClass + '" style="font-size:0.65rem;padding:2px 6px;">' + tendLabel + '</span>';
-                    mobHtml += '<span class="ref-mob-chevron">›</span>';
-                    mobHtml += '</div>';
-                    mobHtml += '</div>';
-
-                    // Mobile detail (hidden, expands on tap)
-                    mobHtml += '<div class="ref-mob-detail">';
-                    mobHtml += buildMobileDetailHTML(r, avg);
-                    mobHtml += '</div>';
-
-                    mobCard.innerHTML = mobHtml;
-                    mobileList.appendChild(mobCard);
-                });
-
-                // Desktop expand/collapse
-                tbody.querySelectorAll('.ref-expand-btn').forEach(function(btn) {
-                    btn.addEventListener('click', function() {
-                        var idx = this.dataset.idx;
-                        var row = document.getElementById('ref-detail-' + idx);
-                        if (row.style.display === 'none') {
-                            row.style.display = 'table-row';
-                            this.textContent = 'Chiudi';
-                        } else {
-                            row.style.display = 'none';
-                            this.textContent = 'Dettagli';
-                        }
-                    });
-                });
-
-                // Mobile tap to expand
-                mobileList.querySelectorAll('.ref-mob-summary').forEach(function(sum) {
-                    sum.addEventListener('click', function() {
-                        var card = this.closest('.ref-mob-card');
-                        card.classList.toggle('open');
-                    });
-                });
+                // Render all (default sort: matches desc)
+                renderRefs(refs, avg);
+                filterCount.textContent = refs.length + ' / ' + refs.length + ' arbitri';
 
                 results.style.display = 'block';
             })
@@ -470,6 +502,123 @@
                 status.textContent = 'Errore di connessione.';
             });
     });
+
+    function renderRefs(refs, avg) {
+        tbody.innerHTML = '';
+        mobileList.innerHTML = '';
+
+        refs.forEach(function(r, i) {
+            // Tendency
+            var cardsDev = avg.cards_pg > 0 ? ((r.cards_pg - avg.cards_pg) / avg.cards_pg * 100) : 0;
+            var tendClass, tendLabel;
+            if (cardsDev > 12) { tendClass = 'ref-severo'; tendLabel = 'SEVERO'; }
+            else if (cardsDev < -12) { tendClass = 'ref-permissivo'; tendLabel = 'PERMISSIVO'; }
+            else { tendClass = 'ref-medio'; tendLabel = 'NELLA MEDIA'; }
+
+            // Penalty deviation
+            var pensDev = avg.penalties_pg > 0 ? ((r.penalties_pg - avg.penalties_pg) / avg.penalties_pg * 100) : 0;
+            var pensDevBadge = '';
+            if (pensDev > 30) pensDevBadge = '<span class="dev-badge dev-high">+' + Math.round(pensDev) + '%</span>';
+            else if (pensDev < -30) pensDevBadge = '<span class="dev-badge dev-low">' + Math.round(pensDev) + '%</span>';
+
+            // Cards deviation badge
+            var cardsDevBadge = '';
+            if (cardsDev > 12) cardsDevBadge = '<span class="dev-badge dev-high">+' + Math.round(cardsDev) + '%</span>';
+            else if (cardsDev < -12) cardsDevBadge = '<span class="dev-badge dev-low">' + Math.round(cardsDev) + '%</span>';
+
+            // === DESKTOP TABLE ROW ===
+            var row = document.createElement('tr');
+            row.innerHTML =
+                '<td>' + (i + 1) + '</td>' +
+                '<td style="font-weight:600;">' + r.name +
+                    (r.nationality ? ' <span style="font-size:0.65rem;color:#64748b;">' + r.nationality + '</span>' : '') +
+                    (r.leagues && r.leagues.length > 0 ? '<br><span style="font-size:0.62rem;color:#64748b;">' + r.leagues.join(', ') + '</span>' : '') +
+                '</td>' +
+                '<td><b>' + r.matches + '</b></td>' +
+                '<td>' + r.yellows_pg + '</td>' +
+                '<td>' + r.reds_pg + '</td>' +
+                '<td><b>' + r.cards_pg + '</b>' + cardsDevBadge + '</td>' +
+                '<td><b>' + r.penalties_pg + '</b>' + pensDevBadge + '</td>' +
+                '<td>' + r.goals_pg + '</td>' +
+                '<td style="font-size:0.7rem;">' +
+                    '<span style="color:#3b82f6;">' + r.home_win_pct + '%</span> / ' +
+                    '<span style="color:#94a3b8;">' + r.draw_pct + '%</span> / ' +
+                    '<span style="color:#f97316;">' + r.away_win_pct + '%</span>' +
+                    buildResultDevBadge(r, avg) +
+                '</td>' +
+                '<td><span class="ref-tendency ' + tendClass + '">' + tendLabel + '</span></td>' +
+                '<td><button class="ref-expand-btn" data-idx="' + i + '">Dettagli</button></td>';
+            tbody.appendChild(row);
+
+            // Desktop detail row (hidden)
+            var detailRow = document.createElement('tr');
+            detailRow.className = 'ref-detail-row';
+            detailRow.id = 'ref-detail-' + i;
+            detailRow.style.display = 'none';
+            var detailTd = document.createElement('td');
+            detailTd.colSpan = 11;
+            detailTd.innerHTML = buildDetailHTML(r, avg);
+            detailRow.appendChild(detailTd);
+            tbody.appendChild(detailRow);
+
+            // === MOBILE CARD ===
+            var mobCard = document.createElement('div');
+            mobCard.className = 'ref-mob-card';
+
+            var leagueInfo = (r.leagues && r.leagues.length > 0) ? r.leagues.join(', ') : '';
+            var natInfo = r.nationality ? ' ' + r.nationality : '';
+
+            var mobHtml = '<div class="ref-mob-summary">';
+            mobHtml += '<span class="ref-mob-rank">' + (i + 1) + '</span>';
+            mobHtml += '<div class="ref-mob-info">';
+            mobHtml += '<div class="ref-mob-name">' + r.name + natInfo + '</div>';
+            mobHtml += '<div class="ref-mob-meta">';
+            mobHtml += '<span class="ref-mob-stat"><b>' + r.matches + '</b> gare</span>';
+            mobHtml += '<span class="ref-mob-stat">🟨 <b>' + r.cards_pg + '</b>/g' + cardsDevBadge + '</span>';
+            mobHtml += '<span class="ref-mob-stat">⚽ <b>' + r.penalties_pg + '</b> rig/g' + pensDevBadge + '</span>';
+            if (leagueInfo) {
+                mobHtml += '<span style="font-size:0.62rem;color:#64748b;">' + leagueInfo + '</span>';
+            }
+            mobHtml += '</div>';
+            mobHtml += '</div>';
+            mobHtml += '<div class="ref-mob-right">';
+            mobHtml += '<span class="ref-tendency ' + tendClass + '" style="font-size:0.65rem;padding:2px 6px;">' + tendLabel + '</span>';
+            mobHtml += '<span class="ref-mob-chevron">›</span>';
+            mobHtml += '</div>';
+            mobHtml += '</div>';
+
+            // Mobile detail (hidden, expands on tap)
+            mobHtml += '<div class="ref-mob-detail">';
+            mobHtml += buildMobileDetailHTML(r, avg);
+            mobHtml += '</div>';
+
+            mobCard.innerHTML = mobHtml;
+            mobileList.appendChild(mobCard);
+        });
+
+        // Desktop expand/collapse
+        tbody.querySelectorAll('.ref-expand-btn').forEach(function(b) {
+            b.addEventListener('click', function() {
+                var idx = this.dataset.idx;
+                var row = document.getElementById('ref-detail-' + idx);
+                if (row.style.display === 'none') {
+                    row.style.display = 'table-row';
+                    this.textContent = 'Chiudi';
+                } else {
+                    row.style.display = 'none';
+                    this.textContent = 'Dettagli';
+                }
+            });
+        });
+
+        // Mobile tap to expand
+        mobileList.querySelectorAll('.ref-mob-summary').forEach(function(sum) {
+            sum.addEventListener('click', function() {
+                var card = this.closest('.ref-mob-card');
+                card.classList.toggle('open');
+            });
+        });
+    }
 
     function buildResultDevBadge(r, avg) {
         if (!avg.home_win_pct) return '';
@@ -491,6 +640,8 @@
         html += buildCardsDistribution(r);
         html += buildGoalsDistribution(r);
         html += buildResultsCard(r, avg);
+        html += buildScoreStateCard(r);
+        html += buildHomeBiasCard(r);
         html += buildPenaltiesCard(r);
         html += buildVarCard(r);
         html += buildLeaguesCard(r);
@@ -537,6 +688,9 @@
         html += buildCardsDistribution(r);
         // Goals distribution
         html += buildGoalsDistribution(r);
+        // Score state & home bias
+        html += buildScoreStateCard(r);
+        html += buildHomeBiasCard(r);
         // Penalties
         html += buildPenaltiesCard(r);
         // VAR
@@ -660,6 +814,62 @@
             html += '<span class="league-pill">' + l + '</span>';
         });
         html += '</div></div>';
+        return html;
+    }
+
+    function buildScoreStateCard(r) {
+        var total = (r.cards_when_draw || 0) + (r.cards_when_home_lead || 0) + (r.cards_when_away_lead || 0);
+        if (total === 0) return '';
+        var html = '<div class="ref-detail-card"><h4>🎯 Cartellini per stato partita</h4>';
+        // Stacked bar
+        html += '<div class="ref-result-bar" style="height:10px;">';
+        html += '<div style="width:' + r.cards_draw_pct + '%;background:#94a3b8;"></div>';
+        html += '<div style="width:' + r.cards_home_lead_pct + '%;background:#3b82f6;"></div>';
+        html += '<div style="width:' + r.cards_away_lead_pct + '%;background:#f97316;"></div>';
+        html += '</div>';
+        html += '<div class="ref-pct-row" style="margin-top:6px;">';
+        html += '<span class="ref-pct-item"><span class="ref-pct-dot" style="background:#94a3b8;"></span> Equilibrio ' + r.cards_draw_pct + '%</span>';
+        html += '<span class="ref-pct-item"><span class="ref-pct-dot" style="background:#3b82f6;"></span> Casa avanti ' + r.cards_home_lead_pct + '%</span>';
+        html += '<span class="ref-pct-item"><span class="ref-pct-dot" style="background:#f97316;"></span> Ospiti avanti ' + r.cards_away_lead_pct + '%</span>';
+        html += '</div>';
+        html += '<div style="margin-top:8px;font-size:0.7rem;color:#94a3b8;">';
+        html += 'Totale: ' + r.cards_when_draw + ' a parità · ' + r.cards_when_home_lead + ' casa avanti · ' + r.cards_when_away_lead + ' ospiti avanti';
+        html += '</div>';
+        // Insight
+        if (r.cards_draw_pct >= 55) {
+            html += '<div style="margin-top:6px;font-size:0.72rem;color:#fbbf24;">💡 Fischia di più a risultato in equilibrio — tendenza Over cartellini nei match equilibrati</div>';
+        } else if (r.cards_away_lead_pct >= 45) {
+            html += '<div style="margin-top:6px;font-size:0.72rem;color:#fbbf24;">💡 Più cartellini quando gli ospiti conducono — nervosismo della squadra di casa?</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function buildHomeBiasCard(r) {
+        var total = (r.cards_to_home || 0) + (r.cards_to_away || 0);
+        if (total === 0) return '';
+        var html = '<div class="ref-detail-card"><h4>🏠 Bias Casa / Trasferta</h4>';
+        // Dual bar
+        html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">';
+        html += '<span style="width:70px;text-align:right;font-size:0.72rem;color:#3b82f6;">Casa ' + r.cards_home_pct + '%</span>';
+        html += '<div style="flex:1;display:flex;height:10px;border-radius:5px;overflow:hidden;">';
+        html += '<div style="width:' + r.cards_home_pct + '%;background:#3b82f6;"></div>';
+        html += '<div style="width:' + r.cards_away_pct + '%;background:#f97316;"></div>';
+        html += '</div>';
+        html += '<span style="width:80px;font-size:0.72rem;color:#f97316;">Trasferta ' + r.cards_away_pct + '%</span>';
+        html += '</div>';
+        html += '<div style="font-size:0.7rem;color:#94a3b8;">';
+        html += '🏠 ' + r.cards_to_home + ' cartellini a squadra di casa · ✈️ ' + r.cards_to_away + ' a squadra ospite';
+        html += '</div>';
+        // Insight
+        var diff = Math.abs(r.cards_home_pct - r.cards_away_pct);
+        if (diff >= 15) {
+            var favor = r.cards_home_pct < r.cards_away_pct ? 'casa' : 'trasferta';
+            html += '<div style="margin-top:6px;font-size:0.72rem;color:#fbbf24;">💡 Tende a favorire la squadra di ' + favor + ' (' + diff + '% differenza)</div>';
+        } else {
+            html += '<div style="margin-top:6px;font-size:0.72rem;color:#94a3b8;">⚖️ Distribuzione equilibrata</div>';
+        }
+        html += '</div>';
         return html;
     }
 

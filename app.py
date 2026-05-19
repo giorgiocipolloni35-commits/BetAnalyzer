@@ -981,6 +981,27 @@ def api_deep_analysis(match_id):
                 except Exception as e:
                     logger.warning(f"Sportmonks DB stats error: {e}")
 
+                # === FATIGUE & CALENDAR ===
+                try:
+                    from scraper.fatigue import analyze_fatigue
+                    fatigue = analyze_fatigue(
+                        home_team_id=h_id, away_team_id=a_id,
+                        match_date=m.commence_time or "",
+                        api_key=FOOTBALL_DATA_KEY,
+                        home_name=m.home_team, away_name=m.away_team,
+                    )
+                    if fatigue.get("insight"):
+                        context_parts.append(f"\nFATIGUE & CALENDARIO: {fatigue['insight']}")
+                        h_fat = fatigue.get("home", {})
+                        a_fat = fatigue.get("away", {})
+                        context_parts.append(f"  {m.home_team}: fatigue={h_fat.get('fatigue_score',0)}/100 riposo={h_fat.get('rest_days','?')}gg partite14gg={h_fat.get('matches_14d',0)}")
+                        context_parts.append(f"  {m.away_team}: fatigue={a_fat.get('fatigue_score',0)}/100 riposo={a_fat.get('rest_days','?')}gg partite14gg={a_fat.get('matches_14d',0)}")
+                        if fatigue.get("advantage") != "neutral":
+                            adv = m.home_team if fatigue["advantage"] == "home" else m.away_team
+                            context_parts.append(f"  ⚡ VANTAGGIO FATICA: {adv} (differenza: {abs(fatigue.get('fatigue_diff',0))} punti)")
+                except Exception as e:
+                    logger.warning(f"Fatigue analysis error: {e}")
+
             else:
                 logger.warning(f"Deep analysis: Team IDs non trovati per {m.home_team}/{m.away_team}")
         except Exception as ex:

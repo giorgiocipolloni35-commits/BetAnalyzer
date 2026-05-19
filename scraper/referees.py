@@ -157,6 +157,15 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
                 "subs_total": 0,
                 "var_referees": set(),
                 "match_details": [],   # for last matches display
+                # --- NEW: score-state & home bias ---
+                "cards_when_draw": 0,       # cards when match is level
+                "cards_when_home_lead": 0,  # cards when home team leads
+                "cards_when_away_lead": 0,  # cards when away team leads
+                "cards_to_home": 0,         # cards given to home team
+                "cards_to_away": 0,         # cards given to away team
+                "minutes_draw": 0,          # total match-minutes in draw state
+                "minutes_home_lead": 0,
+                "minutes_away_lead": 0,
             }
 
         rs = ref_map[ref]
@@ -201,6 +210,40 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
                 rs["cards_early"] += 1
             if minute >= 80:
                 rs["cards_late"] += 1
+
+        # --- NEW: Cards by score state & home/away bias ---
+        home_id = d.get("home_id")
+        away_id = d.get("away_id")
+        match_goals = sorted(d.get("goals", []), key=lambda g: g.get("minute") or 0)
+        match_cards = d.get("cards", [])
+
+        # Reconstruct score at each card minute
+        for c in match_cards:
+            c_min = c.get("minute") or 0
+            c_team = c.get("team_id")
+            # Compute score at this minute
+            h_score, a_score = 0, 0
+            for g in match_goals:
+                g_min = g.get("minute") or 0
+                if g_min < c_min:
+                    if g.get("team_id") == home_id:
+                        h_score += 1
+                    else:
+                        a_score += 1
+                else:
+                    break
+            if h_score == a_score:
+                rs["cards_when_draw"] += 1
+            elif h_score > a_score:
+                rs["cards_when_home_lead"] += 1
+            else:
+                rs["cards_when_away_lead"] += 1
+
+            # Home/Away card bias
+            if c_team == home_id:
+                rs["cards_to_home"] += 1
+            elif c_team == away_id:
+                rs["cards_to_away"] += 1
 
         # Goals & Penalties
         for g in d.get("goals", []):
@@ -323,6 +366,18 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
             "var_referees": sorted(rs["var_referees"])[:3],
             # Match history
             "last_matches": match_history,
+            # --- NEW: Score-state card distribution ---
+            "cards_when_draw": rs["cards_when_draw"],
+            "cards_when_home_lead": rs["cards_when_home_lead"],
+            "cards_when_away_lead": rs["cards_when_away_lead"],
+            "cards_draw_pct": round(rs["cards_when_draw"] / max(rs["total_cards"], 1) * 100),
+            "cards_home_lead_pct": round(rs["cards_when_home_lead"] / max(rs["total_cards"], 1) * 100),
+            "cards_away_lead_pct": round(rs["cards_when_away_lead"] / max(rs["total_cards"], 1) * 100),
+            # --- NEW: Home/Away card bias ---
+            "cards_to_home": rs["cards_to_home"],
+            "cards_to_away": rs["cards_to_away"],
+            "cards_home_pct": round(rs["cards_to_home"] / max(rs["total_cards"], 1) * 100),
+            "cards_away_pct": round(rs["cards_to_away"] / max(rs["total_cards"], 1) * 100),
         }
         result.append(entry)
 
