@@ -915,18 +915,19 @@ class BetAnalyzerWorker:
                     form_home = official_lineups.get("formation", {}).get("home")
                     form_away = official_lineups.get("formation", {}).get("away")
                     if form_home or form_away:
-                        # Dati storici: differenza cartellini centrali vs terzini per lega
+                        # Dati storici: CB vs Terzini cards/partita per lega
+                        # (cb_rate, fb_rate, gap_label)
                         _cb_vs_fb = {
-                            "england_premier_league": ("CENTRALI", "+5%"),
-                            "italy_serie_a": ("CENTRALI", "+30%"),
-                            "spain_la_liga": ("CENTRALI", "+15%"),
-                            "germany_bundesliga": ("CENTRALI", "+40%"),
-                            "france_ligue_1": ("CENTRALI", "+16%"),
-                            "netherlands_eredivisie": ("CENTRALI", "+15%"),
-                            "champions_league": ("CENTRALI", "+10%"),
-                            "england_championship": ("CENTRALI", "+10%"),
-                            "portugal_primeira_liga": ("CENTRALI", "+15%"),
-                            "brazil_serie_a": ("CENTRALI", "+10%"),
+                            "italy_serie_a":          (0.79, 0.61, "+30%"),
+                            "england_premier_league":  (0.73, 0.70, "+5%"),
+                            "spain_la_liga":           (0.82, 0.71, "+15%"),
+                            "germany_bundesliga":      (0.75, 0.54, "+40%"),
+                            "france_ligue_1":          (0.77, 0.66, "+16%"),
+                            "netherlands_eredivisie":  (0.70, 0.60, "+17%"),
+                            "champions_league":        (0.75, 0.65, "+15%"),
+                            "england_championship":    (0.72, 0.65, "+11%"),
+                            "portugal_primeira_liga":   (0.74, 0.64, "+16%"),
+                            "brazil_serie_a":          (0.70, 0.62, "+13%"),
                         }
                         def _parse_formation(formation):
                             if not formation: return 0
@@ -934,20 +935,21 @@ class BetAnalyzerWorker:
                             except: return 0
                         h_ndef = _parse_formation(form_home)
                         a_ndef = _parse_formation(form_away)
-                        league_pref, league_diff = _cb_vs_fb.get(league_key, ("CENTRALI", "+10%"))
+                        cb_rate, fb_rate, gap_label = _cb_vs_fb.get(league_key, (0.73, 0.65, "+12%"))
+                        stat_line = f"In questo campionato: CB {cb_rate}/app vs Terzini {fb_rate}/app ({gap_label} centrali)."
 
                         if h_ndef == 4 and a_ndef == 4:
-                            consiglio = f"🎯 ENTRAMBE A 4 (2 centrali + 2 terzini): investi sui CENTRALI ({league_pref} {league_diff} in questo campionato). Terzini meno esposti."
+                            consiglio = f"🎯 ENTRAMBE A 4 (2 centrali + 2 terzini): investi sui CENTRALI, terzini meno esposti. {stat_line}"
                         elif h_ndef == 3 and a_ndef == 3:
-                            consiglio = f"🎯 ENTRAMBE A 3 (3 centrali, 0 terzini): tutti e 3 i difensori sono candidati cartellino. I braccetti (CB larghi) coprono più campo e fanno più falli tattici."
+                            consiglio = f"🎯 ENTRAMBE A 3 (3 centrali, 0 terzini): tutti e 3 i CB sono candidati cartellino, specialmente i braccetti larghi che coprono più campo. {stat_line}"
                         elif h_ndef == 5 and a_ndef == 5:
-                            consiglio = f"🎯 ENTRAMBE A 5: i 3 centrali + gli esterni di centrocampo che coprono la fascia sono tutti candidati. Gli esterni (wing-back) fanno falli tattici in transizione."
+                            consiglio = f"🎯 ENTRAMBE A 5 (3 centrali + 2 wing-back): CB + wing-back tutti candidati. I wing-back fanno falli tattici in transizione. {stat_line}"
                         elif h_ndef == 3 or a_ndef == 3:
                             team3 = home if h_ndef == 3 else away
                             team4 = away if h_ndef == 3 else home
-                            consiglio = f"🎯 {team3} a 3 (tutti CB, braccetti larghi esposti) + {team4} a 4 (investi sui centrali, non sui terzini)."
+                            consiglio = f"🎯 {team3} a 3 (tutti CB, braccetti larghi esposti) + {team4} a 4 (punta sui centrali, non sui terzini). {stat_line}"
                         else:
-                            consiglio = f"🎯 Investi sui {league_pref} ({league_diff} in questo campionato)."
+                            consiglio = f"🎯 Punta sui centrali. {stat_line}"
 
                         context_parts.append(f"\n⚙️ MODULO UFFICIALE: {home} [{form_home or '?'}] vs {away} [{form_away or '?'}]")
                         context_parts.append(f"  {consiglio}")
