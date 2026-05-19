@@ -937,18 +937,40 @@ class BetAnalyzerWorker:
                         league_pref, league_diff = _cb_vs_fb.get(league_key, ("CENTRALI", "+10%"))
 
                         if h_ndef == 4 and a_ndef == 4:
-                            consiglio = f"🎯 ENTRAMBE A 4: investi sui CENTRALI ({league_pref} {league_diff} in questo campionato). Terzini meno esposti."
+                            consiglio = f"🎯 ENTRAMBE A 4 (2 centrali + 2 terzini): investi sui CENTRALI ({league_pref} {league_diff} in questo campionato). Terzini meno esposti."
                         elif h_ndef == 3 and a_ndef == 3:
-                            consiglio = f"🎯 ENTRAMBE A 3: i braccetti (difensori laterali) fanno più falli. Investi sui DIFENSORI LARGHI di entrambe."
+                            consiglio = f"🎯 ENTRAMBE A 3 (3 centrali, 0 terzini): tutti e 3 i difensori sono candidati cartellino. I braccetti (CB larghi) coprono più campo e fanno più falli tattici."
+                        elif h_ndef == 5 and a_ndef == 5:
+                            consiglio = f"🎯 ENTRAMBE A 5: i 3 centrali + gli esterni di centrocampo che coprono la fascia sono tutti candidati. Gli esterni (wing-back) fanno falli tattici in transizione."
                         elif h_ndef == 3 or a_ndef == 3:
                             team3 = home if h_ndef == 3 else away
                             team4 = away if h_ndef == 3 else home
-                            consiglio = f"🎯 {team3} gioca a 3 (braccetti esposti), {team4} a 4 (centrali favoriti). Mescola: braccetti di {team3} + centrali di {team4}."
+                            consiglio = f"🎯 {team3} a 3 (tutti CB, braccetti larghi esposti) + {team4} a 4 (investi sui centrali, non sui terzini)."
                         else:
                             consiglio = f"🎯 Investi sui {league_pref} ({league_diff} in questo campionato)."
 
                         context_parts.append(f"\n⚙️ MODULO UFFICIALE: {home} [{form_home or '?'}] vs {away} [{form_away or '?'}]")
                         context_parts.append(f"  {consiglio}")
+
+                        # Add historical formation performance from DB
+                        from db.database import get_team_formations
+                        for tid, tname, tform in [(h_id, home, form_home), (a_id, away, form_away)]:
+                            if not tform:
+                                continue
+                            fstats = get_team_formations(tid)
+                            if fstats:
+                                match_form = next((f for f in fstats if f["formation"] == tform), None)
+                                if match_form:
+                                    m = match_form
+                                    total = m["matches"]
+                                    wpct = round(m["wins"] / total * 100, 1) if total > 0 else 0
+                                    context_parts.append(f"  📊 {tname} con {tform}: {m['wins']}V-{m['draws']}P-{m['losses']}S ({wpct}% vittorie) | {m['goals_for']}GF-{m['goals_against']}GA in {total} partite")
+                                # Show if team has a clearly better formation
+                                if len(fstats) >= 2 and fstats[0]["matches"] >= 3:
+                                    best = fstats[0]
+                                    bpct = round(best["wins"] / best["matches"] * 100, 1)
+                                    if best["formation"] != tform and bpct > wpct + 10:
+                                        context_parts.append(f"  ⚠️ NOTA: {tname} rende meglio con {best['formation']} ({bpct}% vs {wpct}%)")
 
                 context_parts.append(f"\nROSA TITOLARE {home} ({len(h_lineup)} giocatori):")
                 for p in h_lineup:
