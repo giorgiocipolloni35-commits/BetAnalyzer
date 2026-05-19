@@ -695,5 +695,28 @@
             return html;
         }
     </script>
+
+<!-- Full-page loader for slow navigations -->
+<div id="pageLoader" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.92); justify-content:center; align-items:center; flex-direction:column; gap:16px;">
+    <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.15);border-top-color:#3b82f6;border-radius:50%;animation:spinLoader .7s linear infinite;"></div>
+    <span id="pageLoaderText" style="color:#94a3b8;font-size:0.95rem;">Caricamento squadra...</span>
+</div>
+<style>@keyframes spinLoader{to{transform:rotate(360deg)}}</style>
+<script>
+(function(){
+    document.addEventListener('click', function(e){
+        var a = e.target.closest('a[href]');
+        if(!a) return;
+        var href = a.getAttribute('href') || '';
+        if(href.match(/^\/team\/\d+/)){
+            var loader = document.getElementById('pageLoader');
+            if(loader) loader.style.display='flex';
+        }
+    });
+    window.addEventListener('pageshow', function(e){
+        if(e.persisted) document.getElementById('pageLoader').style.display='none';
+    });
+})();
+</script>
 </body>
 </html>
