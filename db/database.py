@@ -91,6 +91,20 @@ def init_db():
             updated_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS team_formations (
+            team_id INTEGER NOT NULL,
+            season_id INTEGER NOT NULL,
+            formation TEXT NOT NULL,
+            matches INTEGER NOT NULL DEFAULT 0,
+            wins INTEGER NOT NULL DEFAULT 0,
+            draws INTEGER NOT NULL DEFAULT 0,
+            losses INTEGER NOT NULL DEFAULT 0,
+            goals_for INTEGER NOT NULL DEFAULT 0,
+            goals_against INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (team_id, season_id, formation)
+        );
+
         CREATE TABLE IF NOT EXISTS my_bets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             match_id TEXT NOT NULL,
@@ -209,6 +223,48 @@ def save_player_info(player_id: int, name: str, team_id: int, team_name: str, le
             (player_id, name, team_id, team_name, league_id, position_id, ts, date_of_birth)
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def save_team_formations(team_id: int, season_id: int, formations: list[dict]):
+    """Save formation stats for a team. formations is list of dicts with keys:
+       formation, matches, wins, draws, losses, goals_for, goals_against"""
+    conn = _get_conn()
+    try:
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Clear old data for this team/season
+        conn.execute("DELETE FROM team_formations WHERE team_id = ? AND season_id = ?",
+                      (team_id, season_id))
+        for f in formations:
+            conn.execute(
+                """INSERT INTO team_formations
+                   (team_id, season_id, formation, matches, wins, draws, losses, goals_for, goals_against, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (team_id, season_id, f["formation"], f["matches"], f["wins"], f["draws"],
+                 f["losses"], f["goals_for"], f["goals_against"], ts)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_team_formations(team_id: int, season_id: int = None) -> list[dict]:
+    """Get formation stats for a team, sorted by matches played desc."""
+    conn = _get_conn()
+    try:
+        if season_id:
+            rows = conn.execute(
+                "SELECT * FROM team_formations WHERE team_id = ? AND season_id = ? ORDER BY matches DESC",
+                (team_id, season_id)).fetchall()
+        else:
+            # Get latest season
+            rows = conn.execute(
+                """SELECT * FROM team_formations WHERE team_id = ? AND season_id = (
+                    SELECT MAX(season_id) FROM team_formations WHERE team_id = ?
+                ) ORDER BY matches DESC""",
+                (team_id, team_id)).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()
 

@@ -807,6 +807,35 @@
         </div>
     </div>
 
+    {% if formation_stats %}
+    <div class="stat-grid" style="margin-bottom: 2rem;">
+        <h3 class="timing-title"><i class="fas fa-chess-board" style="color: #a855f7;"></i> Rendimento per Modulo</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.8rem;">
+            {% for f in formation_stats %}
+            {% set total = f.matches %}
+            {% set win_pct = (f.wins / total * 100)|round(1) if total > 0 else 0 %}
+            {% set bar_w = win_pct|int if win_pct > 0 else 2 %}
+            <div style="background: #1e293b; border-radius: 10px; padding: 1rem; border-left: 4px solid {{ '#10b981' if win_pct >= 55 else '#f59e0b' if win_pct >= 40 else '#ef4444' }};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.3rem; font-weight: 800; color: #e2e8f0;">{{ f.formation }}</span>
+                    <span style="font-size: 0.75rem; color: #94a3b8;">{{ total }} partite</span>
+                </div>
+                <div style="display: flex; gap: 0.8rem; font-size: 0.85rem; margin-bottom: 0.5rem;">
+                    <span style="color: #10b981; font-weight: 700;">{{ f.wins }}V</span>
+                    <span style="color: #f59e0b; font-weight: 700;">{{ f.draws }}P</span>
+                    <span style="color: #ef4444; font-weight: 700;">{{ f.losses }}S</span>
+                    <span style="color: #64748b;">{{ f.goals_for }}GF · {{ f.goals_against }}GA</span>
+                </div>
+                <div style="background: #0f172a; border-radius: 4px; height: 6px; overflow: hidden;">
+                    <div style="background: {{ '#10b981' if win_pct >= 55 else '#f59e0b' if win_pct >= 40 else '#ef4444' }}; height: 100%; width: {{ bar_w }}%; border-radius: 4px;"></div>
+                </div>
+                <div style="text-align: right; font-size: 0.75rem; color: {{ '#10b981' if win_pct >= 55 else '#f59e0b' if win_pct >= 40 else '#ef4444' }}; margin-top: 3px; font-weight: 600;">{{ win_pct }}% win</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if dream_team %}
     <div class="pitch-container">
         <h3 class="timing-title"><i class="fas fa-star" style="color: #f59e0b;"></i> Dream Team Statistico ({{ dream_team.formation }})</h3>

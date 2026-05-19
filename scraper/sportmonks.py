@@ -639,6 +639,23 @@ class SportmonksClient:
         nfkd_form = unicodedata.normalize('NFKD', input_str)
         return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
+    def search_team(self, name: str) -> list[dict]:
+        """Search for a team by name on Sportmonks."""
+        import urllib.parse
+        clean = self._remove_accents(name)
+        safe_q = urllib.parse.quote(clean, safe='')
+        data = self._make_request(f"teams/search/{safe_q}")
+        if data and data.get("data"):
+            return data["data"]
+        # Fallback: try shorter name
+        if len(clean.split()) > 1:
+            short = clean.split()[-1]  # Last word (usually the distinctive one)
+            safe_q = urllib.parse.quote(short, safe='')
+            data = self._make_request(f"teams/search/{safe_q}")
+            if data and data.get("data"):
+                return data["data"]
+        return []
+
     def search_player(self, name: str, dob: str = None) -> list[dict]:
         """Cerca un giocatore per nome su Sportmonks con fallback multipli.
 
@@ -867,6 +884,118 @@ class SportmonksClient:
         except Exception as e:
             logger.error(f"Errore recupero stats player {player_id}: {e}")
             return {}
+
+    def get_team_formation_stats(self, sm_team_id: int, season_start: str = "2025-08-01", season_end: str = "2026-06-30") -> list[dict]:
+        """Get formation stats (W/D/L) for a team across all fixtures in a date range.
+
+        Returns list of dicts: [{formation, matches, wins, draws, losses, goals_for, goals_against}]
+        """
+        try:
+            url = f"{self.base_url}/fixtures/between/{season_start}/{season_end}/{sm_team_id}"
+            params = {
+                "api_token": self.api_key,
+                "include": "formations;participants;scores",
+                "per_page": 50
+            }
+            r = requests.get(url, params=params, timeout=15)
+            r.raise_for_status()
+            data = r.json()
+
+            from collections import defaultdict
+            form_stats = defaultdict(lambda: {"matches": 0, "wins": 0, "draws": 0, "losses": 0, "goals_for": 0, "goals_against": 0})
+
+            for fix in data.get("data", []):
+                # Find team's formation
+                team_form = None
+                for fm in fix.get("formations", []):
+                    if fm.get("participant_id") == sm_team_id:
+                        team_form = fm.get("formation")
+                if not team_form:
+                    continue
+
+                # Determine home/away
+                participants = fix.get("participants", [])
+                is_home = False
+                for p in participants:
+                    if p["id"] == sm_team_id:
+                        is_home = p.get("meta", {}).get("location") == "home"
+
+                # Get fulltime score from scores (description='2ND_HALF' has cumulative)
+                home_goals = away_goals = 0
+                for sc in fix.get("scores", []):
+                    if sc.get("description") == "2ND_HALF":
+                        sc_pid = sc.get("participant_id")
+                        goals = sc.get("score", {}).get("goals", 0)
+                        for p in participants:
+                            if p["id"] == sc_pid:
+                                if p.get("meta", {}).get("location") == "home":
+                                    home_goals = goals
+                                else:
+                                    away_goals = goals
+
+                team_gf = home_goals if is_home else away_goals
+                team_ga = away_goals if is_home else home_goals
+
+                f = form_stats[team_form]
+                f["matches"] += 1
+                f["goals_for"] += team_gf
+                f["goals_against"] += team_ga
+                if team_gf > team_ga:
+                    f["wins"] += 1
+                elif team_gf < team_ga:
+                    f["losses"] += 1
+                else:
+                    f["draws"] += 1
+
+            # Handle pagination
+            pagination = data.get("pagination", {})
+            if pagination.get("has_more"):
+                page = 2
+                while page <= pagination.get("last_page", 1):
+                    params["page"] = page
+                    r = requests.get(url, params=params, timeout=15)
+                    r.raise_for_status()
+                    page_data = r.json()
+                    for fix in page_data.get("data", []):
+                        team_form = None
+                        for fm in fix.get("formations", []):
+                            if fm.get("participant_id") == sm_team_id:
+                                team_form = fm.get("formation")
+                        if not team_form:
+                            continue
+                        participants = fix.get("participants", [])
+                        is_home = any(p["id"] == sm_team_id and p.get("meta", {}).get("location") == "home" for p in participants)
+                        home_goals = away_goals = 0
+                        for sc in fix.get("scores", []):
+                            if sc.get("description") == "2ND_HALF":
+                                sc_pid = sc.get("participant_id")
+                                goals = sc.get("score", {}).get("goals", 0)
+                                for p in participants:
+                                    if p["id"] == sc_pid:
+                                        if p.get("meta", {}).get("location") == "home":
+                                            home_goals = goals
+                                        else:
+                                            away_goals = goals
+                        team_gf = home_goals if is_home else away_goals
+                        team_ga = away_goals if is_home else home_goals
+                        f = form_stats[team_form]
+                        f["matches"] += 1
+                        f["goals_for"] += team_gf
+                        f["goals_against"] += team_ga
+                        if team_gf > team_ga: f["wins"] += 1
+                        elif team_gf < team_ga: f["losses"] += 1
+                        else: f["draws"] += 1
+                    page += 1
+
+            result = []
+            for formation, stats in sorted(form_stats.items(), key=lambda x: x[1]["matches"], reverse=True):
+                result.append({"formation": formation, **stats})
+
+            logger.info(f"Formation stats team {sm_team_id}: {len(result)} moduli, {sum(f['matches'] for f in result)} partite")
+            return result
+        except Exception as e:
+            logger.error(f"Errore recupero formation stats team {sm_team_id}: {e}")
+            return []
 
     def get_quota_usage(self) -> dict:
         # Sportmonks non ha un endpoint facile per la quota residua in v3 senza headers specifici

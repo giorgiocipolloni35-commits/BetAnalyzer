@@ -2743,11 +2743,15 @@ def team_detail(team_id):
     league_avg_stats = {"avg_scored": 1.3, "avg_conceded": 1.3}
     top_scores = rm.predict_correct_score(betting_stats, league_avg_stats) if betting_stats else []
 
-    return render_template("team_detail.html", 
-                         team=team, 
-                         players=players, 
+    # Formation stats from DB
+    from db.database import get_team_formations
+    formation_stats = get_team_formations(team_id)
+
+    return render_template("team_detail.html",
+                         team=team,
+                         players=players,
                          players_by_role=players_by_role,
-                         team_stats=team_stats, 
+                         team_stats=team_stats,
                          leaders=leaders,
                          top_impact=top_impact,
                          bottom_impact=bottom_impact,
@@ -2756,6 +2760,7 @@ def team_detail(team_id):
                          betting_stats=betting_stats,
                          top_scores=top_scores,
                          dream_team=dream_team,
+                         formation_stats=formation_stats,
                          state=_state)
 
 @app.route("/player/<int:player_id>")

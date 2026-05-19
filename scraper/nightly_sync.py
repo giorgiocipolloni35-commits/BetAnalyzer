@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from scraper.sportmonks import SportmonksClient
 from logic.roster import RosterManager
-from db.database import save_player_info
+from db.database import save_player_info, save_team_formations
 
 # Configurazione Logging avanzata per monitoraggio real-time
 LOG_FILE = 'nightly_sync.log'
@@ -155,6 +155,23 @@ def run_nightly_sync():
 
                         except Exception as e:
                             logger.error(f"   |   [{idx_p+1}/{total_p}] ERRORE {p_name}: {e}")
+
+                # --- SYNC FORMAZIONI ---
+                try:
+                    sm_search = sm.search_team(t_name)
+                    if sm_search:
+                        sm_tid = sm_search[0]["id"]
+                        form_stats = sm.get_team_formation_stats(sm_tid)
+                        if form_stats:
+                            save_team_formations(t_id, l_season_sm, form_stats)
+                            top_form = form_stats[0]
+                            logger.info(f"   |-- FORMAZIONI: {len(form_stats)} moduli | Top: {top_form['formation']} ({top_form['wins']}V-{top_form['draws']}P-{top_form['losses']}S)")
+                        else:
+                            logger.warning(f"   |-- FORMAZIONI: nessun dato per {t_name_raw}")
+                    else:
+                        logger.warning(f"   |-- FORMAZIONI: team non trovato su SM: {t_name}")
+                except Exception as e:
+                    logger.warning(f"   |-- FORMAZIONI errore: {e}")
 
                 logger.info(f"   |-- FINE SQUADRA: {t_name_raw}")
                 # Pausa tra squadre
