@@ -281,7 +281,9 @@ class BetAnalyzerWorker:
     def log_alert_sent(self, alert_id, home, away, league, date, rec):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Save in Italian timezone (CET/CEST) for display
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Europe/Rome")).strftime("%Y-%m-%dT%H:%M:%S")
         cursor.execute("""
             INSERT INTO alerts_log (match_id, home_team, away_team, league, match_date, recommendation, sent_at, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
