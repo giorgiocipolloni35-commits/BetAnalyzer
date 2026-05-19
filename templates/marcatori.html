@@ -177,6 +177,26 @@ function _formatDate(isoStr) {
 
                     html += '</span></div>';
 
+                    // Collect unique roles for this match
+                    var matchRoles = {};
+                    m.top_picks.forEach(function(p) {
+                        if (p.position) {
+                            var shortR = _shortPos(p.position);
+                            matchRoles[shortR] = (matchRoles[shortR] || 0) + 1;
+                        }
+                    });
+                    var roleOrder = ['POR','DC','TS','TD','DIF','CDM','CC','CEN','ES','ED','TRQ','AS','AD','ATT','SS'];
+                    var sortedRoles = Object.keys(matchRoles).sort(function(a,b) {
+                        return (roleOrder.indexOf(a) === -1 ? 99 : roleOrder.indexOf(a)) - (roleOrder.indexOf(b) === -1 ? 99 : roleOrder.indexOf(b));
+                    });
+
+                    html += '<div class="cards-role-filter">';
+                    html += '<span class="cards-role-pill active" data-role="all">Tutti <small>' + m.top_picks.length + '</small></span>';
+                    sortedRoles.forEach(function(r) {
+                        html += '<span class="cards-role-pill" data-role="' + r + '">' + r + ' <small>' + matchRoles[r] + '</small></span>';
+                    });
+                    html += '</div>';
+
                     html += '<div class="cards-picks">';
                     html += '<div class="cards-pick-row cards-pick-header">';
                     html += '<span class="cards-pick-rank">#</span>';
@@ -271,7 +291,8 @@ function _formatDate(isoStr) {
 
                         var dataAttr = " data-modal='" + JSON.stringify(modalData).replace(/'/g, '&#39;') + "'";
 
-                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '"' + dataAttr + '>';
+                        var roleAttr = p.position ? ' data-role="' + _shortPos(p.position) + '"' : '';
+                        html += '<div class="cards-pick-row' + (p.absent ? ' pick-absent' : '') + '"' + dataAttr + roleAttr + '>';
                         html += '<span class="cards-pick-rank">' + (i + 1) + '</span>';
                         html += '<span class="cards-pick-player">' + p.player + posLabel + droughtInfo + absentBadge + lineupBadge + '</span>';
                         html += '<span class="cards-pick-team">' + loc + ' ' + p.team + '</span>';
@@ -286,6 +307,29 @@ function _formatDate(isoStr) {
                 });
 
                 results.style.display = 'block';
+
+                // Role filter: attach click handlers
+                results.querySelectorAll('.cards-role-filter').forEach(function(filterBar) {
+                    var matchCard = filterBar.closest('.cards-match-card');
+                    filterBar.querySelectorAll('.cards-role-pill').forEach(function(pill) {
+                        pill.addEventListener('click', function() {
+                            filterBar.querySelectorAll('.cards-role-pill').forEach(function(p) { p.classList.remove('active'); });
+                            this.classList.add('active');
+                            var role = this.dataset.role;
+                            var rows = matchCard.querySelectorAll('.cards-pick-row:not(.cards-pick-header)');
+                            var visibleIdx = 0;
+                            rows.forEach(function(row) {
+                                if (role === 'all' || row.dataset.role === role) {
+                                    row.style.display = '';
+                                    visibleIdx++;
+                                    row.querySelector('.cards-pick-rank').textContent = visibleIdx;
+                                } else {
+                                    row.style.display = 'none';
+                                }
+                            });
+                        });
+                    });
+                });
 
                 // Mobile: attach tap handlers
                 if (window.innerWidth <= 768 && window._openPlayerModal) {
