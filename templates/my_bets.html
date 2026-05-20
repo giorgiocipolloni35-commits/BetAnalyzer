@@ -260,6 +260,29 @@
         </div>
     </div>
 
+    <!-- CLV Panel -->
+    <div class="glass-card" id="clvPanel" style="display:none; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 12px 0; font-size: 15px; color: #a78bfa;">📈 Closing Line Value (CLV)</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+            <div class="stat-card">
+                <div class="value" id="clvAvg">-</div>
+                <div class="label">CLV Medio</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="clvBeats">-</div>
+                <div class="label">Batti la Linea</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" style="color: #94a3b8;" id="clvTracked">-</div>
+                <div class="label">Giocate Tracciate</div>
+            </div>
+        </div>
+        <div id="clvVerdict" style="margin-top: 10px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); font-size: 13px; color: #94a3b8;"></div>
+        <div style="margin-top: 8px; font-size: 11px; color: #475569;">
+            Il CLV misura se hai giocato a quote migliori o peggiori della chiusura. Un CLV positivo costante = edge reale sui bookmaker.
+        </div>
+    </div>
+
     <!-- Nuova Giocata -->
     <div class="glass-card">
         <h5 class="text-white mb-3" style="font-weight: 700;">Nuova Giocata</h5>
@@ -456,6 +479,22 @@ function renderStats(s) {
     const roiEl = document.getElementById('statROI');
     roiEl.textContent = s.settled > 0 ? s.roi + '%' : '-';
     roiEl.style.color = s.roi >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    // CLV Panel
+    const clv = s.clv;
+    if (clv && clv.total_tracked > 0) {
+        document.getElementById('clvPanel').style.display = 'block';
+        const avgEl = document.getElementById('clvAvg');
+        avgEl.textContent = (clv.avg_clv >= 0 ? '+' : '') + clv.avg_clv + '%';
+        avgEl.style.color = clv.avg_clv >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+        const beatsEl = document.getElementById('clvBeats');
+        beatsEl.textContent = clv.beats_pct + '%';
+        beatsEl.style.color = clv.beats_pct >= 50 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+        document.getElementById('clvTracked').textContent = clv.total_tracked;
+        document.getElementById('clvVerdict').textContent = clv.verdict || '';
+    }
 }
 
 function getTypeBadge(type) {
@@ -499,6 +538,15 @@ function renderBets(bets) {
                <button class="btn-sm btn-lost" onclick="settleBet(${b.id}, 'lost')">&#x274C; Persa</button>`
             : '';
 
+        // CLV badge
+        let clvHtml = '';
+        if (b.clv !== null && b.clv !== undefined) {
+            const clvColor = b.clv >= 0 ? '#22c55e' : '#ef4444';
+            const clvSign = b.clv >= 0 ? '+' : '';
+            const clvIcon = b.clv >= 0 ? '📈' : '📉';
+            clvHtml = `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${b.clv >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'};color:${clvColor};font-weight:600;white-space:nowrap;" title="CLV: hai giocato a ${b.odds.toFixed(2)}, chiusura a ${(b.closing_odds||0).toFixed(2)}">${clvIcon} ${clvSign}${b.clv.toFixed(1)}%</span>`;
+        }
+
         return `<div class="bet-item">
             <div class="bet-match">
                 ${b.home_team} vs ${b.away_team}
@@ -506,6 +554,7 @@ function renderBets(bets) {
             </div>
             ${getTypeBadge(b.bet_type)}
             <div class="bet-odds">${b.odds.toFixed(2)}</div>
+            ${clvHtml}
             <div class="bet-stake">€${b.stake.toFixed(2)}</div>
             <span class="bet-result ${resultClass}">${resultLabel}</span>
             ${profitHtml}

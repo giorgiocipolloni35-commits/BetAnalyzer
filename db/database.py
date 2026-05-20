@@ -332,6 +332,130 @@ def get_line_movement(match_key: str) -> dict:
         conn.close()
 
 
+# ── CLV (Closing Line Value) ──
+
+def get_closing_line(home_team: str, away_team: str, match_date: str) -> dict:
+    """Get the last odds snapshot before match start (closing line)."""
+    conn = _get_conn()
+    try:
+        # Try exact match_key format
+        match_key = f"{home_team}_vs_{away_team}_{match_date[:10]}"
+        row = conn.execute(
+            """SELECT * FROM odds_snapshots
+               WHERE match_key = ? AND bookmaker = 'Pinnacle'
+               ORDER BY snapshot_at DESC LIMIT 1""",
+            (match_key,)
+        ).fetchone()
+
+        if not row:
+            # Fallback: any bookmaker
+            row = conn.execute(
+                """SELECT * FROM odds_snapshots
+                   WHERE match_key = ?
+                   ORDER BY snapshot_at DESC LIMIT 1""",
+                (match_key,)
+            ).fetchone()
+
+        if not row:
+            # Fuzzy match: search by teams and date
+            row = conn.execute(
+                """SELECT * FROM odds_snapshots
+                   WHERE home_team = ? AND away_team = ? AND match_date = ?
+                   ORDER BY snapshot_at DESC LIMIT 1""",
+                (home_team, away_team, match_date[:10])
+            ).fetchone()
+
+        return dict(row) if row else {}
+    finally:
+        conn.close()
+
+
+def compute_clv(bet_odds: float, closing_odds: float) -> dict:
+    """
+    Calculate CLV (Closing Line Value).
+
+    If you bet at 2.10 and the line closed at 1.90:
+    - You got +10.5% CLV (you beat the market)
+
+    If you bet at 1.80 and the line closed at 1.95:
+    - You got -7.7% CLV (market moved against you)
+    """
+    if not bet_odds or not closing_odds or closing_odds <= 1:
+        return {"clv_pct": None, "edge": None}
+
+    # CLV = (bet_odds / closing_odds - 1) * 100
+    clv_pct = round((bet_odds / closing_odds - 1) * 100, 2)
+
+    return {
+        "clv_pct": clv_pct,
+        "bet_odds": bet_odds,
+        "closing_odds": closing_odds,
+        "edge": "positive" if clv_pct > 0 else "negative",
+    }
+
+
+def get_bets_with_clv() -> list[dict]:
+    """Get all bets with CLV calculated from closing line snapshots."""
+    bets = get_bets()
+    for bet in bets:
+        closing = get_closing_line(bet["home_team"], bet["away_team"], bet["match_date"])
+        if closing:
+            # Map bet_type to the right odds field
+            odds_map = {
+                "1": "home_odds", "X": "draw_odds", "2": "away_odds",
+                "over25": "over25", "under25": "under25",
+                "gg": "gg", "ng": "ng",
+            }
+            closing_field = odds_map.get(bet["bet_type"])
+            if closing_field and closing.get(closing_field):
+                clv = compute_clv(bet["odds"], closing[closing_field])
+                bet["clv"] = clv["clv_pct"]
+                bet["closing_odds"] = closing[closing_field]
+            else:
+                bet["clv"] = None
+                bet["closing_odds"] = None
+        else:
+            bet["clv"] = None
+            bet["closing_odds"] = None
+    return bets
+
+
+def get_clv_stats() -> dict:
+    """Aggregate CLV statistics across all settled bets."""
+    bets = get_bets_with_clv()
+    settled_with_clv = [b for b in bets if b.get("clv") is not None and b["result"] != "pending"]
+
+    if not settled_with_clv:
+        return {"avg_clv": None, "beats_closing": None, "total_tracked": 0, "verdict": None}
+
+    clvs = [b["clv"] for b in settled_with_clv]
+    avg_clv = round(sum(clvs) / len(clvs), 2)
+    beats_closing = sum(1 for c in clvs if c > 0)
+    beats_pct = round(beats_closing / len(clvs) * 100, 1)
+
+    # Verdict
+    if len(settled_with_clv) < 20:
+        verdict = "Dati insufficienti (servono 20+ giocate con CLV)"
+    elif avg_clv >= 3:
+        verdict = "🟢 Eccellente — Stai battendo il mercato costantemente"
+    elif avg_clv >= 1:
+        verdict = "🟢 Buono — Hai un edge reale sui bookmaker"
+    elif avg_clv >= 0:
+        verdict = "🟡 Neutro — Sei in linea col mercato"
+    elif avg_clv >= -2:
+        verdict = "🟠 Attenzione — Stai prendendo quote leggermente peggiori del mercato"
+    else:
+        verdict = "🔴 Problematico — Stai giocando sistematicamente a quote peggiori della chiusura"
+
+    return {
+        "avg_clv": avg_clv,
+        "beats_closing": beats_closing,
+        "beats_pct": beats_pct,
+        "total_tracked": len(settled_with_clv),
+        "verdict": verdict,
+    }
+
+
 # ── My Bets CRUD ──
 
 def save_bet(match_id, home_team, away_team, league, match_date, bet_type, player_name, odds, stake):

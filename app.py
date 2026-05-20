@@ -2932,11 +2932,18 @@ def my_bets_page():
 
 @app.route("/api/my-bets", methods=["GET"])
 def api_get_bets():
-    from db.database import get_bets, get_bets_stats
+    from db.database import get_bets_with_clv, get_bets_stats, get_clv_stats
     status = request.args.get("status")
     date = request.args.get("date")
-    bets = get_bets(status=status, date=date)
+    bets = get_bets_with_clv()
+    # Apply filters after CLV computation
+    if status:
+        bets = [b for b in bets if b["result"] == status]
+    if date:
+        bets = [b for b in bets if b["match_date"].startswith(date)]
     stats = get_bets_stats()
+    clv_stats = get_clv_stats()
+    stats["clv"] = clv_stats
     return jsonify({"bets": bets, "stats": stats})
 
 
