@@ -1002,6 +1002,28 @@ def api_deep_analysis(match_id):
                 except Exception as e:
                     logger.warning(f"Fatigue analysis error: {e}")
 
+                # === LINE MOVEMENT ===
+                try:
+                    from db.database import get_line_movement
+                    match_date_str = (m.commence_time or "")[:10]
+                    lm_key = f"{m.home_team}_vs_{m.away_team}_{match_date_str}"
+                    lm = get_line_movement(lm_key)
+                    if lm and lm.get("snapshots", 0) >= 2:
+                        op = lm["opening"]
+                        cur = lm["current"]
+                        mv = lm["movement"]
+                        context_parts.append(f"\nLINE MOVEMENT ({lm['bookmaker']}, {lm['snapshots']} rilevazioni):")
+                        context_parts.append(f"  Apertura: 1={op['home']:.2f}  X={op['draw']:.2f}  2={op['away']:.2f}")
+                        context_parts.append(f"  Attuale:  1={cur['home']:.2f}  X={cur['draw']:.2f}  2={cur['away']:.2f}")
+                        context_parts.append(f"  Movimento: 1={mv['home']:+.3f}  X={mv['draw']:+.3f}  2={mv['away']:+.3f}")
+                        if lm.get("signals"):
+                            context_parts.append(f"  Soldi su: {', '.join(lm['signals'])}")
+                        if lm.get("steam_move"):
+                            sm_info = lm["steam_move"]
+                            context_parts.append(f"  STEAM MOVE: quota {sm_info['side']} {sm_info['direction']}{sm_info['delta']:.3f}")
+                except Exception as e:
+                    logger.warning(f"Line movement error: {e}")
+
             else:
                 logger.warning(f"Deep analysis: Team IDs non trovati per {m.home_team}/{m.away_team}")
         except Exception as ex:

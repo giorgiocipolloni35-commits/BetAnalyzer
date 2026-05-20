@@ -132,6 +132,37 @@ class BetAnalyzerWorker:
                     raw_matches = odds_matches
                     logger.info(f"✅ Odds API (primaria): {len(odds_matches)} match")
 
+        # 2b. Save odds snapshots for Line Movement tracking
+        if raw_matches:
+            try:
+                from db.database import save_odds_snapshots_batch
+                snapshots = []
+                for m in raw_matches:
+                    if not m.odds:
+                        continue
+                    match_key = f"{m.home_team}_vs_{m.away_team}_{m.commence_time[:10] if m.commence_time else 'unknown'}"
+                    for bk in m.odds:
+                        if bk.home and bk.draw and bk.away:
+                            snapshots.append({
+                                "match_key": match_key,
+                                "home_team": m.home_team,
+                                "away_team": m.away_team,
+                                "league": m.league,
+                                "match_date": m.commence_time[:10] if m.commence_time else "",
+                                "bookmaker": bk.bookmaker,
+                                "home_odds": bk.home,
+                                "draw_odds": bk.draw,
+                                "away_odds": bk.away,
+                                "over25": bk.over25,
+                                "under25": bk.under25,
+                                "gg": bk.gg,
+                                "ng": bk.ng,
+                            })
+                if snapshots:
+                    save_odds_snapshots_batch(snapshots)
+            except Exception as e:
+                logger.warning(f"Odds snapshot save error: {e}")
+
         # 3. Fallback API-Football per match senza odds
         #    CACHE: scarica quote UNA VOLTA per data, non ad ogni ciclo (5 min)
         apifb_key = os.getenv("API_FOOTBALL_KEY", "")
@@ -1089,6 +1120,29 @@ class BetAnalyzerWorker:
                         logger.info(f"  Fatigue: {home}={h_fat.get('fatigue_score',0)} {away}={a_fat.get('fatigue_score',0)} adv={fatigue.get('advantage')}")
                 except Exception as e:
                     logger.warning(f"Fatigue analysis error: {e}")
+
+                # === LINE MOVEMENT ===
+                try:
+                    from db.database import get_line_movement
+                    match_date_str = m.get("commence_time", m.get("date", ""))[:10]
+                    lm_key = f"{home}_vs_{away}_{match_date_str}"
+                    lm = get_line_movement(lm_key)
+                    if lm and lm.get("snapshots", 0) >= 2:
+                        op = lm["opening"]
+                        cur = lm["current"]
+                        mv = lm["movement"]
+                        context_parts.append(f"\n📈 LINE MOVEMENT ({lm['bookmaker']}, {lm['snapshots']} rilevazioni):")
+                        context_parts.append(f"  Apertura: 1={op['home']:.2f}  X={op['draw']:.2f}  2={op['away']:.2f}")
+                        context_parts.append(f"  Attuale:  1={cur['home']:.2f}  X={cur['draw']:.2f}  2={cur['away']:.2f}")
+                        context_parts.append(f"  Movimento: 1={mv['home']:+.3f}  X={mv['draw']:+.3f}  2={mv['away']:+.3f}")
+                        if lm.get("signals"):
+                            context_parts.append(f"  💰 Soldi su: {', '.join(lm['signals'])}")
+                        if lm.get("steam_move"):
+                            sm_info = lm["steam_move"]
+                            context_parts.append(f"  🚨 STEAM MOVE: quota {sm_info['side']} {sm_info['direction']}{sm_info['delta']:.3f} in un singolo aggiornamento")
+                        logger.info(f"  Line Movement: {lm['snapshots']} snapshots, signals={lm.get('signals')}")
+                except Exception as e:
+                    logger.warning(f"Line movement error: {e}")
 
             else:
                 logger.warning(f"Team IDs NON trovati per {home} o {away}")

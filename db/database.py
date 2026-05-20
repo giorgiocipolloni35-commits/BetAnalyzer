@@ -105,6 +105,27 @@ def init_db():
             PRIMARY KEY (team_id, season_id, formation)
         );
 
+        CREATE TABLE IF NOT EXISTS odds_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_key TEXT NOT NULL,
+            home_team TEXT NOT NULL,
+            away_team TEXT NOT NULL,
+            league TEXT NOT NULL,
+            match_date TEXT NOT NULL,
+            snapshot_at TEXT NOT NULL,
+            bookmaker TEXT NOT NULL,
+            home_odds REAL,
+            draw_odds REAL,
+            away_odds REAL,
+            over25 REAL,
+            under25 REAL,
+            gg REAL,
+            ng REAL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_odds_snapshots_match
+            ON odds_snapshots(match_key, bookmaker, snapshot_at);
+
         CREATE TABLE IF NOT EXISTS my_bets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             match_id TEXT NOT NULL,
@@ -129,6 +150,186 @@ def init_db():
         pass  # column already exists
     conn.close()
     logger.info(f"Database inizializzato: {DB_PATH}")
+
+
+# ── Odds Snapshots ──
+
+def save_odds_snapshot(match_key: str, home_team: str, away_team: str,
+                       league: str, match_date: str, bookmaker: str,
+                       home_odds: float, draw_odds: float, away_odds: float,
+                       over25: float = None, under25: float = None,
+                       gg: float = None, ng: float = None):
+    """Save a single odds snapshot. Skips if identical to last snapshot for same match+bookmaker."""
+    conn = _get_conn()
+    try:
+        # Check if we already have an identical snapshot (avoid duplicates)
+        last = conn.execute(
+            """SELECT home_odds, draw_odds, away_odds FROM odds_snapshots
+               WHERE match_key = ? AND bookmaker = ?
+               ORDER BY snapshot_at DESC LIMIT 1""",
+            (match_key, bookmaker)
+        ).fetchone()
+
+        if last and last["home_odds"] == home_odds and last["draw_odds"] == draw_odds and last["away_odds"] == away_odds:
+            return  # No change, skip
+
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        conn.execute(
+            """INSERT INTO odds_snapshots
+               (match_key, home_team, away_team, league, match_date, snapshot_at,
+                bookmaker, home_odds, draw_odds, away_odds, over25, under25, gg, ng)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (match_key, home_team, away_team, league, match_date, now,
+             bookmaker, home_odds, draw_odds, away_odds, over25, under25, gg, ng)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def save_odds_snapshots_batch(snapshots: list[dict]):
+    """Save multiple odds snapshots efficiently in a single transaction."""
+    if not snapshots:
+        return
+    conn = _get_conn()
+    try:
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        inserted = 0
+        for s in snapshots:
+            # Check for duplicate
+            last = conn.execute(
+                """SELECT home_odds, draw_odds, away_odds FROM odds_snapshots
+                   WHERE match_key = ? AND bookmaker = ?
+                   ORDER BY snapshot_at DESC LIMIT 1""",
+                (s["match_key"], s["bookmaker"])
+            ).fetchone()
+
+            if last and last["home_odds"] == s.get("home_odds") and last["draw_odds"] == s.get("draw_odds") and last["away_odds"] == s.get("away_odds"):
+                continue
+
+            conn.execute(
+                """INSERT INTO odds_snapshots
+                   (match_key, home_team, away_team, league, match_date, snapshot_at,
+                    bookmaker, home_odds, draw_odds, away_odds, over25, under25, gg, ng)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (s["match_key"], s["home_team"], s["away_team"], s["league"],
+                 s["match_date"], now, s["bookmaker"],
+                 s.get("home_odds"), s.get("draw_odds"), s.get("away_odds"),
+                 s.get("over25"), s.get("under25"), s.get("gg"), s.get("ng"))
+            )
+            inserted += 1
+        conn.commit()
+        if inserted:
+            logger.info(f"Odds snapshots: {inserted} nuovi salvati")
+    finally:
+        conn.close()
+
+
+def get_odds_history(match_key: str, bookmaker: str = None) -> list[dict]:
+    """Get all odds snapshots for a match, optionally filtered by bookmaker."""
+    conn = _get_conn()
+    try:
+        if bookmaker:
+            rows = conn.execute(
+                """SELECT * FROM odds_snapshots
+                   WHERE match_key = ? AND bookmaker = ?
+                   ORDER BY snapshot_at ASC""",
+                (match_key, bookmaker)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM odds_snapshots
+                   WHERE match_key = ?
+                   ORDER BY snapshot_at ASC""",
+                (match_key,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_line_movement(match_key: str) -> dict:
+    """
+    Calculate line movement for a match using Pinnacle as reference bookmaker.
+    Returns opening odds, current odds, and movement analysis.
+    """
+    conn = _get_conn()
+    try:
+        # Prefer Pinnacle (sharpest), fallback to any bookmaker with most snapshots
+        for bk in ["Pinnacle", "Betfair Exchange", None]:
+            if bk:
+                rows = conn.execute(
+                    """SELECT * FROM odds_snapshots
+                       WHERE match_key = ? AND bookmaker = ?
+                       ORDER BY snapshot_at ASC""",
+                    (match_key, bk)
+                ).fetchall()
+            else:
+                # Fallback: bookmaker with most snapshots
+                top_bk = conn.execute(
+                    """SELECT bookmaker, COUNT(*) as cnt FROM odds_snapshots
+                       WHERE match_key = ?
+                       GROUP BY bookmaker ORDER BY cnt DESC LIMIT 1""",
+                    (match_key,)
+                ).fetchone()
+                if not top_bk:
+                    return {}
+                rows = conn.execute(
+                    """SELECT * FROM odds_snapshots
+                       WHERE match_key = ? AND bookmaker = ?
+                       ORDER BY snapshot_at ASC""",
+                    (match_key, top_bk["bookmaker"])
+                ).fetchall()
+
+            if rows and len(rows) >= 2:
+                break
+
+        if not rows or len(rows) < 2:
+            return {}
+
+        opening = rows[0]
+        current = rows[-1]
+        bk_name = opening["bookmaker"]
+
+        # Calculate movements
+        h_move = round(current["home_odds"] - opening["home_odds"], 3) if opening["home_odds"] and current["home_odds"] else 0
+        d_move = round(current["draw_odds"] - opening["draw_odds"], 3) if opening["draw_odds"] and current["draw_odds"] else 0
+        a_move = round(current["away_odds"] - opening["away_odds"], 3) if opening["away_odds"] and current["away_odds"] else 0
+
+        # Detect steam move (sharp movement > 0.15 in single snapshot)
+        steam_move = None
+        for i in range(1, len(rows)):
+            prev, curr = rows[i-1], rows[i]
+            for side, key in [("home", "home_odds"), ("draw", "draw_odds"), ("away", "away_odds")]:
+                if prev[key] and curr[key]:
+                    delta = abs(curr[key] - prev[key])
+                    if delta >= 0.15:
+                        direction = "↓" if curr[key] < prev[key] else "↑"
+                        steam_move = {"side": side, "delta": round(delta, 3), "direction": direction}
+
+        # Determine which side money is going to
+        # Odds dropping = money coming in on that side
+        signals = []
+        if h_move <= -0.10:
+            signals.append(f"1 ({h_move:+.2f})")
+        if d_move <= -0.10:
+            signals.append(f"X ({d_move:+.2f})")
+        if a_move <= -0.10:
+            signals.append(f"2 ({a_move:+.2f})")
+
+        return {
+            "bookmaker": bk_name,
+            "snapshots": len(rows),
+            "opening": {"home": opening["home_odds"], "draw": opening["draw_odds"], "away": opening["away_odds"]},
+            "current": {"home": current["home_odds"], "draw": current["draw_odds"], "away": current["away_odds"]},
+            "movement": {"home": h_move, "draw": d_move, "away": a_move},
+            "steam_move": steam_move,
+            "signals": signals,
+            "first_seen": opening["snapshot_at"],
+            "last_seen": current["snapshot_at"],
+        }
+    finally:
+        conn.close()
 
 
 # ── My Bets CRUD ──
