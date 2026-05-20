@@ -283,8 +283,16 @@ class ScorerAnalyzer:
                             ref_mult = 0.95    # strict → fewer goals
                         # else stays 1.0 (average ref)
 
+                # MULT 9: Minutes normalization
+                # A player averaging 60 min/game has ~67% of a 90-min player's chance
+                minutes_mult = 1.0
+                mr = p.get("minutes_ratio")
+                if mr is not None and mr > 0:
+                    # Smooth: don't punish too harshly (min 0.70 multiplier)
+                    minutes_mult = max(0.70, mr)
+
                 # Cap: even Haaland/Mbappé don't score more than ~60% of matches
-                adjusted_prob = min(0.60, base_prob * home_mult * def_mult * pos_mult * form_mult * shots_mult * penalty_mult * fouls_drawn_mult * ref_mult)
+                adjusted_prob = min(0.60, base_prob * home_mult * def_mult * pos_mult * form_mult * shots_mult * penalty_mult * fouls_drawn_mult * ref_mult * minutes_mult)
 
                 # Soglia differenziata: difensori/terzini possono entrare con prob più bassa
                 # (segnano raramente ma da piazzato — vedi caso Diks 3% che segna)
@@ -327,6 +335,8 @@ class ScorerAnalyzer:
                     "fouls_drawn_per_game": p.get("fouls_drawn_per_game"),
                     "dribbles_per_game": p.get("dribbles_per_game"),
                     "assists_total": p.get("assists_total"),
+                    "avg_minutes": p.get("avg_minutes"),
+                    "minutes_ratio": p.get("minutes_ratio"),
                 })
 
             picks.sort(key=lambda x: x["probability"], reverse=True)
@@ -435,12 +445,13 @@ class ScorerAnalyzer:
                        JSON_EXTRACT(psc.stats_json, '$.key_passes'),
                        JSON_EXTRACT(psc.stats_json, '$.fouls_drawn'),
                        JSON_EXTRACT(psc.stats_json, '$.dribbles_success'),
-                       JSON_EXTRACT(psc.stats_json, '$.assists')
+                       JSON_EXTRACT(psc.stats_json, '$.assists'),
+                       JSON_EXTRACT(psc.stats_json, '$.minutes_played')
                 FROM player_stats_cache psc
                 JOIN player_info pi ON psc.player_id = pi.player_id
             """)
             for row in cursor.fetchall():
-                name, current_tid, apps, shots, sot, bcc, kp, fd, drib, ast = row
+                name, current_tid, apps, shots, sot, bcc, kp, fd, drib, ast, mins = row
                 if not name:
                     continue
                 name_low = name.lower()
@@ -454,6 +465,7 @@ class ScorerAnalyzer:
                         "fouls_drawn": int(fd or 0),
                         "dribbles_success": int(drib or 0),
                         "assists": int(ast or 0),
+                        "minutes_played": int(mins or 0),
                     }
                 if current_tid:
                     current_team_by_name[name_low] = int(current_tid)
@@ -542,6 +554,16 @@ class ScorerAnalyzer:
                 data["fouls_drawn_per_game"] = round(sm["fouls_drawn"] / a, 2)
                 data["dribbles_per_game"] = round(sm["dribbles_success"] / a, 2)
                 data["assists_total"] = sm["assists"]
+                # Minutes normalization: avg minutes per appearance vs 90
+                mins = sm.get("minutes_played", 0)
+                if mins > 0 and a > 0:
+                    avg_mins = mins / a
+                    data["avg_minutes"] = round(avg_mins, 1)
+                    # Ratio: 1.0 = plays full 90, 0.67 = avg 60 min
+                    data["minutes_ratio"] = round(min(avg_mins / 90.0, 1.0), 3)
+                else:
+                    data["avg_minutes"] = None
+                    data["minutes_ratio"] = None
             else:
                 data["shots_per_game"] = None
                 data["shots_on_target_pct"] = None
@@ -550,6 +572,8 @@ class ScorerAnalyzer:
                 data["fouls_drawn_per_game"] = None
                 data["dribbles_per_game"] = None
                 data["assists_total"] = None
+                data["avg_minutes"] = None
+                data["minutes_ratio"] = None
 
             result[sid] = data
 

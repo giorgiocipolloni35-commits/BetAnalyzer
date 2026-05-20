@@ -126,6 +126,41 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_odds_snapshots_match
             ON odds_snapshots(match_key, bookmaker, snapshot_at);
 
+        CREATE TABLE IF NOT EXISTS prediction_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_key TEXT NOT NULL,
+            home_team TEXT NOT NULL,
+            away_team TEXT NOT NULL,
+            league TEXT NOT NULL,
+            match_date TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            -- 1X2 model probabilities
+            model_home_win REAL,
+            model_draw REAL,
+            model_away_win REAL,
+            model_over25 REAL,
+            model_gg REAL,
+            lambda_home REAL,
+            lambda_away REAL,
+            draw_boost REAL,
+            home_boost REAL,
+            motivation_home TEXT,
+            motivation_away TEXT,
+            -- Top scorer picks (JSON array: [{player, team, prob}, ...])
+            scorer_picks_json TEXT,
+            -- Top card picks (JSON array)
+            card_picks_json TEXT,
+            -- Actual results (filled post-match)
+            actual_home_goals INTEGER,
+            actual_away_goals INTEGER,
+            actual_scorers TEXT,
+            actual_cards TEXT,
+            settled_at TEXT
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_prediction_log_match
+            ON prediction_log(match_key);
+
         CREATE TABLE IF NOT EXISTS my_bets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             match_id TEXT NOT NULL,
@@ -150,6 +185,195 @@ def init_db():
         pass  # column already exists
     conn.close()
     logger.info(f"Database inizializzato: {DB_PATH}")
+
+
+# ── Prediction Log (Backtesting) ──
+
+def save_prediction_log(match_key: str, home_team: str, away_team: str,
+                         league: str, match_date: str,
+                         model_1x2: dict = None, cs_data: dict = None,
+                         scorer_picks: list = None, card_picks: list = None):
+    """Log model predictions pre-match for backtesting.
+
+    Called from worker.py after computing all predictions for a match.
+    Uses INSERT OR REPLACE to update if predictions are regenerated.
+    """
+    conn = _get_conn()
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Extract 1X2 model data
+    hw = dd = aw = o25 = gg_pct = lh = la = db = hb = None
+    mot_h = mot_a = None
+    if cs_data:
+        agg = cs_data.get("aggregates", {})
+        hw = agg.get("home_win")
+        dd = agg.get("draw")
+        aw = agg.get("away_win")
+        o25 = agg.get("over_25")
+        gg_pct = agg.get("gg")
+        lh = cs_data.get("lambda_home")
+        la = cs_data.get("lambda_away")
+        db = cs_data.get("draw_boost")
+        hb = cs_data.get("home_boost")
+        mot_h = cs_data.get("motivation_home")
+        mot_a = cs_data.get("motivation_away")
+
+    # Trim scorer/card picks to top 10 with essential fields
+    def _slim_picks(picks, fields):
+        if not picks:
+            return None
+        slim = []
+        for p in picks[:10]:
+            slim.append({f: p.get(f) for f in fields if p.get(f) is not None})
+        return json.dumps(slim, ensure_ascii=False)
+
+    sc_json = _slim_picks(scorer_picks, ["player", "team", "probability", "goals", "avg_minutes"])
+    cd_json = _slim_picks(card_picks, ["player", "team", "probability", "yellows", "avg_minutes"])
+
+    try:
+        conn.execute("""
+            INSERT OR REPLACE INTO prediction_log
+            (match_key, home_team, away_team, league, match_date, created_at,
+             model_home_win, model_draw, model_away_win, model_over25, model_gg,
+             lambda_home, lambda_away, draw_boost, home_boost,
+             motivation_home, motivation_away,
+             scorer_picks_json, card_picks_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (match_key, home_team, away_team, league, match_date, now,
+              hw, dd, aw, o25, gg_pct, lh, la, db, hb,
+              mot_h, mot_a, sc_json, cd_json))
+        conn.commit()
+        logger.info(f"📊 Prediction logged: {match_key}")
+    except Exception as e:
+        logger.error(f"Prediction log error: {e}")
+    finally:
+        conn.close()
+
+
+def settle_prediction_log(match_key: str, home_goals: int, away_goals: int,
+                           scorers: list[str] = None, cards: list[str] = None):
+    """Fill in actual results for a logged prediction (post-match)."""
+    conn = _get_conn()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        conn.execute("""
+            UPDATE prediction_log
+            SET actual_home_goals = ?, actual_away_goals = ?,
+                actual_scorers = ?, actual_cards = ?, settled_at = ?
+            WHERE match_key = ? AND settled_at IS NULL
+        """, (home_goals, away_goals,
+              json.dumps(scorers or [], ensure_ascii=False),
+              json.dumps(cards or [], ensure_ascii=False),
+              now, match_key))
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Settle prediction error: {e}")
+    finally:
+        conn.close()
+
+
+def get_backtest_stats() -> dict:
+    """Compute backtesting accuracy stats from settled predictions.
+
+    Returns accuracy for each model component:
+    - 1X2: % of matches where highest-prob outcome was correct
+    - Over/Under 2.5: calibration (predicted 60% over → actual ~60%?)
+    - Scorers: % of top picks who actually scored
+    - Cards: % of top picks who got carded
+    """
+    conn = _get_conn()
+    try:
+        rows = conn.execute("""
+            SELECT * FROM prediction_log
+            WHERE settled_at IS NOT NULL
+            AND actual_home_goals IS NOT NULL
+        """).fetchall()
+
+        if not rows:
+            return {"total_matches": 0, "message": "Nessun dato di backtesting disponibile."}
+
+        total = len(rows)
+        correct_1x2 = 0
+        over25_predicted = []  # (model_prob, actual_bool)
+        scorer_hits = 0
+        scorer_total = 0
+        card_hits = 0
+        card_total = 0
+
+        for r in rows:
+            hg = r["actual_home_goals"]
+            ag = r["actual_away_goals"]
+
+            # 1X2 accuracy
+            hw = r["model_home_win"] or 0
+            dd = r["model_draw"] or 0
+            aw = r["model_away_win"] or 0
+            predicted = max([(hw, "1"), (dd, "X"), (aw, "2")], key=lambda x: x[0])
+            actual = "1" if hg > ag else ("X" if hg == ag else "2")
+            if predicted[1] == actual:
+                correct_1x2 += 1
+
+            # Over 2.5 calibration
+            o25 = r["model_over25"]
+            if o25 is not None:
+                over25_predicted.append((o25, 1 if (hg + ag) > 2 else 0))
+
+            # Scorer accuracy
+            if r["scorer_picks_json"] and r["actual_scorers"]:
+                picks = json.loads(r["scorer_picks_json"])
+                actual_sc = json.loads(r["actual_scorers"])
+                actual_sc_lower = [s.lower() for s in actual_sc]
+                for p in picks[:4]:  # top 4
+                    scorer_total += 1
+                    pname = p.get("player", "").lower()
+                    if any(pname in s or s in pname for s in actual_sc_lower):
+                        scorer_hits += 1
+
+            # Card accuracy
+            if r["card_picks_json"] and r["actual_cards"]:
+                picks = json.loads(r["card_picks_json"])
+                actual_cd = json.loads(r["actual_cards"])
+                actual_cd_lower = [s.lower() for s in actual_cd]
+                for p in picks[:4]:  # top 4
+                    card_total += 1
+                    pname = p.get("player", "").lower()
+                    if any(pname in s or s in pname for s in actual_cd_lower):
+                        card_hits += 1
+
+        # Over 2.5 calibration by bucket
+        o25_buckets = {}
+        for prob, actual in over25_predicted:
+            bucket = round(prob / 10) * 10  # bucket by 10%
+            if bucket not in o25_buckets:
+                o25_buckets[bucket] = {"count": 0, "actual": 0}
+            o25_buckets[bucket]["count"] += 1
+            o25_buckets[bucket]["actual"] += actual
+
+        o25_calibration = {}
+        for b, v in sorted(o25_buckets.items()):
+            o25_calibration[f"{b}%"] = {
+                "predicted": b,
+                "actual": round(v["actual"] / v["count"] * 100, 1),
+                "count": v["count"],
+            }
+
+        return {
+            "total_matches": total,
+            "1x2_accuracy": round(correct_1x2 / total * 100, 1) if total > 0 else 0,
+            "1x2_correct": correct_1x2,
+            "over25_calibration": o25_calibration,
+            "scorer_hit_rate": round(scorer_hits / scorer_total * 100, 1) if scorer_total > 0 else 0,
+            "scorer_hits": scorer_hits,
+            "scorer_total": scorer_total,
+            "card_hit_rate": round(card_hits / card_total * 100, 1) if card_total > 0 else 0,
+            "card_hits": card_hits,
+            "card_total": card_total,
+        }
+    except Exception as e:
+        logger.error(f"Backtest stats error: {e}")
+        return {"error": str(e)}
+    finally:
+        conn.close()
 
 
 # ── Odds Snapshots ──

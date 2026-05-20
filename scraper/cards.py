@@ -297,6 +297,13 @@ class CardAnalyzer:
                 # Combine: base × all multipliers
                 adjusted_prob = adjusted_prob * tension_mult
 
+                # MULTIPLIER 7: Minutes normalization
+                # A player averaging 60 min/game has ~67% of a full-timer's card risk
+                mr = p.get("minutes_ratio")
+                if mr is not None and mr > 0:
+                    minutes_mult = max(0.70, mr)
+                    adjusted_prob = adjusted_prob * minutes_mult
+
                 # FLOOR: players with high fouls/game get a minimum probability
                 # even if their historical yellow rate is low
                 if fpg >= 1.2 and adjusted_prob < 0.15:
@@ -338,6 +345,7 @@ class CardAnalyzer:
                     "fouls_drawn_per_game": p.get("fouls_drawn_per_game"),
                     "dribbles_att_per_game": p.get("dribbles_att_per_game"),
                     "aerials_per_game": p.get("aerials_per_game"),
+                    "avg_minutes": p.get("avg_minutes"),
                 })
 
             picks.sort(key=lambda x: x["probability"], reverse=True)
@@ -428,12 +436,13 @@ class CardAnalyzer:
                        JSON_EXTRACT(psc.stats_json, '$.interceptions'),
                        JSON_EXTRACT(psc.stats_json, '$.fouls_drawn'),
                        JSON_EXTRACT(psc.stats_json, '$.dribbles_attempts'),
-                       JSON_EXTRACT(psc.stats_json, '$.aerials_won')
+                       JSON_EXTRACT(psc.stats_json, '$.aerials_won'),
+                       JSON_EXTRACT(psc.stats_json, '$.minutes_played')
                 FROM player_stats_cache psc
                 JOIN player_info pi ON psc.player_id = pi.player_id
             """)
             for row in cursor.fetchall():
-                name, current_tid, pos_id, apps, fouls_c, tack, inter, fouls_d, drib_att, aerials = row
+                name, current_tid, pos_id, apps, fouls_c, tack, inter, fouls_d, drib_att, aerials, mins = row
                 if not name:
                     continue
                 name_low = name.lower()
@@ -446,6 +455,7 @@ class CardAnalyzer:
                         "fouls_drawn": int(fouls_d or 0),
                         "dribbles_attempts": int(drib_att or 0),
                         "aerials_won": int(aerials or 0),
+                        "minutes_played": int(mins or 0),
                     }
                 if current_tid:
                     current_team_by_name[name_low] = int(current_tid)
@@ -534,6 +544,15 @@ class CardAnalyzer:
                 data["fouls_drawn_per_game"] = round(sm["fouls_drawn"] / a, 2)
                 data["dribbles_att_per_game"] = round(sm["dribbles_attempts"] / a, 2)
                 data["aerials_per_game"] = round(sm["aerials_won"] / a, 2)
+                # Minutes normalization
+                mins = sm.get("minutes_played", 0)
+                if mins > 0 and a > 0:
+                    avg_mins = mins / a
+                    data["avg_minutes"] = round(avg_mins, 1)
+                    data["minutes_ratio"] = round(min(avg_mins / 90.0, 1.0), 3)
+                else:
+                    data["avg_minutes"] = None
+                    data["minutes_ratio"] = None
             else:
                 data["fouls_per_game"] = None
                 data["tackles_per_game"] = None
@@ -541,6 +560,8 @@ class CardAnalyzer:
                 data["fouls_drawn_per_game"] = None
                 data["dribbles_att_per_game"] = None
                 data["aerials_per_game"] = None
+                data["avg_minutes"] = None
+                data["minutes_ratio"] = None
 
             # Attach Sportmonks position_id for role boost
             # Prefer direct name, then fuzzy-matched team_lookup, then sm_key

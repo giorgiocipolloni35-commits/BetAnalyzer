@@ -1398,6 +1398,24 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
         except Exception as e:
             logger.debug(f"Line movement for email: {e}")
 
+        # ── Log predictions for backtesting ──
+        try:
+            from db.database import save_prediction_log
+            match_date_str = m_dict.get("match_date", m_dict.get("commence_time", ""))[:10]
+            pred_key = f"{home}_vs_{away}_{match_date_str}"
+            save_prediction_log(
+                match_key=pred_key,
+                home_team=home,
+                away_team=away,
+                league=league_name,
+                match_date=m_dict.get("match_date", ""),
+                cs_data=cs_match,
+                scorer_picks=scorer_picks,
+                card_picks=card_picks,
+            )
+        except Exception as e:
+            logger.warning(f"Prediction log error: {e}")
+
         match_info = {"home": home, "away": away, "league": league_name, "date": rome_d}
         logger.info(f"📧 Invio email a {len(recipients)} destinatari: {', '.join(recipients)}")
         all_sent = True

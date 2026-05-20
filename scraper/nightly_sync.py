@@ -183,7 +183,63 @@ def run_nightly_sync():
     # Salvataggio report mancanti
     with open('missing_players.json', 'w') as f:
         json.dump(missing_players, f, indent=4)
-        
+
+    # ── Settle prediction logs (backtest data) ──
+    logger.info("\n--- SETTLEMENT PREDICTION LOG (BACKTESTING) ---")
+    try:
+        import sqlite3 as _sq
+        from db.database import settle_prediction_log, DB_PATH
+        conn = _sq.connect(str(DB_PATH))
+        conn.row_factory = _sq.Row
+        unsettled = conn.execute("""
+            SELECT match_key, home_team, away_team, league, match_date
+            FROM prediction_log WHERE settled_at IS NULL
+        """).fetchall()
+        conn.close()
+
+        if unsettled:
+            logger.info(f"  {len(unsettled)} previsioni da settlare")
+            for pred in unsettled:
+                try:
+                    # Cerca risultato nella cache FD
+                    h = pred["home_team"]
+                    a = pred["away_team"]
+                    # Try to find finished match in FD cache
+                    import glob
+                    settled = False
+                    for cache_file in glob.glob("data/penalties/matches_*.json"):
+                        with open(cache_file, "r") as cf:
+                            cache_data = json.load(cf)
+                        for mid, detail in cache_data.items():
+                            score = detail.get("score", {})
+                            ft = score.get("fullTime", {})
+                            if ft.get("home") is None:
+                                continue
+                            # Match by team name (fuzzy)
+                            dh = detail.get("home", "").lower()
+                            da = detail.get("away", "").lower()
+                            if (h.lower() in dh or dh in h.lower()) and \
+                               (a.lower() in da or da in a.lower()):
+                                hg = ft["home"]
+                                ag = ft["away"]
+                                # Extract scorers and cards
+                                scorers = list({g.get("scorer", "") for g in detail.get("goals", []) if g.get("scorer")})
+                                cards = list({c.get("player", "") for c in detail.get("cards", []) if c.get("card") == "YELLOW" and c.get("player")})
+                                settle_prediction_log(pred["match_key"], hg, ag, scorers, cards)
+                                logger.info(f"  ✅ Settled: {h} vs {a} → {hg}-{ag}")
+                                settled = True
+                                break
+                        if settled:
+                            break
+                    if not settled:
+                        logger.debug(f"  ⏳ Not yet: {h} vs {a}")
+                except Exception as e:
+                    logger.warning(f"  Settlement error for {pred['match_key']}: {e}")
+        else:
+            logger.info("  Nessuna previsione da settlare")
+    except Exception as e:
+        logger.warning(f"Prediction settlement error: {e}")
+
     logger.info(f"\n{'#'*60}")
     logger.info(f" --- SINCRONIZZAZIONE TOTALE COMPLETATA! 🌙🌍✅ ---")
     logger.info(f" Report giocatori mancanti salvato in: missing_players.json ({len(missing_players)} nomi)")

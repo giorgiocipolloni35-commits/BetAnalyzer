@@ -2991,6 +2991,13 @@ def api_settle_bet(bet_id):
     return jsonify({"success": True, "profit": profit})
 
 
+@app.route("/api/backtest")
+def api_backtest():
+    """Backtesting stats: model accuracy across settled predictions."""
+    from db.database import get_backtest_stats
+    return jsonify(get_backtest_stats())
+
+
 @app.route("/api/today-lineups")
 def api_today_lineups():
     """Restituisce le partite di oggi con i giocatori delle formazioni (da alerts_log)."""

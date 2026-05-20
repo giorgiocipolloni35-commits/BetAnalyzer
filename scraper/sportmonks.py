@@ -827,6 +827,7 @@ class SportmonksClient:
                 "interceptions": 0, "tackles": 0, "blocks": 0, "clearances": 0, "aerials_won": 0,
                 "accurate_passes_pct": 0, "key_passes": 0, "through_balls": 0, "long_balls": 0,
                 "dribbles_success": 0, "dribbles_attempts": 0, "big_chances_created": 0,
+                "minutes_played": 0,
                 "saves": 0, "goals_conceded": 0, "clean_sheets": 0,
                 "saves_insidebox": 0, "errors_lead_to_goal": 0, "sm_rating": 0,
             }
@@ -840,7 +841,8 @@ class SportmonksClient:
                 v = val.get("all", val.get("total", val.get("count", val.get("average", 0))))
                 if isinstance(v, dict): v = v.get("total", 0)
                 if v is None: v = 0
-                if "appearances" in tname or tid in [311, 321, 322]: result["appearances"] = max(result["appearances"], v)
+                if "minutes played" in tname or tid == 83: result["minutes_played"] = max(result["minutes_played"], v)
+                elif "appearances" in tname or tid in [311, 321, 322]: result["appearances"] = max(result["appearances"], v)
                 elif "shots on target" in tname or tid == 86: result["shots_on_target"] = max(result["shots_on_target"], v)
                 elif "shots total" in tname or tid == 85: result["shots_total"] = max(result["shots_total"], v)
                 elif "goals" == tname or tid == 52: result["goals"] = max(result["goals"], v)
