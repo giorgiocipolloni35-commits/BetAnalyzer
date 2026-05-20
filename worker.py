@@ -77,6 +77,94 @@ class BetAnalyzerWorker:
             return []
 
     # ------------------------------------------------------------------ #
+    #  Smart Odds Rate Limiting (risparmio quota 500/mese)
+    # ------------------------------------------------------------------ #
+
+    _ODDS_FETCH_CACHE_KEY = "last_odds_fetch"
+
+    def _should_fetch_odds(self) -> bool:
+        """Decide if we should fetch fresh odds or reuse cache.
+
+        Strategy:
+        - If matches today: every 2 hours
+        - If matches tomorrow: every 4 hours
+        - Otherwise: every 6 hours
+        This uses ~8-12 requests/day instead of 288.
+        """
+        last_fetch_str = self._get_worker_setting(self._ODDS_FETCH_CACHE_KEY, "")
+        if not last_fetch_str:
+            return True  # First time, always fetch
+
+        try:
+            last_fetch = datetime.fromisoformat(last_fetch_str)
+        except (ValueError, TypeError):
+            return True
+
+        now = datetime.now(timezone.utc)
+        hours_since = (now - last_fetch).total_seconds() / 3600
+
+        # Check if there are matches today
+        today_str = now.strftime("%Y-%m-%d")
+        tomorrow = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # Read cached odds to check match dates
+        cached = self._load_cached_odds()
+        has_today = any(getattr(m, 'commence_time', '')[:10] == today_str for m in (cached or []))
+        has_tomorrow = any(getattr(m, 'commence_time', '')[:10] == tomorrow for m in (cached or []))
+
+        if has_today:
+            interval = 2  # Match day: ogni 2 ore
+        elif has_tomorrow:
+            interval = 4  # Day before: ogni 4 ore
+        else:
+            interval = 6  # No imminent matches: ogni 6 ore
+
+        if hours_since >= interval:
+            logger.info(f"📊 Odds fetch: {hours_since:.1f}h dall'ultimo (intervallo: {interval}h) → FETCH")
+            return True
+        else:
+            logger.debug(f"📊 Odds fetch: {hours_since:.1f}h dall'ultimo (intervallo: {interval}h) → SKIP")
+            return False
+
+    def _save_odds_fetch_time(self):
+        """Record when we last fetched odds."""
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.execute(
+                "INSERT OR REPLACE INTO worker_settings (key, value) VALUES (?, ?)",
+                (self._ODDS_FETCH_CACHE_KEY, now)
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Error saving odds fetch time: {e}")
+
+    def _load_cached_odds(self):
+        """Load odds from cache files (already saved by OddsAPIClient)."""
+        try:
+            from scraper.odds_api import OddsAPIClient, LEAGUES, CACHE_DIR
+            active = self._get_active_leagues()
+            all_matches = []
+            for key in active:
+                if key not in LEAGUES:
+                    continue
+                sport_key, league_name = LEAGUES[key]
+                cache_file = CACHE_DIR / f"{sport_key}.json"
+                if cache_file.exists():
+                    import json as _json
+                    with open(cache_file) as f:
+                        payload = _json.load(f)
+                    # OddsAPIClient cache format: {"ts": ..., "data": [...]}
+                    dummy = OddsAPIClient("dummy")
+                    matches = dummy._parse_response(payload.get("data", []), league_name)
+                    all_matches.extend(matches)
+            return all_matches if all_matches else None
+        except Exception as e:
+            logger.debug(f"Cached odds load error: {e}")
+            return None
+
+    # ------------------------------------------------------------------ #
     #  Recupero match imminenti (prossime 24h, solo campionati attivi)
     # ------------------------------------------------------------------ #
 
@@ -103,25 +191,40 @@ class BetAnalyzerWorker:
                 logger.warning(f"⚠️ Sportmonks fallito: {e}")
 
         # 2. Fallback/arricchimento con Odds API (rotazione chiavi)
+        #    SMART RATE LIMIT: per risparmiare quota (500/mese), fetch solo ogni N ore
+        #    - Giorno match: ogni 2 ore (12 fetch/giorno)
+        #    - Giorno prima: ogni 4 ore (6 fetch/giorno)
+        #    - Oltre: ogni 6 ore (4 fetch/giorno)
         odds_keys = [v for k, v in sorted(os.environ.items())
                      if k.startswith("ODDS_API_KEY") and v]
         if odds_keys:
             from scraper.odds_api import OddsAPIClient
             odds_matches = None
-            for idx, okey in enumerate(odds_keys):
-                try:
-                    odds_client = OddsAPIClient(okey)
-                    odds_matches = odds_client.get_all_matches(active_leagues)
-                    quota = odds_client.get_quota_usage()
-                    if odds_matches:
-                        logger.info(f"✅ Odds API (key #{idx+1}): {len(odds_matches)} match "
-                                    f"(remaining: {quota['remaining']})")
-                        break  # Trovate quote, stop rotazione
-                    else:
-                        logger.warning(f"⚠️ Odds API key #{idx+1}: nessun match "
-                                       f"(remaining: {quota['remaining']})")
-                except Exception as e:
-                    logger.warning(f"⚠️ Odds API key #{idx+1} fallita: {e}")
+
+            # Check if we should fetch odds this cycle
+            should_fetch_odds = self._should_fetch_odds()
+
+            if not should_fetch_odds:
+                # Use cached odds from last fetch
+                odds_matches = self._load_cached_odds()
+                if odds_matches:
+                    logger.debug(f"📦 Odds API: usando cache ({len(odds_matches)} match)")
+            else:
+                for idx, okey in enumerate(odds_keys):
+                    try:
+                        odds_client = OddsAPIClient(okey)
+                        odds_matches = odds_client.get_all_matches(active_leagues)
+                        quota = odds_client.get_quota_usage()
+                        if odds_matches:
+                            logger.info(f"✅ Odds API (key #{idx+1}): {len(odds_matches)} match "
+                                        f"(remaining: {quota['remaining']})")
+                            self._save_odds_fetch_time()
+                            break
+                        else:
+                            logger.warning(f"⚠️ Odds API key #{idx+1}: nessun match "
+                                           f"(remaining: {quota['remaining']})")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Odds API key #{idx+1} fallita: {e}")
 
             if odds_matches:
                 if raw_matches:
@@ -1283,11 +1386,23 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
         except Exception as e:
             logger.warning(f"⚠️ HT/FT data error: {e}")
 
+        # Line Movement data for email
+        line_movement_data = None
+        try:
+            from db.database import get_line_movement
+            match_date_str = m_dict.get("match_date", m_dict.get("commence_time", ""))[:10]
+            lm_key = f"{home}_vs_{away}_{match_date_str}"
+            lm = get_line_movement(lm_key)
+            if lm and lm.get("snapshots", 0) >= 2:
+                line_movement_data = lm
+        except Exception as e:
+            logger.debug(f"Line movement for email: {e}")
+
         match_info = {"home": home, "away": away, "league": league_name, "date": rome_d}
         logger.info(f"📧 Invio email a {len(recipients)} destinatari: {', '.join(recipients)}")
         all_sent = True
         for recipient in recipients:
-            if self.mail.send_bet_alert(recipient, match_info, ai_suggestion, htft_data=htft_data):
+            if self.mail.send_bet_alert(recipient, match_info, ai_suggestion, htft_data=htft_data, line_movement=line_movement_data):
                 logger.info(f"  ✅ Inviato a {recipient}")
             else:
                 logger.error(f"  ❌ Fallito per {recipient}")

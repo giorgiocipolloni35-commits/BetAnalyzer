@@ -307,7 +307,74 @@ class EmailService:
         </div>
         '''
 
-    def send_bet_alert(self, to_email, match_info, ai_analysis, htft_data=None):
+    def _render_line_movement(self, lm):
+        """Render Line Movement section as HTML for email."""
+        if not lm or lm.get("snapshots", 0) < 2:
+            return ""
+
+        op = lm.get("opening", {})
+        cur = lm.get("current", {})
+        mv = lm.get("movement", {})
+
+        def _arrow(val):
+            if val <= -0.10:
+                return f'<span style="color:#22c55e;">▼ {val:+.2f}</span>'  # Green = money coming in
+            elif val >= 0.10:
+                return f'<span style="color:#ef4444;">▲ {val:+.2f}</span>'  # Red = drifting out
+            else:
+                return f'<span style="color:#94a3b8;">= {val:+.2f}</span>'
+
+        # Determine main signal
+        signal_html = ""
+        if lm.get("signals"):
+            signal_html = f'''
+            <div style="background:#1a2e1a;border:1px solid #22c55e;border-radius:8px;padding:10px 14px;margin-top:10px;">
+                <span style="font-size:13px;">💰 <b style="color:#22c55e;">Soldi professionali su:</b> {', '.join(lm['signals'])}</span>
+                <br><span style="font-size:11px;color:#94a3b8;">Quota in calo = flusso di denaro da scommettitori professionisti (sharps)</span>
+            </div>'''
+
+        steam_html = ""
+        if lm.get("steam_move"):
+            sm = lm["steam_move"]
+            steam_html = f'''
+            <div style="background:#2d1a1a;border:1px solid #ef4444;border-radius:8px;padding:10px 14px;margin-top:8px;">
+                <span style="font-size:13px;">🚨 <b style="color:#ef4444;">STEAM MOVE</b> — Quota {sm['side'].upper()} {sm['direction']}{sm['delta']:.3f} in un singolo aggiornamento</span>
+                <br><span style="font-size:11px;color:#94a3b8;">Movimento brusco = informazione privilegiata o grosso volume di denaro</span>
+            </div>'''
+
+        return f'''
+        <div style="background:linear-gradient(135deg,#1e293b 0%,#172033 100%);border:1px solid #334155;border-radius:12px;padding:16px 20px;margin-top:16px;">
+            <h3 style="color:#a78bfa;margin:0 0 12px 0;font-size:14px;">📈 LINE MOVEMENT
+                <span style="color:#64748b;font-weight:normal;font-size:11px;">({lm.get('bookmaker','?')}, {lm['snapshots']} rilevazioni)</span>
+            </h3>
+            <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;">
+                <tr style="color:#64748b;font-size:11px;text-transform:uppercase;">
+                    <td></td><td style="text-align:center;">1 (Casa)</td><td style="text-align:center;">X (Pareggio)</td><td style="text-align:center;">2 (Ospite)</td>
+                </tr>
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="color:#94a3b8;">Apertura</td>
+                    <td style="text-align:center;">{op.get('home','-'):.2f}</td>
+                    <td style="text-align:center;">{op.get('draw','-'):.2f}</td>
+                    <td style="text-align:center;">{op.get('away','-'):.2f}</td>
+                </tr>
+                <tr>
+                    <td style="color:#f8fafc;font-weight:bold;">Attuale</td>
+                    <td style="text-align:center;font-weight:bold;">{cur.get('home','-'):.2f}</td>
+                    <td style="text-align:center;font-weight:bold;">{cur.get('draw','-'):.2f}</td>
+                    <td style="text-align:center;font-weight:bold;">{cur.get('away','-'):.2f}</td>
+                </tr>
+                <tr style="border-top:1px solid #334155;">
+                    <td style="color:#94a3b8;">Movimento</td>
+                    <td style="text-align:center;">{_arrow(mv.get('home',0))}</td>
+                    <td style="text-align:center;">{_arrow(mv.get('draw',0))}</td>
+                    <td style="text-align:center;">{_arrow(mv.get('away',0))}</td>
+                </tr>
+            </table>
+            {signal_html}
+            {steam_html}
+        </div>'''
+
+    def send_bet_alert(self, to_email, match_info, ai_analysis, htft_data=None, line_movement=None):
         """Invia un alert scommessa formattato in HTML professionale"""
         subject = f"⚽ FORMAZIONI UFFICIALI: {match_info['home']} vs {match_info['away']}"
 
@@ -319,6 +386,9 @@ class EmailService:
 
         # Render HT/FT section
         htft_html = self._render_htft_email(htft_data)
+
+        # Render Line Movement section
+        line_movement_html = self._render_line_movement(line_movement)
 
         html = f"""
         <html>
@@ -343,6 +413,8 @@ class EmailService:
                 {sections_html}
 
                 {htft_html}
+
+                {line_movement_html}
 
                 <div style="text-align: center; margin-top: 24px;">
                     <a href="http://localhost:5001" style="background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%); color: #0f172a; padding: 12px 28px; text-decoration: none; font-weight: 800; border-radius: 8px; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);">
