@@ -204,24 +204,39 @@ document.querySelectorAll('#mobileNav .nav-link').forEach(a => {
 </style>
 <script>
 (function(){
-    // Show loader on slow navigations (team pages, etc.)
+    var loaderTimer = null;
     document.addEventListener('click', function(e){
         var a = e.target.closest('a[href]');
         if(!a) return;
         var href = a.getAttribute('href') || '';
-        // Activate loader for team detail and other slow pages
         if(href.match(/^\/team\/\d+/) || href.match(/^\/players_explorer/) || a.dataset.slow){
             var loader = document.getElementById('pageLoader');
+            var txt = document.getElementById('pageLoaderText');
             if(loader){
-                document.getElementById('pageLoaderText').textContent =
-                    href.match(/^\/team\//) ? 'Caricamento squadra...' : 'Caricamento in corso...';
+                txt.textContent = href.match(/^\/team\//) ? 'Caricamento squadra...' : 'Caricamento in corso...';
+                txt.style.color = '#94a3b8';
                 loader.style.display='flex';
+                // Progress feedback
+                if(loaderTimer) clearTimeout(loaderTimer);
+                loaderTimer = setTimeout(function(){
+                    txt.textContent = 'Recupero dati Transfermarkt... (prima visita, poi sarà istantaneo)';
+                }, 5000);
+                // Safety timeout — hide after 90s with error
+                setTimeout(function(){
+                    if(loader.style.display==='flex'){
+                        txt.textContent = '⚠ Caricamento troppo lungo. Riprova.';
+                        txt.style.color = '#f59e0b';
+                        setTimeout(function(){ loader.style.display='none'; }, 3000);
+                    }
+                }, 90000);
             }
         }
     });
-    // Hide on back-navigation (bfcache)
     window.addEventListener('pageshow', function(e){
-        if(e.persisted) document.getElementById('pageLoader').style.display='none';
+        if(e.persisted){
+            document.getElementById('pageLoader').style.display='none';
+            if(loaderTimer){ clearTimeout(loaderTimer); loaderTimer=null; }
+        }
     });
 })();
 </script>
