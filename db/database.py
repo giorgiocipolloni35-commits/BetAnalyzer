@@ -161,6 +161,24 @@ def init_db():
         CREATE UNIQUE INDEX IF NOT EXISTS idx_prediction_log_match
             ON prediction_log(match_key);
 
+        CREATE TABLE IF NOT EXISTS wc_squads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            country TEXT NOT NULL,
+            wc_group TEXT,
+            coach TEXT,
+            player_name TEXT NOT NULL,
+            position TEXT NOT NULL,
+            club TEXT,
+            -- Link to our DB (filled by matching)
+            player_id INTEGER,
+            matched_rating REAL,
+            matched_stats_json TEXT,
+            UNIQUE(country, player_name)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_wc_squads_country
+            ON wc_squads(country);
+
         CREATE TABLE IF NOT EXISTS my_bets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             match_id TEXT NOT NULL,

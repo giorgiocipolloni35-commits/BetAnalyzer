@@ -2998,6 +2998,44 @@ def api_backtest():
     return jsonify(get_backtest_stats())
 
 
+@app.route("/api/worldcup/import", methods=["POST"])
+def api_wc_import():
+    """Import/refresh WC squads into DB and match with our player data."""
+    from scraper.worldcup import import_squads
+    result = import_squads()
+    return jsonify(result)
+
+
+@app.route("/api/worldcup/rankings")
+def api_wc_rankings():
+    """Get all WC squads ranked by average player rating."""
+    from scraper.worldcup import get_all_squads_summary
+    return jsonify(get_all_squads_summary())
+
+
+@app.route("/api/worldcup/squad/<country>")
+def api_wc_squad(country):
+    """Get a specific country's WC squad with matched stats."""
+    from scraper.worldcup import get_squad
+    return jsonify(get_squad(country))
+
+
+@app.route("/api/worldcup/top-scorers")
+def api_wc_top_scorers():
+    """Top WC scorer candidates based on club stats."""
+    from scraper.worldcup import get_top_scorers
+    limit = request.args.get("limit", 20, type=int)
+    return jsonify(get_top_scorers(limit))
+
+
+@app.route("/api/worldcup/top-cards")
+def api_wc_top_cards():
+    """Top WC card candidates based on club stats."""
+    from scraper.worldcup import get_top_card_candidates
+    limit = request.args.get("limit", 20, type=int)
+    return jsonify(get_top_card_candidates(limit))
+
+
 @app.route("/api/today-lineups")
 def api_today_lineups():
     """Restituisce le partite di oggi con i giocatori delle formazioni (da alerts_log)."""
