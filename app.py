@@ -2416,6 +2416,71 @@ def api_correct_score(league_key):
 #  Teams & Rosters                                                     #
 # ------------------------------------------------------------------ #
 
+# ── World Cup 2026 ──
+
+@app.route("/worldcup")
+def worldcup_page():
+    from scraper.worldcup import get_all_squads_summary, get_top_scorers, get_top_card_candidates, WC_SQUADS
+
+    # Import squads if not yet in DB (first visit)
+    import sqlite3
+    conn = sqlite3.connect("data/betanalyzer.db")
+    count = conn.execute("SELECT COUNT(*) FROM wc_squads").fetchone()[0]
+    conn.close()
+    if count == 0:
+        from scraper.worldcup import import_squads
+        import_squads()
+
+    rankings = get_all_squads_summary()
+    top_scorers = get_top_scorers(20)
+    top_cards = get_top_card_candidates(20)
+
+    # Build groups dict for template
+    groups = {}
+    # All WC groups
+    ALL_GROUPS = {
+        "A": ["Messico", "Sudafrica", "Corea del Sud", "Repubblica Ceca"],
+        "B": ["Canada", "Bosnia", "Qatar", "Svizzera"],
+        "C": ["Brasile", "Marocco", "Haiti", "Scozia"],
+        "D": ["USA", "Paraguay", "Australia", "Turchia"],
+        "E": ["Germania", "Curacao", "Costa d'Avorio", "Ecuador"],
+        "F": ["Olanda", "Giappone", "Svezia", "Tunisia"],
+        "G": ["Belgio", "Egitto", "Iran", "Nuova Zelanda"],
+        "H": ["Spagna", "Capo Verde", "Arabia Saudita", "Uruguay"],
+        "I": ["Francia", "Senegal", "Iraq", "Norvegia"],
+        "J": ["Argentina", "Algeria", "Austria", "Giordania"],
+        "K": ["Portogallo", "Rep. Dem. Congo", "Uzbekistan", "Colombia"],
+        "L": ["Inghilterra", "Croazia", "Ghana", "Panama"],
+    }
+
+    ranking_map = {r["country"]: r for r in rankings}
+    missing_groups = []
+    for g, teams in ALL_GROUPS.items():
+        group_teams = []
+        for t in teams:
+            if t in ranking_map:
+                group_teams.append(ranking_map[t])
+            else:
+                group_teams.append({"country": t, "group": g, "avg_rating": None, "matched": 0, "total_players": 0, "total_goals": 0})
+        groups[g] = group_teams
+
+    total_players = sum(r["total_players"] for r in rankings)
+    matched_players = sum(r["matched"] for r in rankings)
+    match_pct = round(matched_players / total_players * 100) if total_players > 0 else 0
+
+    return render_template("worldcup.html",
+        rankings=rankings,
+        top_scorers=top_scorers,
+        top_cards=top_cards,
+        groups=groups,
+        countries=len(rankings),
+        total_players=total_players,
+        matched_players=matched_players,
+        match_pct=match_pct,
+        missing_groups=[],
+    )
+
+
 @app.route("/worker", methods=["GET", "POST"])
 def worker_page():
     from db.database import save_worker_setting, get_worker_setting, get_alerts_log

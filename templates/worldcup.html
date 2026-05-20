@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}World Cup 2026 — BetAnalyzer{% endblock %}
+
+{% block content %}
+<style>
+    .wc-hero { text-align:center; padding:1.5rem 0 1rem; }
+    .wc-hero h1 { font-size:2rem; margin:0; }
+    .wc-hero h1 span { color:#f59e0b; }
+    .wc-hero .sub { color:#94a3b8; font-size:.9rem; margin-top:.3rem; }
+    .wc-stats-row { display:flex; gap:.8rem; justify-content:center; flex-wrap:wrap; margin:1rem 0 1.5rem; }
+    .wc-stat { background:#1e293b; border-radius:10px; padding:.7rem 1.2rem; text-align:center; min-width:100px; }
+    .wc-stat .val { font-size:1.5rem; font-weight:700; color:#f59e0b; }
+    .wc-stat .lbl { font-size:.75rem; color:#94a3b8; }
+
+    .wc-tabs { display:flex; gap:.5rem; justify-content:center; margin-bottom:1.2rem; flex-wrap:wrap; }
+    .wc-tab { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:.5rem 1rem; cursor:pointer; color:#94a3b8; font-size:.85rem; transition:.2s; }
+    .wc-tab.active { background:#f59e0b; color:#0f172a; border-color:#f59e0b; font-weight:600; }
+    .wc-tab:hover { border-color:#f59e0b; }
+
+    .wc-panel { display:none; }
+    .wc-panel.active { display:block; }
+
+    /* Groups */
+    .groups-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem; }
+    .group-card { background:#1e293b; border-radius:12px; padding:1rem; border:1px solid #334155; }
+    .group-card h3 { margin:0 0 .8rem; color:#f59e0b; font-size:1rem; }
+    .group-team { display:flex; justify-content:space-between; align-items:center; padding:.45rem .5rem; border-radius:6px; cursor:pointer; transition:.15s; }
+    .group-team:hover { background:#334155; }
+    .group-team .name { font-weight:500; }
+    .group-team .rating { color:#f59e0b; font-size:.85rem; font-weight:600; }
+    .group-team .no-data { color:#64748b; font-size:.8rem; }
+
+    /* Rankings */
+    .rank-table { width:100%; border-collapse:collapse; }
+    .rank-table th { text-align:left; padding:.6rem; color:#94a3b8; font-size:.8rem; border-bottom:1px solid #334155; }
+    .rank-table td { padding:.6rem; border-bottom:1px solid #1e293b; }
+    .rank-table tr:hover { background:#1e293b; }
+    .rank-num { color:#f59e0b; font-weight:700; width:30px; }
+    .rank-bar { height:8px; background:#f59e0b; border-radius:4px; min-width:4px; }
+    .rank-bar-bg { height:8px; background:#1e293b; border-radius:4px; width:120px; overflow:hidden; }
+    .match-badge { font-size:.7rem; background:#334155; padding:2px 6px; border-radius:4px; color:#94a3b8; }
+
+    /* Top Players */
+    .top-players { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:.8rem; }
+    .top-player { background:#1e293b; border-radius:10px; padding:.8rem 1rem; display:flex; align-items:center; gap:.8rem; border:1px solid #334155; }
+    .top-player .num { font-size:1.3rem; font-weight:700; color:#f59e0b; min-width:30px; }
+    .top-player .info { flex:1; }
+    .top-player .pname { font-weight:600; font-size:.95rem; }
+    .top-player .pmeta { color:#94a3b8; font-size:.8rem; }
+    .top-player .pstat { color:#f59e0b; font-weight:600; font-size:.95rem; }
+
+    /* Squad detail */
+    .squad-overlay { display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,.95); overflow-y:auto; padding:1rem; }
+    .squad-overlay.open { display:block; }
+    .squad-close { position:sticky; top:0; text-align:right; }
+    .squad-close button { background:#ef4444; color:#fff; border:none; border-radius:8px; padding:.4rem 1rem; cursor:pointer; font-size:1rem; }
+    .squad-header { text-align:center; margin:1rem 0; }
+    .squad-header h2 { margin:0; font-size:1.5rem; }
+    .squad-header .meta { color:#94a3b8; font-size:.9rem; }
+    .squad-section { margin-top:1rem; }
+    .squad-section h4 { color:#f59e0b; margin:0 0 .5rem; font-size:.9rem; }
+    .squad-player { background:#1e293b; border-radius:8px; padding:.6rem .8rem; margin-bottom:.4rem; display:flex; justify-content:space-between; align-items:center; }
+    .squad-player .sp-name { font-weight:500; }
+    .squad-player .sp-club { color:#94a3b8; font-size:.8rem; }
+    .squad-player .sp-stats { text-align:right; font-size:.8rem; }
+    .squad-player .sp-rating { color:#f59e0b; font-weight:600; }
+    .squad-player.not-matched { opacity:.5; }
+</style>
+
+<div class="wc-hero">
+    <h1><span>FIFA World Cup 2026</span></h1>
+    <div class="sub">USA / Canada / Messico &mdash; 11 Giugno - 19 Luglio 2026</div>
+</div>
+
+<div class="wc-stats-row">
+    <div class="wc-stat"><div class="val">{{ countries }}</div><div class="lbl">Nazionali</div></div>
+    <div class="wc-stat"><div class="val">{{ total_players }}</div><div class="lbl">Giocatori</div></div>
+    <div class="wc-stat"><div class="val">{{ matched_players }}</div><div class="lbl">Con Stats</div></div>
+    <div class="wc-stat"><div class="val">{{ match_pct }}%</div><div class="lbl">Copertura</div></div>
+</div>
+
+<div class="wc-tabs">
+    <div class="wc-tab active" onclick="switchTab('groups')">Gironi</div>
+    <div class="wc-tab" onclick="switchTab('ranking')">Ranking</div>
+    <div class="wc-tab" onclick="switchTab('scorers')">Top Marcatori</div>
+    <div class="wc-tab" onclick="switchTab('cards')">Top Cartellini</div>
+</div>
+
+<!-- GIRONI -->
+<div class="wc-panel active" id="panel-groups">
+    <div class="groups-grid">
+        {% for group_letter, teams in groups.items() | sort %}
+        <div class="group-card">
+            <h3>Gruppo {{ group_letter }}</h3>
+            {% for t in teams %}
+            <div class="group-team" onclick="openSquad('{{ t.country }}')">
+                <span class="name">{{ t.country }}</span>
+                {% if t.avg_rating %}
+                <span class="rating">{{ t.avg_rating }}</span>
+                {% else %}
+                <span class="no-data">N/D</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% set registered = teams | selectattr('avg_rating') | list %}
+            {% if registered %}
+            {% set max_r = registered | map(attribute='avg_rating') | max %}
+            {% set fav = registered | selectattr('avg_rating', 'equalto', max_r) | first %}
+            <div style="margin-top:.5rem; text-align:center; font-size:.75rem; color:#64748b;">
+                Favorita: <strong style="color:#f59e0b;">{{ fav.country }}</strong> ({{ fav.avg_rating }})
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% if missing_groups %}
+    <div style="text-align:center; margin-top:1rem; color:#64748b; font-size:.8rem;">
+        Gironi senza convocazioni ufficiali: {{ missing_groups | join(', ') }}
+    </div>
+    {% endif %}
+</div>
+
+<!-- RANKING -->
+<div class="wc-panel" id="panel-ranking">
+    <table class="rank-table">
+        <thead><tr>
+            <th>#</th><th>Nazionale</th><th>Gr.</th><th>Rating</th><th></th><th>Matchati</th><th>Gol Tot.</th>
+        </tr></thead>
+        <tbody>
+        {% for s in rankings %}
+        <tr onclick="openSquad('{{ s.country }}')" style="cursor:pointer;">
+            <td class="rank-num">{{ loop.index }}</td>
+            <td><strong>{{ s.country }}</strong></td>
+            <td>{{ s.group }}</td>
+            <td><strong style="color:#f59e0b;">{{ s.avg_rating or 'N/D' }}</strong></td>
+            <td>
+                {% if s.avg_rating %}
+                <div class="rank-bar-bg"><div class="rank-bar" style="width:{{ ((s.avg_rating - 45) / 30 * 100) | int }}%"></div></div>
+                {% endif %}
+            </td>
+            <td><span class="match-badge">{{ s.matched }}/{{ s.total_players }}</span></td>
+            <td>{{ s.total_goals }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- TOP MARCATORI -->
+<div class="wc-panel" id="panel-scorers">
+    <div class="top-players">
+        {% for s in top_scorers %}
+        <div class="top-player">
+            <div class="num">{{ loop.index }}</div>
+            <div class="info">
+                <div class="pname">{{ s.player }}</div>
+                <div class="pmeta">{{ s.country }} &mdash; {{ s.club }} ({{ s.position }})</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="pstat">{{ s.goals }}g / {{ s.appearances }} app</div>
+                <div class="pmeta">{{ s.goals_per_match }}/g &mdash; {{ s.shots }} tiri</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- TOP CARTELLINI -->
+<div class="wc-panel" id="panel-cards">
+    <div class="top-players">
+        {% for c in top_cards %}
+        <div class="top-player">
+            <div class="num">{{ loop.index }}</div>
+            <div class="info">
+                <div class="pname">{{ c.player }}</div>
+                <div class="pmeta">{{ c.country }} &mdash; {{ c.club }} ({{ c.position }})</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="pstat">{{ c.fouls_per_match }} falli/g</div>
+                <div class="pmeta">{{ c.tackles_per_match }} tackles/g</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- SQUAD DETAIL OVERLAY -->
+<div class="squad-overlay" id="squadOverlay">
+    <div class="squad-close"><button onclick="closeSquad()">Chiudi</button></div>
+    <div class="squad-header">
+        <h2 id="squadName"></h2>
+        <div class="meta" id="squadMeta"></div>
+    </div>
+    <div id="squadContent"></div>
+</div>
+
+<script>
+function switchTab(tab) {
+    document.querySelectorAll('.wc-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.wc-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    event.target.classList.add('active');
+}
+
+function openSquad(country) {
+    const overlay = document.getElementById('squadOverlay');
+    const content = document.getElementById('squadContent');
+    document.getElementById('squadName').textContent = country;
+    document.getElementById('squadMeta').textContent = 'Caricamento...';
+    content.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;">Caricamento...</div>';
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    fetch('/api/worldcup/squad/' + encodeURIComponent(country))
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                content.innerHTML = '<div style="text-align:center;color:#ef4444;">' + data.error + '</div>';
+                return;
+            }
+            document.getElementById('squadMeta').textContent =
+                'Gruppo ' + data.group + ' | CT: ' + data.coach +
+                ' | Rating: ' + (data.avg_rating || 'N/D') +
+                ' | ' + data.matched + '/' + data.total + ' con stats';
+
+            const sections = {GK: 'Portieri', DEF: 'Difensori', MID: 'Centrocampisti', ATT: 'Attaccanti'};
+            let html = '';
+            for (const [pos, label] of Object.entries(sections)) {
+                const players = data.players.filter(p => p.position === pos);
+                if (!players.length) continue;
+                html += '<div class="squad-section"><h4>' + label + '</h4>';
+                for (const p of players) {
+                    const cls = p.matched ? '' : 'not-matched';
+                    let stats = '';
+                    if (p.matched && p.rating) {
+                        stats = '<span class="sp-rating">' + p.rating.toFixed(1) + '</span>';
+                        if (p.goals !== undefined) stats += ' | ' + p.goals + 'g ' + (p.assists || 0) + 'a';
+                        if (p.appearances) stats += ' | ' + p.appearances + ' app';
+                        if (p.minutes) stats += ' | ' + p.minutes + "'";
+                    } else {
+                        stats = '<span style="color:#64748b;">No stats</span>';
+                    }
+                    html += '<div class="squad-player ' + cls + '">' +
+                        '<div><span class="sp-name">' + p.name + '</span><br>' +
+                        '<span class="sp-club">' + p.club + '</span></div>' +
+                        '<div class="sp-stats">' + stats + '</div></div>';
+                }
+                html += '</div>';
+            }
+            content.innerHTML = html;
+        })
+        .catch(err => {
+            content.innerHTML = '<div style="color:#ef4444;">Errore: ' + err + '</div>';
+        });
+}
+
+function closeSquad() {
+    document.getElementById('squadOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+}
+</script>
+{% endblock %}
