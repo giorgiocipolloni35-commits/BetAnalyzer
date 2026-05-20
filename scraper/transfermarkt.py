@@ -15,6 +15,24 @@ class TransfermarktScraper:
         }
         self.cache_file = os.path.join("data", "transfermarkt_cache.json")
         self.cache = self._load_cache()
+        self._cache_mtime = self._get_cache_mtime()
+
+    def _get_cache_mtime(self):
+        try:
+            return os.path.getmtime(self.cache_file)
+        except OSError:
+            return 0
+
+    def _refresh_cache_if_stale(self):
+        """Reload cache from disk if another process has updated it"""
+        current_mtime = self._get_cache_mtime()
+        if current_mtime > self._cache_mtime:
+            disk_cache = self._load_cache()
+            # Merge: disk wins for keys we don't have, keep our in-memory additions
+            for k, v in disk_cache.items():
+                if k not in self.cache:
+                    self.cache[k] = v
+            self._cache_mtime = current_mtime
 
     def _load_cache(self):
         if os.path.exists(self.cache_file):
@@ -30,6 +48,7 @@ class TransfermarktScraper:
         try:
             with open(self.cache_file, "w") as f:
                 json.dump(self.cache, f, indent=2)
+            self._cache_mtime = self._get_cache_mtime()
         except Exception as e:
             logger.error(f"Errore salvataggio cache TM: {e}")
 
@@ -44,6 +63,8 @@ class TransfermarktScraper:
         return name.strip()
 
     def get_player_info(self, player_name, team_name=None):
+        # Reload cache if another process updated the file
+        self._refresh_cache_if_stale()
         # Check cache first
         cache_key = f"{player_name}_{team_name}" if team_name else player_name
         if cache_key in self.cache:
