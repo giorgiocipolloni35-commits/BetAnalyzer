@@ -25,7 +25,7 @@ fi
 
 # 3. Sync giocatori Sportmonks
 echo "$(date '+%H:%M:%S') [STEP 3] Sync giocatori (Sportmonks)..." >> "$LOG"
-python scraper/nightly_sync.py >> "$LOG" 2>&1
+python -m scraper.nightly_sync >> "$LOG" 2>&1
 
 echo "$(date '+%H:%M:%S') — Nightly update DONE" >> "$LOG"
 echo "========================================" >> "$LOG"
