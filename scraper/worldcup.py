@@ -597,6 +597,38 @@ WC_SQUADS = {
             {"name": "Wissa", "pos": "ATT", "club": "Newcastle"},
         ],
     },
+    "Germania": {
+        "group": "E",
+        "coach": "Julian Nagelsmann",
+        "players": [
+            {"name": "Manuel Neuer", "pos": "GK", "club": "Bayern Monaco"},
+            {"name": "Oliver Baumann", "pos": "GK", "club": "Hoffenheim"},
+            {"name": "Alexander Nübel", "pos": "GK", "club": "Stoccarda"},
+            {"name": "Waldemar Anton", "pos": "DEF", "club": "Borussia Dortmund"},
+            {"name": "Nathaniel Brown", "pos": "DEF", "club": "Eintracht Francoforte"},
+            {"name": "Joshua Kimmich", "pos": "DEF", "club": "Bayern Monaco"},
+            {"name": "David Raum", "pos": "DEF", "club": "Lipsia"},
+            {"name": "Antonio Rüdiger", "pos": "DEF", "club": "Real Madrid"},
+            {"name": "Malick Thiaw", "pos": "DEF", "club": "Newcastle"},
+            {"name": "Nico Schlotterbeck", "pos": "DEF", "club": "Borussia Dortmund"},
+            {"name": "Jonathan Tah", "pos": "DEF", "club": "Bayern Monaco"},
+            {"name": "Leon Goretzka", "pos": "MID", "club": "Bayern Monaco"},
+            {"name": "Pascal Groß", "pos": "MID", "club": "Brighton"},
+            {"name": "Felix Nmecha", "pos": "MID", "club": "Borussia Dortmund"},
+            {"name": "Angelo Stiller", "pos": "MID", "club": "Stoccarda"},
+            {"name": "Jamie Leweling", "pos": "MID", "club": "Stoccarda"},
+            {"name": "Lennart Karl", "pos": "MID", "club": "Bayern Monaco"},
+            {"name": "Aleksandar Pavlović", "pos": "MID", "club": "Bayern Monaco"},
+            {"name": "Jamal Musiala", "pos": "ATT", "club": "Bayern Monaco"},
+            {"name": "Nadiem Amiri", "pos": "ATT", "club": "Mainz"},
+            {"name": "Kai Havertz", "pos": "ATT", "club": "Arsenal"},
+            {"name": "Leroy Sané", "pos": "ATT", "club": "Galatasaray"},
+            {"name": "Deniz Undav", "pos": "ATT", "club": "Stoccarda"},
+            {"name": "Maximilian Beier", "pos": "ATT", "club": "Borussia Dortmund"},
+            {"name": "Nick Woltemade", "pos": "ATT", "club": "Newcastle"},
+            {"name": "Florian Wirtz", "pos": "ATT", "club": "Liverpool"},
+        ],
+    },
     "Croazia": {
         "group": "L",
         "coach": "Zlatko Dalic",
@@ -919,6 +951,133 @@ def get_top_card_candidates(limit: int = 20) -> list[dict]:
         }
         for r in rows
     ]
+
+
+def enrich_unmatched_players():
+    """Search Sportmonks for WC players not in our DB and fetch their stats.
+
+    This fills the gap for players from leagues we don't track (e.g. Eredivisie,
+    MLS, J-League, etc.) by searching them by name on Sportmonks.
+    """
+    import os
+    import time
+    from dotenv import load_dotenv
+    load_dotenv()
+    from scraper.sportmonks import SportmonksClient
+    from logic.roster import calculate_player_rating
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    # Get all unmatched WC players
+    unmatched = conn.execute("""
+        SELECT id, player_name, club, position, country
+        FROM wc_squads
+        WHERE player_id IS NULL
+    """).fetchall()
+
+    if not unmatched:
+        logger.info("✅ Tutti i giocatori WC già matchati — niente da fare")
+        return {"searched": 0, "found": 0}
+
+    logger.info(f"🔍 Enrichment: {len(unmatched)} giocatori WC senza stats — cerco su Sportmonks...")
+
+    api_key = os.getenv("SPORTMONKS_API_KEY", "")
+    if not api_key:
+        logger.error("❌ SPORTMONKS_API_KEY non configurata")
+        return {"searched": 0, "found": 0, "error": "API key missing"}
+    sm = SportmonksClient(api_key=api_key)
+
+    # Current season IDs by league — we'll try to get stats from any season
+    # Sportmonks returns all seasons in player stats, we pick the most recent
+    CURRENT_SEASONS = {
+        "Serie A": 25533, "Premier League": 25583, "La Liga": 25659,
+        "Bundesliga": 25646, "Ligue 1": 25651,
+    }
+
+    found = 0
+    errors = 0
+    pos_map = {"GK": 24, "DEF": 25, "MID": 26, "ATT": 27}  # Sportmonks position IDs
+
+    for i, row in enumerate(unmatched):
+        wc_id = row["id"]
+        name = row["player_name"]
+        club = row["club"]
+        position = row["position"]
+
+        if i > 0 and i % 20 == 0:
+            logger.info(f"   ... progresso: {i}/{len(unmatched)} cercati, {found} trovati")
+
+        try:
+            # Search player on Sportmonks
+            results = sm.search_player(name)
+            if not results:
+                continue
+
+            # Try to find best match
+            best = None
+            name_lower = name.lower().strip()
+            club_lower = club.lower().strip() if club else ""
+
+            for p in results[:5]:  # Check top 5 results
+                p_name = (p.get("display_name") or p.get("name") or "").lower()
+                # Prefer exact-ish name match
+                name_parts = set(name_lower.split())
+                p_parts = set(p_name.split())
+                overlap = name_parts & p_parts
+                sig_overlap = [w for w in overlap if len(w) > 2]
+
+                if sig_overlap:
+                    best = p
+                    break
+
+            if not best and results:
+                best = results[0]  # Fallback to first result
+
+            if not best:
+                continue
+
+            sm_player_id = best["id"]
+            sm_position_id = best.get("position_id", pos_map.get(position, 0))
+
+            # Get stats — try all known current season IDs until we find one with data
+            stats = None
+            for season_id in CURRENT_SEASONS.values():
+                stats = sm.get_player_stats(sm_player_id, season_id, team_name=club)
+                if stats and stats.get("appearances", 0) > 0:
+                    break
+                stats = None
+                time.sleep(0.3)
+
+            if not stats or stats.get("appearances", 0) == 0:
+                continue
+
+            # Calculate rating
+            rating = calculate_player_rating(stats, sm_position_id)
+
+            # Save to wc_squads
+            stats_json = json.dumps(stats)
+            conn.execute("""
+                UPDATE wc_squads
+                SET player_id = ?, matched_rating = ?, matched_stats_json = ?
+                WHERE id = ?
+            """, (sm_player_id, rating, stats_json, wc_id))
+            found += 1
+
+            # Rate limiting — Sportmonks has ~3 req/s limit
+            time.sleep(0.4)
+
+        except Exception as e:
+            errors += 1
+            if errors <= 5:
+                logger.warning(f"   ⚠ Errore per {name}: {e}")
+            time.sleep(0.5)
+
+    conn.commit()
+    conn.close()
+
+    logger.info(f"✅ Enrichment completato: {found}/{len(unmatched)} nuovi match trovati ({errors} errori)")
+    return {"searched": len(unmatched), "found": found, "errors": errors}
 
 
 # ══════════════════════════════════════════════════════════════

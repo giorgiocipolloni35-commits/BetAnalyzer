@@ -3075,6 +3075,14 @@ def api_wc_import():
     return jsonify(result)
 
 
+@app.route("/api/worldcup/enrich", methods=["POST"])
+def api_wc_enrich():
+    """Search Sportmonks for unmatched WC players and fetch their stats."""
+    from scraper.worldcup import enrich_unmatched_players
+    result = enrich_unmatched_players()
+    return jsonify(result)
+
+
 @app.route("/api/worldcup/rankings")
 def api_wc_rankings():
     """Get all WC squads ranked by average player rating."""
