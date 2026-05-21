@@ -954,17 +954,16 @@ def get_top_card_candidates(limit: int = 20) -> list[dict]:
 
 
 def enrich_unmatched_players():
-    """Search Sportmonks for WC players not in our DB and fetch their stats.
+    """Search Transfermarkt for WC players not in our DB and fetch their stats.
 
-    This fills the gap for players from leagues we don't track (e.g. Eredivisie,
-    MLS, J-League, etc.) by searching them by name on Sportmonks.
+    Uses TM search + ceapi/player/{id}/performance to get goals, assists,
+    appearances, cards for ALL leagues worldwide.
     """
-    import os
+    import re
     import time
-    from dotenv import load_dotenv
-    load_dotenv()
-    from scraper.sportmonks import SportmonksClient
-    from logic.roster import calculate_player_rating
+    import requests
+    import urllib3
+    urllib3.disable_warnings()
 
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
@@ -980,24 +979,14 @@ def enrich_unmatched_players():
         logger.info("✅ Tutti i giocatori WC già matchati — niente da fare")
         return {"searched": 0, "found": 0}
 
-    logger.info(f"🔍 Enrichment: {len(unmatched)} giocatori WC senza stats — cerco su Sportmonks...")
+    logger.info(f"🔍 Enrichment TM: {len(unmatched)} giocatori WC senza stats...")
 
-    api_key = os.getenv("SPORTMONKS_API_KEY", "")
-    if not api_key:
-        logger.error("❌ SPORTMONKS_API_KEY non configurata")
-        return {"searched": 0, "found": 0, "error": "API key missing"}
-    sm = SportmonksClient(api_key=api_key)
-
-    # Current season IDs by league — we'll try to get stats from any season
-    # Sportmonks returns all seasons in player stats, we pick the most recent
-    CURRENT_SEASONS = {
-        "Serie A": 25533, "Premier League": 25583, "La Liga": 25659,
-        "Bundesliga": 25646, "Ligue 1": 25651,
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
 
     found = 0
     errors = 0
-    pos_map = {"GK": 24, "DEF": 25, "MID": 26, "ATT": 27}  # Sportmonks position IDs
 
     for i, row in enumerate(unmatched):
         wc_id = row["id"]
@@ -1009,74 +998,102 @@ def enrich_unmatched_players():
             logger.info(f"   ... progresso: {i}/{len(unmatched)} cercati, {found} trovati")
 
         try:
-            # Search player on Sportmonks
-            results = sm.search_player(name)
-            if not results:
+            # 1. Search on Transfermarkt by name
+            search_url = f"https://www.transfermarkt.com/schnellsuche/ergebnis/schnellsuche?query={name.replace(' ', '+')}"
+            r = requests.get(search_url, headers=headers, timeout=10, verify=False)
+            if r.status_code != 200:
+                time.sleep(2)
                 continue
 
-            # Try to find best match
-            best = None
-            name_lower = name.lower().strip()
-            club_lower = club.lower().strip() if club else ""
-
-            for p in results[:5]:  # Check top 5 results
-                p_name = (p.get("display_name") or p.get("name") or "").lower()
-                # Prefer exact-ish name match
-                name_parts = set(name_lower.split())
-                p_parts = set(p_name.split())
-                overlap = name_parts & p_parts
-                sig_overlap = [w for w in overlap if len(w) > 2]
-
-                if sig_overlap:
-                    best = p
-                    break
-
-            if not best and results:
-                best = results[0]  # Fallback to first result
-
-            if not best:
+            # Find player profile link
+            links = re.findall(r'(/[a-z\-]+/profil/spieler/(\d+))', r.text)
+            if not links:
+                time.sleep(1.5)
                 continue
 
-            sm_player_id = best["id"]
-            sm_position_id = best.get("position_id", pos_map.get(position, 0))
+            tm_id = links[0][1]
+            time.sleep(1.5)
 
-            # Get stats — try all known current season IDs until we find one with data
-            stats = None
-            for season_id in CURRENT_SEASONS.values():
-                stats = sm.get_player_stats(sm_player_id, season_id, team_name=club)
-                if stats and stats.get("appearances", 0) > 0:
-                    break
-                stats = None
-                time.sleep(0.3)
-
-            if not stats or stats.get("appearances", 0) == 0:
+            # 2. Get performance stats via TM internal API
+            perf_url = f"https://www.transfermarkt.com/ceapi/player/{tm_id}/performance"
+            r2 = requests.get(perf_url, headers=headers, timeout=10, verify=False)
+            if r2.status_code != 200 or not r2.json():
+                time.sleep(1.5)
                 continue
 
-            # Calculate rating
-            rating = calculate_player_rating(stats, sm_position_id)
+            data = r2.json()
 
-            # Save to wc_squads
+            # Aggregate stats across all competitions
+            total_apps = sum(c.get("gamesPlayed", 0) for c in data)
+            total_goals = sum(c.get("goalsScored", 0) for c in data)
+            total_assists = sum(c.get("assists", 0) for c in data)
+            total_yellows = sum(c.get("yellowCards", 0) for c in data)
+            total_reds = sum(c.get("redCards", 0) for c in data)
+
+            if total_apps == 0:
+                time.sleep(1.5)
+                continue
+
+            # Build stats dict compatible with our format
+            stats = {
+                "goals": total_goals,
+                "assists": total_assists,
+                "appearances": total_apps,
+                "fouls_committed": total_yellows * 3,  # Estimate: ~3 fouls per yellow
+                "tackles": 0,
+                "shots_total": total_goals * 3 if position == "ATT" else total_goals * 4,  # Rough estimate
+                "shots_on_target": total_goals,  # Minimum
+                "minutes_played": int(total_apps * 75),  # Estimate avg 75 min/game
+                "fouls_drawn": 0,
+                "interceptions": 0,
+                "blocks": 0,
+                "clearances": 0,
+                "yellow_cards": total_yellows,
+                "red_cards": total_reds,
+                "source": "transfermarkt",
+                "tm_id": int(tm_id),
+            }
+
+            # Calculate a simple rating based on position
+            if position == "GK":
+                # GK rating based on appearances (clean sheets unknown)
+                rating = min(70, 45 + total_apps * 0.5)
+            elif position == "DEF":
+                rating = min(75, 50 + total_apps * 0.3 + total_goals * 2 + total_assists * 1.5)
+            elif position == "MID":
+                goals_per_game = total_goals / max(total_apps, 1)
+                assists_per_game = total_assists / max(total_apps, 1)
+                rating = min(80, 50 + total_apps * 0.2 + total_goals * 2.5 + total_assists * 2 + goals_per_game * 15 + assists_per_game * 10)
+            else:  # ATT
+                goals_per_game = total_goals / max(total_apps, 1)
+                rating = min(85, 50 + total_goals * 2 + total_assists * 1.5 + goals_per_game * 20)
+
+            rating = round(rating, 1)
             stats_json = json.dumps(stats)
+
+            # Use negative TM ID to distinguish from Sportmonks player IDs
+            fake_player_id = -int(tm_id)
+
             conn.execute("""
                 UPDATE wc_squads
                 SET player_id = ?, matched_rating = ?, matched_stats_json = ?
                 WHERE id = ?
-            """, (sm_player_id, rating, stats_json, wc_id))
+            """, (fake_player_id, rating, stats_json, wc_id))
             found += 1
 
-            # Rate limiting — Sportmonks has ~3 req/s limit
-            time.sleep(0.4)
+            logger.info(f"   ✅ {name} → TM#{tm_id} | {total_apps}app {total_goals}g {total_assists}a | R={rating}")
+            time.sleep(1.5)
 
         except Exception as e:
             errors += 1
-            if errors <= 5:
+            if errors <= 10:
                 logger.warning(f"   ⚠ Errore per {name}: {e}")
-            time.sleep(0.5)
+            time.sleep(2)
 
     conn.commit()
     conn.close()
 
-    logger.info(f"✅ Enrichment completato: {found}/{len(unmatched)} nuovi match trovati ({errors} errori)")
+    logger.info(f"✅ Enrichment TM completato: {found}/{len(unmatched)} nuovi match trovati ({errors} errori)")
     return {"searched": len(unmatched), "found": found, "errors": errors}
 
 
