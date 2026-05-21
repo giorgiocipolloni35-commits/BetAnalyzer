@@ -921,6 +921,215 @@ def get_top_card_candidates(limit: int = 20) -> list[dict]:
     ]
 
 
+# ══════════════════════════════════════════════════════════════
+# MATCH CALENDAR — FIFA World Cup 2026
+# All times in Italian timezone (CEST)
+# ══════════════════════════════════════════════════════════════
+
+WC_CALENDAR = [
+    # ── GRUPPO A ──
+    {"phase": "Gironi", "group": "A", "matchday": 1, "home": "Messico", "away": "Sudafrica", "date": "2026-06-11", "time": "21:00", "venue": "Mexico City Stadium"},
+    {"phase": "Gironi", "group": "A", "matchday": 1, "home": "Corea del Sud", "away": "Repubblica Ceca", "date": "2026-06-12", "time": "04:00", "venue": "Estadio Guadalajara"},
+    {"phase": "Gironi", "group": "A", "matchday": 2, "home": "Repubblica Ceca", "away": "Sudafrica", "date": "2026-06-18", "time": "18:00", "venue": "Atlanta Stadium"},
+    {"phase": "Gironi", "group": "A", "matchday": 2, "home": "Messico", "away": "Corea del Sud", "date": "2026-06-19", "time": "03:00", "venue": "Estadio Guadalajara"},
+    {"phase": "Gironi", "group": "A", "matchday": 3, "home": "Sudafrica", "away": "Corea del Sud", "date": "2026-06-25", "time": "03:00", "venue": "Estadio Monterrey"},
+    {"phase": "Gironi", "group": "A", "matchday": 3, "home": "Repubblica Ceca", "away": "Messico", "date": "2026-06-25", "time": "03:00", "venue": "Mexico City Stadium"},
+
+    # ── GRUPPO B ──
+    {"phase": "Gironi", "group": "B", "matchday": 1, "home": "Canada", "away": "Bosnia", "date": "2026-06-12", "time": "21:00", "venue": "Toronto Stadium"},
+    {"phase": "Gironi", "group": "B", "matchday": 1, "home": "Svizzera", "away": "Qatar", "date": "2026-06-13", "time": "21:00", "venue": "San Francisco Bay Area Stadium"},
+    {"phase": "Gironi", "group": "B", "matchday": 2, "home": "Svizzera", "away": "Bosnia", "date": "2026-06-18", "time": "21:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Gironi", "group": "B", "matchday": 2, "home": "Canada", "away": "Qatar", "date": "2026-06-19", "time": "00:00", "venue": "BC Place Vancouver"},
+    {"phase": "Gironi", "group": "B", "matchday": 3, "home": "Svizzera", "away": "Canada", "date": "2026-06-24", "time": "21:00", "venue": "BC Place Vancouver"},
+    {"phase": "Gironi", "group": "B", "matchday": 3, "home": "Bosnia", "away": "Qatar", "date": "2026-06-24", "time": "21:00", "venue": "Seattle Stadium"},
+
+    # ── GRUPPO C ──
+    {"phase": "Gironi", "group": "C", "matchday": 1, "home": "Brasile", "away": "Marocco", "date": "2026-06-14", "time": "00:00", "venue": "New York New Jersey Stadium"},
+    {"phase": "Gironi", "group": "C", "matchday": 1, "home": "Haiti", "away": "Scozia", "date": "2026-06-14", "time": "03:00", "venue": "Boston Stadium"},
+    {"phase": "Gironi", "group": "C", "matchday": 2, "home": "Scozia", "away": "Marocco", "date": "2026-06-20", "time": "00:00", "venue": "Boston Stadium"},
+    {"phase": "Gironi", "group": "C", "matchday": 2, "home": "Brasile", "away": "Haiti", "date": "2026-06-20", "time": "03:00", "venue": "Philadelphia Stadium"},
+    {"phase": "Gironi", "group": "C", "matchday": 3, "home": "Marocco", "away": "Haiti", "date": "2026-06-25", "time": "00:00", "venue": "Atlanta Stadium"},
+    {"phase": "Gironi", "group": "C", "matchday": 3, "home": "Scozia", "away": "Brasile", "date": "2026-06-25", "time": "00:00", "venue": "Miami Stadium"},
+
+    # ── GRUPPO D ──
+    {"phase": "Gironi", "group": "D", "matchday": 1, "home": "USA", "away": "Paraguay", "date": "2026-06-13", "time": "03:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Gironi", "group": "D", "matchday": 1, "home": "Australia", "away": "Turchia", "date": "2026-06-13", "time": "06:00", "venue": "BC Place Vancouver"},
+    {"phase": "Gironi", "group": "D", "matchday": 2, "home": "Turchia", "away": "Paraguay", "date": "2026-06-19", "time": "06:00", "venue": "San Francisco Bay Area Stadium"},
+    {"phase": "Gironi", "group": "D", "matchday": 2, "home": "USA", "away": "Australia", "date": "2026-06-19", "time": "21:00", "venue": "Seattle Stadium"},
+    {"phase": "Gironi", "group": "D", "matchday": 3, "home": "Turchia", "away": "USA", "date": "2026-06-26", "time": "04:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Gironi", "group": "D", "matchday": 3, "home": "Paraguay", "away": "Australia", "date": "2026-06-26", "time": "04:00", "venue": "San Francisco Bay Area Stadium"},
+
+    # ── GRUPPO E ──
+    {"phase": "Gironi", "group": "E", "matchday": 1, "home": "Germania", "away": "Curacao", "date": "2026-06-14", "time": "19:00", "venue": "Houston Stadium"},
+    {"phase": "Gironi", "group": "E", "matchday": 1, "home": "Costa d'Avorio", "away": "Ecuador", "date": "2026-06-14", "time": "22:00", "venue": "Philadelphia Stadium"},
+    {"phase": "Gironi", "group": "E", "matchday": 2, "home": "Germania", "away": "Costa d'Avorio", "date": "2026-06-20", "time": "22:00", "venue": "Toronto Stadium"},
+    {"phase": "Gironi", "group": "E", "matchday": 2, "home": "Ecuador", "away": "Curacao", "date": "2026-06-21", "time": "02:00", "venue": "Kansas City Stadium"},
+    {"phase": "Gironi", "group": "E", "matchday": 3, "home": "Curacao", "away": "Costa d'Avorio", "date": "2026-06-25", "time": "22:00", "venue": "Philadelphia Stadium"},
+    {"phase": "Gironi", "group": "E", "matchday": 3, "home": "Ecuador", "away": "Germania", "date": "2026-06-25", "time": "22:00", "venue": "New York New Jersey Stadium"},
+
+    # ── GRUPPO F ──
+    {"phase": "Gironi", "group": "F", "matchday": 1, "home": "Olanda", "away": "Giappone", "date": "2026-06-14", "time": "22:00", "venue": "Dallas Stadium"},
+    {"phase": "Gironi", "group": "F", "matchday": 1, "home": "Svezia", "away": "Tunisia", "date": "2026-06-15", "time": "04:00", "venue": "Estadio Monterrey"},
+    {"phase": "Gironi", "group": "F", "matchday": 2, "home": "Tunisia", "away": "Giappone", "date": "2026-06-20", "time": "06:00", "venue": "Estadio Monterrey"},
+    {"phase": "Gironi", "group": "F", "matchday": 2, "home": "Olanda", "away": "Svezia", "date": "2026-06-20", "time": "19:00", "venue": "Houston Stadium"},
+    {"phase": "Gironi", "group": "F", "matchday": 3, "home": "Tunisia", "away": "Olanda", "date": "2026-06-26", "time": "01:00", "venue": "Kansas City Stadium"},
+    {"phase": "Gironi", "group": "F", "matchday": 3, "home": "Giappone", "away": "Svezia", "date": "2026-06-26", "time": "01:00", "venue": "Dallas Stadium"},
+
+    # ── GRUPPO G ──
+    {"phase": "Gironi", "group": "G", "matchday": 1, "home": "Belgio", "away": "Egitto", "date": "2026-06-15", "time": "21:00", "venue": "Seattle Stadium"},
+    {"phase": "Gironi", "group": "G", "matchday": 1, "home": "Iran", "away": "Nuova Zelanda", "date": "2026-06-16", "time": "03:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Gironi", "group": "G", "matchday": 2, "home": "Belgio", "away": "Iran", "date": "2026-06-21", "time": "21:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Gironi", "group": "G", "matchday": 2, "home": "Nuova Zelanda", "away": "Egitto", "date": "2026-06-22", "time": "03:00", "venue": "BC Place Vancouver"},
+    {"phase": "Gironi", "group": "G", "matchday": 3, "home": "Nuova Zelanda", "away": "Belgio", "date": "2026-06-27", "time": "05:00", "venue": "BC Place Vancouver"},
+    {"phase": "Gironi", "group": "G", "matchday": 3, "home": "Egitto", "away": "Iran", "date": "2026-06-27", "time": "05:00", "venue": "Seattle Stadium"},
+
+    # ── GRUPPO H ──
+    {"phase": "Gironi", "group": "H", "matchday": 1, "home": "Spagna", "away": "Capo Verde", "date": "2026-06-15", "time": "18:00", "venue": "Atlanta Stadium"},
+    {"phase": "Gironi", "group": "H", "matchday": 1, "home": "Arabia Saudita", "away": "Uruguay", "date": "2026-06-16", "time": "00:00", "venue": "Miami Stadium"},
+    {"phase": "Gironi", "group": "H", "matchday": 2, "home": "Spagna", "away": "Arabia Saudita", "date": "2026-06-21", "time": "18:00", "venue": "Atlanta Stadium"},
+    {"phase": "Gironi", "group": "H", "matchday": 2, "home": "Uruguay", "away": "Capo Verde", "date": "2026-06-22", "time": "00:00", "venue": "Miami Stadium"},
+    {"phase": "Gironi", "group": "H", "matchday": 3, "home": "Capo Verde", "away": "Arabia Saudita", "date": "2026-06-27", "time": "02:00", "venue": "Houston Stadium"},
+    {"phase": "Gironi", "group": "H", "matchday": 3, "home": "Uruguay", "away": "Spagna", "date": "2026-06-27", "time": "02:00", "venue": "Estadio Guadalajara"},
+
+    # ── GRUPPO I ──
+    {"phase": "Gironi", "group": "I", "matchday": 1, "home": "Francia", "away": "Senegal", "date": "2026-06-16", "time": "21:00", "venue": "New York New Jersey Stadium"},
+    {"phase": "Gironi", "group": "I", "matchday": 1, "home": "Iraq", "away": "Norvegia", "date": "2026-06-17", "time": "00:00", "venue": "Boston Stadium"},
+    {"phase": "Gironi", "group": "I", "matchday": 2, "home": "Francia", "away": "Iraq", "date": "2026-06-22", "time": "23:00", "venue": "Philadelphia Stadium"},
+    {"phase": "Gironi", "group": "I", "matchday": 2, "home": "Norvegia", "away": "Senegal", "date": "2026-06-23", "time": "02:00", "venue": "New York New Jersey Stadium"},
+    {"phase": "Gironi", "group": "I", "matchday": 3, "home": "Norvegia", "away": "Francia", "date": "2026-06-26", "time": "21:00", "venue": "Boston Stadium"},
+    {"phase": "Gironi", "group": "I", "matchday": 3, "home": "Senegal", "away": "Iraq", "date": "2026-06-26", "time": "21:00", "venue": "Toronto Stadium"},
+
+    # ── GRUPPO J ──
+    {"phase": "Gironi", "group": "J", "matchday": 1, "home": "Austria", "away": "Giordania", "date": "2026-06-16", "time": "06:00", "venue": "San Francisco Bay Area Stadium"},
+    {"phase": "Gironi", "group": "J", "matchday": 1, "home": "Argentina", "away": "Algeria", "date": "2026-06-17", "time": "03:00", "venue": "Kansas City Stadium"},
+    {"phase": "Gironi", "group": "J", "matchday": 2, "home": "Argentina", "away": "Austria", "date": "2026-06-22", "time": "19:00", "venue": "Dallas Stadium"},
+    {"phase": "Gironi", "group": "J", "matchday": 2, "home": "Giordania", "away": "Algeria", "date": "2026-06-23", "time": "05:00", "venue": "San Francisco Bay Area Stadium"},
+    {"phase": "Gironi", "group": "J", "matchday": 3, "home": "Algeria", "away": "Austria", "date": "2026-06-28", "time": "04:00", "venue": "Kansas City Stadium"},
+    {"phase": "Gironi", "group": "J", "matchday": 3, "home": "Giordania", "away": "Argentina", "date": "2026-06-28", "time": "04:00", "venue": "Dallas Stadium"},
+
+    # ── GRUPPO K ──
+    {"phase": "Gironi", "group": "K", "matchday": 1, "home": "Portogallo", "away": "Rep. Dem. Congo", "date": "2026-06-17", "time": "19:00", "venue": "Houston Stadium"},
+    {"phase": "Gironi", "group": "K", "matchday": 1, "home": "Uzbekistan", "away": "Colombia", "date": "2026-06-18", "time": "04:00", "venue": "Mexico City Stadium"},
+    {"phase": "Gironi", "group": "K", "matchday": 2, "home": "Portogallo", "away": "Uzbekistan", "date": "2026-06-23", "time": "19:00", "venue": "Houston Stadium"},
+    {"phase": "Gironi", "group": "K", "matchday": 2, "home": "Colombia", "away": "Rep. Dem. Congo", "date": "2026-06-24", "time": "04:00", "venue": "Estadio Guadalajara"},
+    {"phase": "Gironi", "group": "K", "matchday": 3, "home": "Colombia", "away": "Portogallo", "date": "2026-06-28", "time": "01:30", "venue": "Miami Stadium"},
+    {"phase": "Gironi", "group": "K", "matchday": 3, "home": "Rep. Dem. Congo", "away": "Uzbekistan", "date": "2026-06-28", "time": "01:30", "venue": "Atlanta Stadium"},
+
+    # ── GRUPPO L ──
+    {"phase": "Gironi", "group": "L", "matchday": 1, "home": "Inghilterra", "away": "Croazia", "date": "2026-06-17", "time": "22:00", "venue": "Dallas Stadium"},
+    {"phase": "Gironi", "group": "L", "matchday": 1, "home": "Ghana", "away": "Panama", "date": "2026-06-18", "time": "01:00", "venue": "Toronto Stadium"},
+    {"phase": "Gironi", "group": "L", "matchday": 2, "home": "Inghilterra", "away": "Ghana", "date": "2026-06-23", "time": "22:00", "venue": "Boston Stadium"},
+    {"phase": "Gironi", "group": "L", "matchday": 2, "home": "Panama", "away": "Croazia", "date": "2026-06-24", "time": "01:00", "venue": "Toronto Stadium"},
+    {"phase": "Gironi", "group": "L", "matchday": 3, "home": "Panama", "away": "Inghilterra", "date": "2026-06-27", "time": "23:00", "venue": "New York New Jersey Stadium"},
+    {"phase": "Gironi", "group": "L", "matchday": 3, "home": "Croazia", "away": "Ghana", "date": "2026-06-27", "time": "23:00", "venue": "Philadelphia Stadium"},
+
+    # ══════════════════════════════════════════════════════════════
+    # KNOCKOUT — Sedicesimi (Round of 32)
+    # ══════════════════════════════════════════════════════════════
+    {"phase": "Sedicesimi", "match_id": 73, "home": "2ª Gruppo A", "away": "2ª Gruppo B", "date": "2026-06-28", "time": "21:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Sedicesimi", "match_id": 74, "home": "1ª Gruppo E", "away": "3ª A/B/C/D/F", "date": "2026-06-29", "time": "22:30", "venue": "Boston Stadium"},
+    {"phase": "Sedicesimi", "match_id": 75, "home": "1ª Gruppo F", "away": "2ª Gruppo C", "date": "2026-06-30", "time": "03:00", "venue": "Estadio Monterrey"},
+    {"phase": "Sedicesimi", "match_id": 76, "home": "1ª Gruppo C", "away": "2ª Gruppo F", "date": "2026-06-29", "time": "19:00", "venue": "Houston Stadium"},
+    {"phase": "Sedicesimi", "match_id": 77, "home": "1ª Gruppo I", "away": "3ª C/D/F/G/H", "date": "2026-06-30", "time": "23:00", "venue": "New York New Jersey Stadium"},
+    {"phase": "Sedicesimi", "match_id": 78, "home": "2ª Gruppo A", "away": "2ª Gruppo I", "date": "2026-06-30", "time": "19:00", "venue": "Dallas Stadium"},
+    {"phase": "Sedicesimi", "match_id": 79, "home": "1ª Gruppo A", "away": "3ª C/E/F/H/I", "date": "2026-07-01", "time": "03:00", "venue": "Mexico City Stadium"},
+    {"phase": "Sedicesimi", "match_id": 80, "home": "1ª Gruppo L", "away": "3ª E/H/I/J/K", "date": "2026-07-01", "time": "18:00", "venue": "Atlanta Stadium"},
+    {"phase": "Sedicesimi", "match_id": 81, "home": "1ª Gruppo D", "away": "3ª B/E/F/I/J", "date": "2026-07-02", "time": "02:00", "venue": "San Francisco Bay Area Stadium"},
+    {"phase": "Sedicesimi", "match_id": 82, "home": "1ª Gruppo G", "away": "3ª A/E/H/I/J", "date": "2026-07-01", "time": "22:00", "venue": "Seattle Stadium"},
+    {"phase": "Sedicesimi", "match_id": 83, "home": "2ª Gruppo K", "away": "2ª Gruppo L", "date": "2026-07-03", "time": "01:00", "venue": "Toronto Stadium"},
+    {"phase": "Sedicesimi", "match_id": 84, "home": "1ª Gruppo H", "away": "2ª Gruppo J", "date": "2026-07-02", "time": "21:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Sedicesimi", "match_id": 85, "home": "1ª Gruppo B", "away": "3ª E/F/G/I/J", "date": "2026-07-03", "time": "05:00", "venue": "BC Place Vancouver"},
+    {"phase": "Sedicesimi", "match_id": 86, "home": "1ª Gruppo J", "away": "2ª Gruppo H", "date": "2026-07-04", "time": "00:00", "venue": "Miami Stadium"},
+    {"phase": "Sedicesimi", "match_id": 87, "home": "1ª Gruppo K", "away": "3ª D/E/I/J/L", "date": "2026-07-04", "time": "03:30", "venue": "Kansas City Stadium"},
+    {"phase": "Sedicesimi", "match_id": 88, "home": "2ª Gruppo D", "away": "2ª Gruppo G", "date": "2026-07-03", "time": "20:00", "venue": "Dallas Stadium"},
+
+    # ══════════════════════════════════════════════════════════════
+    # KNOCKOUT — Ottavi (Round of 16)
+    # ══════════════════════════════════════════════════════════════
+    {"phase": "Ottavi", "match_id": 89, "home": "V. partita 74", "away": "V. partita 77", "date": "2026-07-04", "time": "23:00", "venue": "Philadelphia Stadium"},
+    {"phase": "Ottavi", "match_id": 90, "home": "V. partita 73", "away": "V. partita 75", "date": "2026-07-04", "time": "19:00", "venue": "Houston Stadium"},
+    {"phase": "Ottavi", "match_id": 91, "home": "V. partita 76", "away": "V. partita 78", "date": "2026-07-05", "time": "22:00", "venue": "New York New Jersey Stadium"},
+    {"phase": "Ottavi", "match_id": 92, "home": "V. partita 79", "away": "V. partita 80", "date": "2026-07-06", "time": "02:00", "venue": "Mexico City Stadium"},
+    {"phase": "Ottavi", "match_id": 93, "home": "V. partita 83", "away": "V. partita 84", "date": "2026-07-06", "time": "21:00", "venue": "Dallas Stadium"},
+    {"phase": "Ottavi", "match_id": 94, "home": "V. partita 81", "away": "V. partita 82", "date": "2026-07-07", "time": "02:00", "venue": "Seattle Stadium"},
+    {"phase": "Ottavi", "match_id": 95, "home": "V. partita 86", "away": "V. partita 88", "date": "2026-07-07", "time": "18:00", "venue": "Atlanta Stadium"},
+    {"phase": "Ottavi", "match_id": 96, "home": "V. partita 85", "away": "V. partita 87", "date": "2026-07-07", "time": "22:00", "venue": "BC Place Vancouver"},
+
+    # ══════════════════════════════════════════════════════════════
+    # KNOCKOUT — Quarti di finale
+    # ══════════════════════════════════════════════════════════════
+    {"phase": "Quarti", "match_id": 97, "home": "V. partita 89", "away": "V. partita 90", "date": "2026-07-09", "time": "22:00", "venue": "Boston Stadium"},
+    {"phase": "Quarti", "match_id": 98, "home": "V. partita 93", "away": "V. partita 94", "date": "2026-07-10", "time": "21:00", "venue": "Los Angeles Stadium"},
+    {"phase": "Quarti", "match_id": 99, "home": "V. partita 91", "away": "V. partita 92", "date": "2026-07-11", "time": "23:00", "venue": "Miami Stadium"},
+    {"phase": "Quarti", "match_id": 100, "home": "V. partita 95", "away": "V. partita 96", "date": "2026-07-12", "time": "03:00", "venue": "Kansas City Stadium"},
+
+    # ══════════════════════════════════════════════════════════════
+    # KNOCKOUT — Semifinali
+    # ══════════════════════════════════════════════════════════════
+    {"phase": "Semifinali", "match_id": 101, "home": "V. partita 97", "away": "V. partita 98", "date": "2026-07-14", "time": "21:00", "venue": "Dallas Stadium"},
+    {"phase": "Semifinali", "match_id": 102, "home": "V. partita 99", "away": "V. partita 100", "date": "2026-07-15", "time": "21:00", "venue": "Atlanta Stadium"},
+
+    # ══════════════════════════════════════════════════════════════
+    # FINALI
+    # ══════════════════════════════════════════════════════════════
+    {"phase": "Finale 3°/4°", "match_id": 103, "home": "P. partita 101", "away": "P. partita 102", "date": "2026-07-18", "time": "23:00", "venue": "Miami Stadium"},
+    {"phase": "Finale", "match_id": 104, "home": "V. partita 101", "away": "V. partita 102", "date": "2026-07-19", "time": "21:00", "venue": "New York New Jersey Stadium"},
+]
+
+
+def get_calendar(phase_filter: str = None) -> list[dict]:
+    """Get WC calendar, optionally filtered by phase."""
+    from datetime import datetime as dt
+
+    matches = WC_CALENDAR
+    if phase_filter:
+        matches = [m for m in matches if m["phase"] == phase_filter]
+
+    # Enrich group stage matches with team ratings from DB
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        ratings = {}
+        for row in conn.execute("""
+            SELECT country, AVG(CASE WHEN matched_rating > 0 THEN matched_rating END) as avg_rating
+            FROM wc_squads GROUP BY country
+        """).fetchall():
+            if row["avg_rating"]:
+                ratings[row["country"]] = round(row["avg_rating"], 1)
+        conn.close()
+    except Exception:
+        ratings = {}
+
+    result = []
+    today = dt.now().strftime("%Y-%m-%d")
+    for m in matches:
+        entry = dict(m)
+        entry["home_rating"] = ratings.get(m["home"])
+        entry["away_rating"] = ratings.get(m["away"])
+        # Status: past / today / upcoming
+        if m["date"] < today:
+            entry["status"] = "past"
+        elif m["date"] == today:
+            entry["status"] = "today"
+        else:
+            entry["status"] = "upcoming"
+        result.append(entry)
+
+    return result
+
+
+def get_calendar_by_date() -> dict:
+    """Get calendar grouped by date for display."""
+    cal = get_calendar()
+    by_date = {}
+    for m in cal:
+        d = m["date"]
+        if d not in by_date:
+            by_date[d] = []
+        by_date[d].append(m)
+    return dict(sorted(by_date.items()))
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     result = import_squads()

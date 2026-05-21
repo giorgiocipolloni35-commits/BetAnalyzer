@@ -16,6 +16,7 @@
     .wc-tab { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:.5rem 1rem; cursor:pointer; color:#94a3b8; font-size:.85rem; transition:.2s; }
     .wc-tab.active { background:#f59e0b; color:#0f172a; border-color:#f59e0b; font-weight:600; }
     .wc-tab:hover { border-color:#f59e0b; }
+    .wc-tab i { margin-right:4px; }
 
     .wc-panel { display:none; }
     .wc-panel.active { display:block; }
@@ -65,6 +66,33 @@
     .squad-player .sp-stats { text-align:right; font-size:.8rem; }
     .squad-player .sp-rating { color:#f59e0b; font-weight:600; }
     .squad-player.not-matched { opacity:.5; }
+
+    /* Calendar */
+    .cal-date-header { display:flex; align-items:center; gap:.6rem; margin:1.2rem 0 .6rem; padding:.5rem .8rem; background:#1e293b; border-radius:10px; border-left:3px solid #f59e0b; }
+    .cal-date-header .cal-day { font-size:1.1rem; font-weight:700; color:#f59e0b; }
+    .cal-date-header .cal-weekday { color:#94a3b8; font-size:.85rem; }
+    .cal-match { display:flex; align-items:center; gap:.6rem; padding:.55rem .8rem; border-bottom:1px solid #1e293b; transition:.15s; border-radius:6px; }
+    .cal-match:hover { background:#1e293b; }
+    .cal-match.past { opacity:.45; }
+    .cal-match.today { background:rgba(245,158,11,.08); border-left:3px solid #f59e0b; }
+    .cal-time { min-width:45px; font-size:.85rem; color:#94a3b8; font-weight:600; text-align:center; }
+    .cal-teams { flex:1; display:flex; align-items:center; gap:.4rem; font-weight:500; font-size:.92rem; }
+    .cal-teams .vs { color:#64748b; font-size:.75rem; font-weight:400; margin:0 2px; }
+    .cal-rating { font-size:.75rem; color:#f59e0b; font-weight:600; }
+    .cal-venue { color:#64748b; font-size:.75rem; max-width:180px; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cal-group-badge { font-size:.7rem; background:#334155; padding:2px 7px; border-radius:4px; color:#94a3b8; white-space:nowrap; }
+    .cal-phase-badge { font-size:.7rem; background:#7c3aed; padding:2px 7px; border-radius:4px; color:#fff; white-space:nowrap; }
+    .cal-filter { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:1rem; justify-content:center; }
+    .cal-filter-btn { background:#1e293b; border:1px solid #334155; border-radius:6px; padding:.35rem .8rem; cursor:pointer; color:#94a3b8; font-size:.78rem; transition:.2s; }
+    .cal-filter-btn.active { background:#f59e0b; color:#0f172a; border-color:#f59e0b; font-weight:600; }
+    .cal-filter-btn:hover { border-color:#f59e0b; }
+    .cal-countdown { text-align:center; margin-bottom:1rem; }
+    .cal-countdown .days { font-size:2rem; font-weight:700; color:#f59e0b; }
+    .cal-countdown .label { color:#94a3b8; font-size:.85rem; }
+    @media (max-width:600px) {
+        .cal-venue { display:none; }
+        .cal-match { gap:.3rem; padding:.45rem .4rem; }
+    }
 </style>
 
 <div class="wc-hero">
@@ -80,10 +108,11 @@
 </div>
 
 <div class="wc-tabs">
-    <div class="wc-tab active" onclick="switchTab('groups')">Gironi</div>
-    <div class="wc-tab" onclick="switchTab('ranking')">Ranking</div>
-    <div class="wc-tab" onclick="switchTab('scorers')">Top Marcatori</div>
-    <div class="wc-tab" onclick="switchTab('cards')">Top Cartellini</div>
+    <div class="wc-tab active" onclick="switchTab('groups')"><i class="fas fa-th"></i>Gironi</div>
+    <div class="wc-tab" onclick="switchTab('calendar')"><i class="fas fa-calendar-alt"></i>Calendario</div>
+    <div class="wc-tab" onclick="switchTab('ranking')"><i class="fas fa-trophy"></i>Ranking</div>
+    <div class="wc-tab" onclick="switchTab('scorers')"><i class="fas fa-futbol"></i>Top Marcatori</div>
+    <div class="wc-tab" onclick="switchTab('cards')"><i class="fas fa-square"></i>Top Cartellini</div>
 </div>
 
 <!-- GIRONI -->
@@ -118,6 +147,52 @@
         Gironi senza convocazioni ufficiali: {{ missing_groups | join(', ') }}
     </div>
     {% endif %}
+</div>
+
+<!-- CALENDARIO -->
+<div class="wc-panel" id="panel-calendar">
+    <div class="cal-countdown" id="calCountdown"></div>
+
+    <div class="cal-filter">
+        <div class="cal-filter-btn active" onclick="filterCal('all', this)">Tutte</div>
+        <div class="cal-filter-btn" onclick="filterCal('Gironi', this)">Gironi</div>
+        <div class="cal-filter-btn" onclick="filterCal('Sedicesimi', this)">Sedicesimi</div>
+        <div class="cal-filter-btn" onclick="filterCal('Ottavi', this)">Ottavi</div>
+        <div class="cal-filter-btn" onclick="filterCal('Quarti', this)">Quarti</div>
+        <div class="cal-filter-btn" onclick="filterCal('Semifinali', this)">Semifinali</div>
+        <div class="cal-filter-btn" onclick="filterCal('Finale', this)">Finale</div>
+    </div>
+
+    {% for date, matches in calendar.items() %}
+    {% set parts = date.split('-') %}
+    <div class="cal-date-group" data-phase="{{ matches[0].phase }}">
+        <div class="cal-date-header">
+            <span class="cal-day">{{ parts[2] }}/{{ parts[1] }}</span>
+            <span class="cal-weekday">
+                {% set d = date %}
+                {% if 'group' in matches[0] and matches[0].group %}Gruppo {{ matches[0].group }} — Giornata {{ matches[0].matchday }}{% endif %}
+            </span>
+        </div>
+        {% for m in matches %}
+        <div class="cal-match {{ m.status }}" data-phase="{{ m.phase }}">
+            <span class="cal-time">{{ m.time }}</span>
+            {% if m.phase == 'Gironi' %}
+            <span class="cal-group-badge">{{ m.group }}{{ m.matchday }}</span>
+            {% else %}
+            <span class="cal-phase-badge">{{ m.phase }}{% if 'match_id' in m %} #{{ m.match_id }}{% endif %}</span>
+            {% endif %}
+            <span class="cal-teams">
+                <span{% if m.home_rating %} onclick="openSquad('{{ m.home }}')" style="cursor:pointer;"{% endif %}>{{ m.home }}</span>
+                {% if m.home_rating %}<span class="cal-rating">({{ m.home_rating }})</span>{% endif %}
+                <span class="vs">vs</span>
+                <span{% if m.away_rating %} onclick="openSquad('{{ m.away }}')" style="cursor:pointer;"{% endif %}>{{ m.away }}</span>
+                {% if m.away_rating %}<span class="cal-rating">({{ m.away_rating }})</span>{% endif %}
+            </span>
+            <span class="cal-venue">{{ m.venue }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
 </div>
 
 <!-- RANKING -->
@@ -258,5 +333,53 @@ function closeSquad() {
     document.getElementById('squadOverlay').classList.remove('open');
     document.body.style.overflow = '';
 }
+
+// Calendar filter
+function filterCal(phase, btn) {
+    document.querySelectorAll('.cal-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.cal-date-group').forEach(g => {
+        if (phase === 'all') {
+            g.style.display = '';
+        } else {
+            // Show group if any match inside matches the phase
+            const matches = g.querySelectorAll('.cal-match');
+            let hasMatch = false;
+            matches.forEach(m => {
+                if (m.dataset.phase === phase || (phase === 'Finale' && (m.dataset.phase === 'Finale' || m.dataset.phase === 'Finale 3°/4°'))) {
+                    m.style.display = '';
+                    hasMatch = true;
+                } else if (phase !== 'all') {
+                    m.style.display = 'none';
+                }
+            });
+            g.style.display = hasMatch ? '' : 'none';
+        }
+    });
+    // Reset visibility when "all"
+    if (phase === 'all') {
+        document.querySelectorAll('.cal-match').forEach(m => m.style.display = '');
+    }
+}
+
+// Countdown to WC start
+(function() {
+    const start = new Date('2026-06-11T19:00:00Z'); // 21:00 CEST
+    const el = document.getElementById('calCountdown');
+    if (!el) return;
+    function update() {
+        const now = new Date();
+        const diff = start - now;
+        if (diff <= 0) {
+            el.innerHTML = '<span class="days">IN CORSO</span><br><span class="label">Il Mondiale è iniziato!</span>';
+            return;
+        }
+        const days = Math.floor(diff / 86400000);
+        const hrs = Math.floor((diff % 86400000) / 3600000);
+        el.innerHTML = '<span class="days">' + days + 'g ' + hrs + 'h</span><br><span class="label">al calcio d\'inizio</span>';
+    }
+    update();
+    setInterval(update, 60000);
+})();
 </script>
 {% endblock %}

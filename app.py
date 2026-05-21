@@ -2420,7 +2420,7 @@ def api_correct_score(league_key):
 
 @app.route("/worldcup")
 def worldcup_page():
-    from scraper.worldcup import get_all_squads_summary, get_top_scorers, get_top_card_candidates, WC_SQUADS
+    from scraper.worldcup import get_all_squads_summary, get_top_scorers, get_top_card_candidates, WC_SQUADS, get_calendar_by_date
 
     # Import squads if not yet in DB (first visit)
     import sqlite3
@@ -2468,11 +2468,15 @@ def worldcup_page():
     matched_players = sum(r["matched"] for r in rankings)
     match_pct = round(matched_players / total_players * 100) if total_players > 0 else 0
 
+    calendar = get_calendar_by_date()
+
     return render_template("worldcup.html",
+        state=_state,
         rankings=rankings,
         top_scorers=top_scorers,
         top_cards=top_cards,
         groups=groups,
+        calendar=calendar,
         countries=len(rankings),
         total_players=total_players,
         matched_players=matched_players,
@@ -3099,6 +3103,14 @@ def api_wc_top_cards():
     from scraper.worldcup import get_top_card_candidates
     limit = request.args.get("limit", 20, type=int)
     return jsonify(get_top_card_candidates(limit))
+
+
+@app.route("/api/worldcup/calendar")
+def api_wc_calendar():
+    """WC match calendar."""
+    from scraper.worldcup import get_calendar
+    phase = request.args.get("phase")
+    return jsonify(get_calendar(phase))
 
 
 @app.route("/api/today-lineups")
