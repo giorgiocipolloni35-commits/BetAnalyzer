@@ -12,7 +12,7 @@ services:
 
   worker:
     build: .
-    command: python worker.py
+    command: python3 worker.py
     volumes:
       - /data/coolify/betanalyzer:/app/data
       - /data/coolify/betanalyzer-cache:/app/cache
@@ -22,15 +22,7 @@ services:
 
   nightly:
     build: .
-    command: >
-      bash -c "
-        apt-get update -qq && apt-get install -y -qq cron > /dev/null 2>&1 &&
-        env >> /etc/environment &&
-        echo '15 4 * * * root bash /app/nightly_docker.sh >> /var/log/nightly.log 2>&1' > /etc/cron.d/nightly &&
-        chmod 0644 /etc/cron.d/nightly &&
-        crontab /etc/cron.d/nightly &&
-        cron -f
-      "
+    command: python3 scheduler.py
     volumes:
       - /data/coolify/betanalyzer:/app/data
       - /data/coolify/betanalyzer-cache:/app/cache

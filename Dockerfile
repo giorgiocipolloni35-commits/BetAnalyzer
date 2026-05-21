@@ -16,4 +16,4 @@ RUN mkdir -p data data/penalties
 EXPOSE 5000
 
 # Run Flask app
-CMD ["python", "app.py"]
+CMD ["python3", "app.py"]
