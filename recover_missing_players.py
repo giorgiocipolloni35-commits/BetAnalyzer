@@ -100,7 +100,7 @@ def recover():
                 
                 # Salviamo nel DB
                 try:
-                    conn = sqlite3.connect(db_path)
+                    conn = sqlite3.connect(db_path, timeout=30)
                     cursor = conn.cursor()
                     cursor.execute("SELECT player_id FROM player_info WHERE player_id = ?", (p_data["id"],))
                     if not cursor.fetchone():

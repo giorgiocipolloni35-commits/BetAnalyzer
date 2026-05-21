@@ -47,7 +47,7 @@ print("=" * 60)
 
 # Show final coverage
 import sqlite3
-conn = sqlite3.connect("data/betanalyzer.db")
+conn = sqlite3.connect("data/betanalyzer.db", timeout=30)
 total = conn.execute("SELECT COUNT(*) FROM wc_squads").fetchone()[0]
 matched = conn.execute("SELECT COUNT(*) FROM wc_squads WHERE player_id IS NOT NULL").fetchone()[0]
 conn.close()

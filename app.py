@@ -61,7 +61,7 @@ def get_data_freshness(*sources):
                 import sqlite3
                 db_path = os.path.join("data", "betanalyzer.db")
                 if os.path.exists(db_path):
-                    conn = sqlite3.connect(db_path)
+                    conn = sqlite3.connect(db_path, timeout=30)
                     row = conn.execute(f"SELECT MAX(updated_at) FROM {table}").fetchone()
                     conn.close()
                     if row and row[0]:
@@ -948,7 +948,7 @@ def api_deep_analysis(match_id):
                     import sqlite3
                     db_path = Path(__file__).parent / "data" / "betanalyzer.db"
                     if db_path.exists():
-                        conn = sqlite3.connect(str(db_path))
+                        conn = sqlite3.connect(str(db_path, timeout=30))
                         conn.row_factory = sqlite3.Row
                         cur = conn.cursor()
                         cur.execute("""
@@ -1311,7 +1311,7 @@ def api_team_stats_bulk():
     """Restituisce stats aggregate Sportmonks per tutte le squadre nel DB."""
     import sqlite3
     try:
-        conn = sqlite3.connect('data/betanalyzer.db')
+        conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
         cursor = conn.cursor()
         cursor.execute("""
             SELECT pi.team_name,
@@ -2424,7 +2424,7 @@ def worldcup_page():
 
     # Import squads if not yet in DB (first visit)
     import sqlite3
-    conn = sqlite3.connect("data/betanalyzer.db")
+    conn = sqlite3.connect("data/betanalyzer.db", timeout=30)
     count = conn.execute("SELECT COUNT(*) FROM wc_squads").fetchone()[0]
     conn.close()
     if count == 0:
@@ -2622,7 +2622,7 @@ def league_top_xi(league_id):
     }
     db_league = league_map.get(league_id, league_id.lower().replace(" ", "_").replace("-", "_"))
 
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path, timeout=30))
     conn.row_factory = sqlite3.Row
 
     # Formazioni supportate
@@ -3125,7 +3125,7 @@ def api_wc_calendar():
 def api_today_lineups():
     """Restituisce le partite di oggi con i giocatori delle formazioni (da alerts_log)."""
     import sqlite3
-    conn = sqlite3.connect("data/betanalyzer.db")
+    conn = sqlite3.connect("data/betanalyzer.db", timeout=30)
     conn.row_factory = sqlite3.Row
 
     today = datetime.now().strftime("%Y-%m-%d")

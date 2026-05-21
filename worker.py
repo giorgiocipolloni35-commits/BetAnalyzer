@@ -53,7 +53,7 @@ class BetAnalyzerWorker:
 
     def _get_worker_setting(self, key, default=""):
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30)
             cursor = conn.cursor()
             cursor.execute("SELECT value FROM worker_settings WHERE key = ?", (key,))
             row = cursor.fetchone()
@@ -130,7 +130,7 @@ class BetAnalyzerWorker:
         """Record when we last fetched odds."""
         now = datetime.now(timezone.utc).isoformat()
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30)
             conn.execute(
                 "INSERT OR REPLACE INTO worker_settings (key, value) VALUES (?, ?)",
                 (self._ODDS_FETCH_CACHE_KEY, now)
@@ -405,7 +405,7 @@ class BetAnalyzerWorker:
             logger.error(f"Errore salvataggio lineup cache: {e}")
 
     def is_alert_sent(self, alert_id):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30)
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM alerts_log WHERE match_id = ? AND status = ?", (alert_id, "SENT"))
         exists = cursor.fetchone()
@@ -413,7 +413,7 @@ class BetAnalyzerWorker:
         return exists is not None
 
     def log_alert_sent(self, alert_id, home, away, league, date, rec):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30)
         cursor = conn.cursor()
         # Save in Italian timezone (CET/CEST) for display
         from zoneinfo import ZoneInfo
@@ -562,7 +562,7 @@ class BetAnalyzerWorker:
     def _load_sportmonks_stats(self, team_name):
         """Load all player stats+ratings from Sportmonks DB for a team."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30)
             conn.row_factory = sqlite3.Row
             # Prova match diretto, poi parole chiave progressivamente
             rows = []

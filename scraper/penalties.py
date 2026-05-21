@@ -533,7 +533,7 @@ class PenaltyAnalyzer:
         import sqlite3
         result = {}
         try:
-            conn = sqlite3.connect('data/betanalyzer.db')
+            conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT pi.team_name,

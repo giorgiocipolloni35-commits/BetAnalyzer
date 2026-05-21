@@ -68,7 +68,7 @@ def run_smart_sync():
                         dob_fd = p.get('dateOfBirth')
                         
                         # --- CHECK RESUME ---
-                        conn = sqlite3.connect('data/betanalyzer.db')
+                        conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
                         cursor = conn.cursor()
                         cursor.execute("SELECT 1 FROM player_stats_cache WHERE player_id IN (SELECT player_id FROM player_info WHERE name = ?) AND season_id = ?", (p_name, l_season_sm))
                         if cursor.fetchone():

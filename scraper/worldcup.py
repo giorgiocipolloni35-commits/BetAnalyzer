@@ -666,7 +666,7 @@ WC_SQUADS = {
 
 def import_squads():
     """Import all WC squads into the database."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
 
     # Clear existing data
     conn.execute("DELETE FROM wc_squads")
@@ -781,7 +781,7 @@ def _match_players(conn):
 
 def get_squad(country: str) -> dict:
     """Get a WC squad with matched stats."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
 
     rows = conn.execute("""
@@ -847,7 +847,7 @@ def get_squad(country: str) -> dict:
 
 def get_all_squads_summary() -> list[dict]:
     """Get summary of all WC squads with strength rankings."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
 
     countries = conn.execute("""
@@ -879,7 +879,7 @@ def get_all_squads_summary() -> list[dict]:
 
 def get_top_scorers(limit: int = 20) -> list[dict]:
     """Get top WC scorer candidates based on club stats."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
 
     rows = conn.execute("""
@@ -917,7 +917,7 @@ def get_top_scorers(limit: int = 20) -> list[dict]:
 
 def get_top_card_candidates(limit: int = 20) -> list[dict]:
     """Get top WC card candidates based on club stats."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
 
     rows = conn.execute("""
@@ -965,7 +965,7 @@ def enrich_unmatched_players():
     import urllib3
     urllib3.disable_warnings()
 
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
 
     # Get all unmatched WC players
@@ -1263,7 +1263,7 @@ def get_calendar(phase_filter: str = None) -> list[dict]:
 
     # Enrich group stage matches with team ratings from DB
     try:
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = sqlite3.connect(str(DB_PATH), timeout=30)
         conn.row_factory = sqlite3.Row
         ratings = {}
         for row in conn.execute("""

@@ -430,7 +430,7 @@ class ScorerAnalyzer:
         # Connect to DB to get real appearances + advanced stats (using NAME as bridge)
         # Also load current team_id from player_info to handle mid-season transfers
         import sqlite3
-        conn = sqlite3.connect('data/betanalyzer.db')
+        conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
         cursor = conn.cursor()
         sportmonks_stats = {}
         current_team_by_name = {}  # name_lower → current team_id (from Sportmonks)

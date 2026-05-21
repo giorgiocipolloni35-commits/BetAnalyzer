@@ -89,9 +89,59 @@
     .cal-countdown { text-align:center; margin-bottom:1rem; }
     .cal-countdown .days { font-size:2rem; font-weight:700; color:#f59e0b; }
     .cal-countdown .label { color:#94a3b8; font-size:.85rem; }
+    /* ── Mobile ─────────────────────────────── */
     @media (max-width:600px) {
+        .wc-hero h1 { font-size:1.35rem; }
+        .wc-hero .sub { font-size:.75rem; }
+
+        .wc-stats-row { gap:.45rem; margin:.8rem .2rem 1rem; }
+        .wc-stat { min-width:70px; padding:.5rem .6rem; border-radius:8px; }
+        .wc-stat .val { font-size:1.15rem; }
+        .wc-stat .lbl { font-size:.65rem; }
+
+        .wc-tabs { gap:.35rem; margin-bottom:.8rem; }
+        .wc-tab { padding:.4rem .55rem; font-size:.72rem; border-radius:6px; }
+        .wc-tab i { margin-right:2px; font-size:.7rem; }
+
+        .groups-grid { grid-template-columns:1fr; gap:.7rem; }
+        .group-card { padding:.8rem; }
+
+        .top-players { grid-template-columns:1fr; }
+        .top-player { padding:.6rem .7rem; gap:.5rem; }
+        .top-player .num { font-size:1rem; min-width:24px; }
+        .top-player .pname { font-size:.85rem; }
+        .top-player .pmeta { font-size:.72rem; }
+
+        .rank-table { font-size:.8rem; }
+        .rank-table th, .rank-table td { padding:.45rem .3rem; }
+        .rank-bar-bg { width:60px; }
+
+        .cal-countdown .days { font-size:1.5rem; }
+        .cal-filter { gap:.3rem; }
+        .cal-filter-btn { padding:.3rem .55rem; font-size:.7rem; }
+        .cal-date-header { padding:.4rem .6rem; margin:.8rem 0 .4rem; }
+        .cal-date-header .cal-day { font-size:.95rem; }
         .cal-venue { display:none; }
         .cal-match { gap:.3rem; padding:.45rem .4rem; }
+        .cal-time { min-width:38px; font-size:.78rem; }
+        .cal-teams { font-size:.82rem; gap:.3rem; }
+        .cal-group-badge, .cal-phase-badge { font-size:.62rem; padding:1px 5px; }
+
+        .squad-header h2 { font-size:1.2rem; }
+        .squad-player { padding:.5rem .6rem; }
+        .squad-player .sp-name { font-size:.85rem; }
+        .squad-player .sp-club { font-size:.72rem; }
+        .squad-player .sp-stats { font-size:.72rem; }
+    }
+
+    /* ── Small phones (< 380px) ──────────── */
+    @media (max-width:380px) {
+        .wc-hero h1 { font-size:1.15rem; }
+        .wc-stat { min-width:60px; padding:.4rem .5rem; }
+        .wc-stat .val { font-size:1rem; }
+        .wc-tab { padding:.35rem .4rem; font-size:.65rem; }
+        .cal-teams { font-size:.75rem; }
+        .cal-rating { display:none; }
     }
 </style>
 

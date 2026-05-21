@@ -108,7 +108,7 @@ def run_nightly_sync():
                                 pos_id = p_sm.get('position_id')
 
                                 # --- LOGICA DI RIPRESA (RESUME) ---
-                                conn = sqlite3.connect('data/betanalyzer.db')
+                                conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
                                 cursor = conn.cursor()
                                 cursor.execute("SELECT updated_at FROM player_stats_cache WHERE player_id = ? AND team_id = ? AND season_id = ?", (sm_id, t_id, l_season_sm))
                                 row = cursor.fetchone()

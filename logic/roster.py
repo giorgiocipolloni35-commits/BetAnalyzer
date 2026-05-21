@@ -773,7 +773,7 @@ class RosterManager:
         if not player_data:
             # Cerchiamo nel DB Sportmonks il nome associato a questo ID per essere precisi
             import sqlite3
-            conn = sqlite3.connect('data/betanalyzer.db')
+            conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM player_info WHERE player_id = ?", (player_id,))
@@ -813,7 +813,7 @@ class RosterManager:
         import sqlite3
         advanced_stats = None
         try:
-            conn = sqlite3.connect('data/betanalyzer.db')
+            conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             # Normalizziamo la ricerca: se l'ID è di Football-Data, cerchiamo per nome nel DB Sportmonks
