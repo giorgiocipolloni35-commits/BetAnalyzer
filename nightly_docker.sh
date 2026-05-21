@@ -15,7 +15,7 @@ cd /app
 
 # 1. Pre-cache partite (Football-Data.org)
 echo "$(date '+%H:%M:%S') [STEP 1] Precache partite..." >> "$LOG"
-python precache_all.py >> "$LOG" 2>&1
+python3 precache_all.py >> "$LOG" 2>&1
 
 # 2. Invalida cache statistiche Teams
 if [ -f "/app/data/competitions_stats_cache.json" ]; then
@@ -25,7 +25,7 @@ fi
 
 # 3. Sync giocatori Sportmonks
 echo "$(date '+%H:%M:%S') [STEP 3] Sync giocatori (Sportmonks)..." >> "$LOG"
-python -m scraper.nightly_sync >> "$LOG" 2>&1
+python3 -m scraper.nightly_sync >> "$LOG" 2>&1
 
 echo "$(date '+%H:%M:%S') — Nightly update DONE" >> "$LOG"
 echo "========================================" >> "$LOG"
