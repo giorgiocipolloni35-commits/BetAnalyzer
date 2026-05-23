@@ -412,16 +412,21 @@ class BetAnalyzerWorker:
         conn.close()
         return exists is not None
 
-    def log_alert_sent(self, alert_id, home, away, league, date, rec):
+    def log_alert_sent(self, alert_id, home, away, league, date, rec, ai_prompt_json=None):
         conn = sqlite3.connect(self.db_path, timeout=30)
         cursor = conn.cursor()
         # Save in Italian timezone (CET/CEST) for display
         from zoneinfo import ZoneInfo
         now = datetime.now(ZoneInfo("Europe/Rome")).strftime("%Y-%m-%dT%H:%M:%S")
+        # Migrate: add ai_prompt_json column if missing
+        try:
+            cursor.execute("ALTER TABLE alerts_log ADD COLUMN ai_prompt_json TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         cursor.execute("""
-            INSERT INTO alerts_log (match_id, home_team, away_team, league, match_date, recommendation, sent_at, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (alert_id, home, away, league, date, rec, now, "SENT"))
+            INSERT INTO alerts_log (match_id, home_team, away_team, league, match_date, recommendation, sent_at, status, ai_prompt_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (alert_id, home, away, league, date, rec, now, "SENT", ai_prompt_json))
         conn.commit()
         conn.close()
 
@@ -1431,8 +1436,24 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
                 logger.error(f"  ❌ Fallito per {recipient}")
                 all_sent = False
 
+        # Costruisci JSON del prompt AI per logging
+        ai_prompt_json_str = None
+        try:
+            import json as _json
+            ai_prompt_obj = {
+                "model": os.getenv("AI_MODEL", "anthropic/claude-3.5-sonnet"),
+                "system_message": "Analista Senior.",
+                "prompt": prompt,
+                "context_parts": context_parts,
+                "match": {"home": home, "away": away, "league": league_name, "date": m_dict.get("match_date", "")},
+                "lineups_status": status,
+            }
+            ai_prompt_json_str = _json.dumps(ai_prompt_obj, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"⚠️ Errore costruzione ai_prompt_json: {e}")
+
         if all_sent:
-            self.log_alert_sent(alert_id, home, away, league_name, m_dict["match_date"], ai_suggestion)
+            self.log_alert_sent(alert_id, home, away, league_name, m_dict["match_date"], ai_suggestion, ai_prompt_json=ai_prompt_json_str)
             logger.info(f"✅ Alert inviato con successo per {home}-{away}")
         else:
             logger.warning(f"⚠️ Alert parzialmente inviato per {home}-{away}")

@@ -63,7 +63,8 @@ def init_db():
             match_date TEXT NOT NULL,
             recommendation TEXT NOT NULL,
             sent_at TEXT NOT NULL,
-            status TEXT NOT NULL
+            status TEXT NOT NULL,
+            ai_prompt_json TEXT
         );
 
         CREATE TABLE IF NOT EXISTS worker_settings (
