@@ -74,6 +74,9 @@ class CardAnalyzer:
         # Build referee stats
         referee_stats = self._build_referee_card_stats(cache)
 
+        # Build player×referee cross-stats (#1)
+        player_referee_cross = self._build_player_referee_cross(cache)
+
         # Get scheduled matches with referees + live fallback
         scheduled_data = self.pa._get(f"/competitions/{code}/matches",
                                        params={"status": "SCHEDULED,TIMED"})
@@ -376,6 +379,28 @@ class CardAnalyzer:
                 team_fat = home_fatigue if is_home_team else away_fatigue
                 adjusted_prob *= team_fat["fatigue_mult"]
 
+                # ── NEW MULTIPLIER 15: Player×Referee cross (#1) ──
+                # If this player has a history with the assigned referee, adjust
+                if ref_name and pid_id:
+                    pr_key = (ref_name, pid_id)
+                    pr_data = player_referee_cross.get(pr_key)
+                    if pr_data and pr_data["matches"] >= 2:
+                        pr_rate = pr_data["rate"]
+                        overall_rate = p.get("yellows_per_match", 0)
+                        if overall_rate > 0:
+                            # Compare: this ref cards this player more or less than average?
+                            ratio = pr_rate / overall_rate
+                            if ratio > 1.0:
+                                # This ref cards this player MORE → boost up to +25%
+                                pr_mult = 1.0 + min(0.25, (ratio - 1.0) * 0.30)
+                                adjusted_prob *= pr_mult
+                            elif ratio < 0.6 and pr_data["matches"] >= 3:
+                                # This ref lets this player off → dampen (only with 3+ meetings)
+                                adjusted_prob *= 0.90
+                        elif pr_data["yellows"] > 0:
+                            # Player has 0 overall rate but got carded by THIS ref
+                            adjusted_prob *= 1.15
+
                 # FLOOR: players with high fouls/game get a minimum probability
                 # even if their historical yellow rate is low (B1 enhancement)
                 if fpg >= 1.0 and adjusted_prob < 0.10:
@@ -414,6 +439,8 @@ class CardAnalyzer:
                     "recent_form_ratio": p.get("recent_form_ratio", 1.0),
                     "h2h_yellows": h2h_info["h2h_yellows"] if h2h_info else 0,
                     "h2h_matches": h2h_info["h2h_matches"] if h2h_info else 0,
+                    "ref_yellows": player_referee_cross.get((ref_name, pid_id), {}).get("yellows", 0) if ref_name and pid_id else 0,
+                    "ref_matches": player_referee_cross.get((ref_name, pid_id), {}).get("matches", 0) if ref_name and pid_id else 0,
                     # Advanced Sportmonks stats
                     "fouls_per_game": p.get("fouls_per_game"),
                     "tackles_per_game": p.get("tackles_per_game"),
@@ -837,6 +864,55 @@ class CardAnalyzer:
         elif count >= 3:
             return {"matches_recent": count, "fatigue_mult": 1.05}
         return {"matches_recent": count, "fatigue_mult": 1.0}
+
+    @staticmethod
+    def _build_player_referee_cross(cache: dict) -> dict:
+        """Build player×referee yellow card cross-stats (#1 ALTO).
+
+        Returns {(referee_name, player_id): {"yellows": N, "matches": N, "rate": float}}
+        Only for pairs where the player appeared in a match directed by that referee.
+        """
+        # Count appearances per referee×player
+        ref_player_apps: dict[tuple, int] = {}
+        ref_player_yellows: dict[tuple, int] = {}
+
+        for mid, detail in cache.items():
+            ref = detail.get("referee")
+            if not ref:
+                continue
+            # Track appearances from lineups
+            for pid in detail.get("lineup_ids", []):
+                if pid is None:
+                    continue
+                key = (ref, pid)
+                ref_player_apps[key] = ref_player_apps.get(key, 0) + 1
+            # Track appearances from subs in
+            for sub in detail.get("substitutions", []):
+                pid = sub.get("player_in_id")
+                if pid is None:
+                    continue
+                key = (ref, pid)
+                ref_player_apps[key] = ref_player_apps.get(key, 0) + 1
+            # Count yellows
+            for card in detail.get("cards", []):
+                if card.get("card") == "YELLOW":
+                    pid = card.get("player_id")
+                    if pid is None:
+                        continue
+                    key = (ref, pid)
+                    ref_player_yellows[key] = ref_player_yellows.get(key, 0) + 1
+
+        result = {}
+        for key, apps in ref_player_apps.items():
+            if apps < 2:
+                continue  # Need at least 2 meetings for signal
+            yellows = ref_player_yellows.get(key, 0)
+            result[key] = {
+                "yellows": yellows,
+                "matches": apps,
+                "rate": round(yellows / apps, 3) if apps > 0 else 0,
+            }
+        return result
 
     @staticmethod
     def _build_referee_card_stats(cache: dict) -> dict:
