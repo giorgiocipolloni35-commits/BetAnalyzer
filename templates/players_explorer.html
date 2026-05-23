@@ -706,8 +706,8 @@
                 </div>
             </div>
             <div class="scout-mob-right">
-                <span class="scout-mob-rating {% if p.rating >= 80 %}rating-high{% elif p.rating >= 60 %}rating-mid{% else %}rating-low{% endif %}">
-                    {{ p.rating }}
+                <span class="scout-mob-rating {% if p.rating and p.rating >= 80 %}rating-high{% elif p.rating and p.rating >= 60 %}rating-mid{% else %}rating-low{% endif %}">
+                    {{ p.rating or '-' }}
                 </span>
                 {% if p.position_id == 24 %}<span class="scout-mob-role role-gk">POR</span>
                 {% elif p.position_id == 25 %}<span class="scout-mob-role role-dif">DIF</span>
