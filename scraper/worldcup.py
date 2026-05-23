@@ -794,6 +794,75 @@ WC_SQUADS = {
     },
 }
 
+# ── Team info: valore rosa, età media, % esteri (fonte: Transfermarkt) ───
+# Colonne: squad_size, avg_age, num_clubs, pct_abroad, total_value_eur, avg_value_eur
+WC_TEAM_INFO = {
+    "Francia":          (26, 27.0, 17, 73.1, 1_470_000_000, 56_650_000),
+    "Inghilterra":      (26, 27.1, 17, 19.2, 1_320_000_000, 50_580_000),
+    "Spagna":           (27, 26.7, 18, 29.6, 1_310_000_000, 48_370_000),
+    "Germania":         (26, 27.9, 21, 26.9, 1_010_000_000, 38_670_000),
+    "Portogallo":       (26, 28.0, 10, 80.8,   965_000_000, 37_120_000),
+    "Brasile":          (26, 29.2, 23, 73.1,   905_700_000, 34_830_000),
+    "Olanda":           (25, 27.1, 12, 84.0,   763_000_000, 30_520_000),
+    "Argentina":        (29, 28.1, 20, 82.8,   762_500_000, 26_290_000),
+    "Norvegia":         (26, 26.8,  4, 84.6,   586_500_000, 22_560_000),
+    "Belgio":           (26, 27.6, 15, 88.5,   558_200_000, 21_470_000),
+    "Turchia":          (35, 27.1,  3, 45.7,   525_200_000, 15_010_000),
+    "Costa d'Avorio":   (26, 25.6,  4,100.0,   516_900_000, 19_880_000),
+    "Senegal":          (28, 26.9,  4,100.0,   464_300_000, 16_580_000),
+    "Svezia":           (26, 27.4, 13, 88.5,   435_380_000, 16_750_000),
+    "Ecuador":          (32, 26.1,  5, 87.5,   366_200_000, 11_440_000),
+    "Uruguay":          (28, 28.5, 16,100.0,   363_000_000, 12_960_000),
+    "Croazia":          (26, 28.3,  7, 92.3,   357_300_000, 13_740_000),
+    "USA":              (27, 26.4, 12, 70.4,   356_700_000, 13_210_000),
+    "Svizzera":         (26, 28.3, 13, 92.3,   317_600_000, 12_220_000),
+    "Colombia":         (26, 29.8,  7, 96.2,   296_450_000, 11_400_000),
+    "Ghana":            (30, 26.3,  5, 96.7,   289_180_000,  9_640_000),
+    "Giappone":         (27, 28.1,  8, 88.9,   264_050_000,  9_780_000),
+    "Austria":          (26, 28.5,  9, 88.5,   258_300_000,  9_930_000),
+    "Marocco":          (29, 25.2,  8, 89.7,   235_800_000,  8_130_000),
+    "Algeria":          (26, 26.0,  5, 92.3,   227_850_000,  8_760_000),
+    "Scozia":           (26, 29.4,  9, 69.2,   207_830_000,  7_990_000),
+    "Repubblica Ceca":  (29, 27.5,  2, 34.5,   196_430_000,  6_770_000),
+    "Rep. Dem. Congo":  (26, 29.0,  1,100.0,   149_250_000,  5_740_000),
+    "Corea del Sud":    (26, 28.2, 12, 76.9,   142_300_000,  5_470_000),
+    "Paraguay":         (25, 28.9, 10, 84.0,   137_300_000,  5_490_000),
+    "Egitto":           (27, 28.8,  4, 33.3,   136_230_000,  5_050_000),
+    "Bosnia":           (26, 26.8,  2,100.0,   133_400_000,  5_130_000),
+    "Canada":           (26, 26.6,  3, 88.5,   129_550_000,  4_980_000),
+    "Messico":          (12, 26.9, 18,  0.0,    83_600_000,  6_970_000),
+    "Uzbekistan":       (40, 27.1,  1, 32.5,    79_130_000,  1_980_000),
+    "Tunisia":          (26, 26.6,  7, 76.9,    69_550_000,  2_680_000),
+    "Capo Verde":       (26, 29.6,  1,100.0,    56_380_000,  2_170_000),
+    "Haiti":            (26, 27.5,  2, 96.2,    55_730_000,  2_140_000),
+    "Sudafrica":        (33, 27.3,  4, 24.2,    52_700_000,  1_600_000),
+    "Australia":        (26, 27.2,  7, 84.6,    51_330_000,  1_970_000),
+    "Iran":             (31, 29.3,  7, 29.0,    36_550_000,  1_180_000),
+    "Nuova Zelanda":    (26, 28.1,  3, 69.2,    31_700_000,  1_220_000),
+    "Panama":           (23, 29.7,  2, 95.7,    31_350_000,  1_360_000),
+    "Curacao":          (26, 28.0,  1,100.0,    27_780_000,  1_070_000),
+    "Arabia Saudita":   (23, 28.0,  7,  8.7,    27_630_000,  1_200_000),
+    "Iraq":             (29, 26.3,  2, 55.2,    19_280_000,    665_000),
+    "Qatar":            (25, 27.9,  2,  4.0,    17_930_000,    717_000),
+    "Giordania":        (26, 27.1,  1, 57.7,    16_230_000,    624_000),
+}
+
+
+def import_team_info():
+    """Import WC team info (value, age, etc.) into database."""
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
+    conn.execute("DELETE FROM wc_team_info")
+    for country, (size, age, clubs, abroad, total_v, avg_v) in WC_TEAM_INFO.items():
+        conn.execute("""
+            INSERT OR REPLACE INTO wc_team_info
+            (country, squad_size, avg_age, num_clubs, pct_abroad, total_value_eur, avg_value_eur)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (country, size, age, clubs, abroad, total_v, avg_v))
+    conn.commit()
+    conn.close()
+    logger.info(f"✅ Importati dati team per {len(WC_TEAM_INFO)} nazionali")
+    return len(WC_TEAM_INFO)
+
 
 def import_squads():
     """Import all WC squads into the database, preserving TM enrichment data."""
@@ -858,6 +927,10 @@ def import_squads():
         logger.info(f"♻️ Ripristinati {restored} enrichment TM precedenti")
 
     conn.close()
+
+    # Also import team info (value, age, etc.)
+    import_team_info()
+
     return {"imported": total, "countries": len(WC_SQUADS), "matched": matched + restored}
 
 
@@ -1518,7 +1591,8 @@ def get_group_standings() -> dict:
     for g, teams in ALL_GROUPS.items():
         standings[g] = {
             t: {"country": t, "pts": 0, "w": 0, "d": 0, "l": 0,
-                "gf": 0, "ga": 0, "gd": 0, "played": 0, "avg_rating": None}
+                "gf": 0, "ga": 0, "gd": 0, "played": 0, "avg_rating": None,
+                "total_value": None, "avg_age": None}
             for t in teams
         }
 
@@ -1561,7 +1635,7 @@ def get_group_standings() -> dict:
                 standings[g][away]["d"] += 1
                 standings[g][away]["pts"] += 1
 
-    # Add avg_rating from DB
+    # Add avg_rating + team info from DB
     try:
         conn = sqlite3.connect(str(DB_PATH), timeout=30)
         conn.row_factory = sqlite3.Row
@@ -1574,6 +1648,15 @@ def get_group_standings() -> dict:
                 for g in standings:
                     if row["country"] in standings[g]:
                         standings[g][row["country"]]["avg_rating"] = r
+        # Add team value/age from wc_team_info
+        try:
+            for row in conn.execute("SELECT country, total_value_eur, avg_age FROM wc_team_info").fetchall():
+                for g in standings:
+                    if row["country"] in standings[g]:
+                        standings[g][row["country"]]["total_value"] = row["total_value_eur"]
+                        standings[g][row["country"]]["avg_age"] = row["avg_age"]
+        except Exception:
+            pass  # Table might not exist yet
         conn.close()
     except Exception:
         pass

@@ -179,6 +179,16 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_wc_squads_country
             ON wc_squads(country);
 
+        CREATE TABLE IF NOT EXISTS wc_team_info (
+            country TEXT PRIMARY KEY,
+            squad_size INTEGER,
+            avg_age REAL,
+            num_clubs INTEGER,
+            pct_abroad REAL,
+            total_value_eur INTEGER,
+            avg_value_eur INTEGER
+        );
+
         CREATE TABLE IF NOT EXISTS my_bets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             match_id TEXT NOT NULL,
