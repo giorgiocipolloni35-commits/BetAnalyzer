@@ -1456,7 +1456,9 @@ def refresh_tm_stats():
     """Re-fetch stats from TM for players already matched via TM (negative player_id).
 
     Updates existing TM-matched players with enhanced stats (minutes, per-90, starter%, etc.)
+    and individual market value.
     """
+    import re
     import time
     import requests
     import urllib3
@@ -1564,6 +1566,25 @@ def refresh_tm_stats():
                 "source": "transfermarkt",
                 "tm_id": int(tm_id),
             }
+
+            # Fetch individual market value from profile page
+            try:
+                profile_url = f"https://www.transfermarkt.com/x/profil/spieler/{tm_id}"
+                rp = requests.get(profile_url, headers=headers, timeout=10, verify=False)
+                mv_match = re.search(r'Market value: €([\d,.]+)(k|m|bn)', rp.text, re.IGNORECASE)
+                if mv_match:
+                    mv_val = float(mv_match.group(1).replace(',', ''))
+                    mv_unit = mv_match.group(2).lower()
+                    if mv_unit == 'bn':
+                        mv_val *= 1_000_000_000
+                    elif mv_unit == 'm':
+                        mv_val *= 1_000_000
+                    elif mv_unit == 'k':
+                        mv_val *= 1_000
+                    stats["market_value_eur"] = int(mv_val)
+                time.sleep(0.5)
+            except Exception:
+                pass
 
             # Recalculate rating
             if position == "GK":
