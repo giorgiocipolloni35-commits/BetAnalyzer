@@ -1,0 +1,2636 @@
+{
+  "updated_at": "2026-05-24T01:25:05.127809",
+  "total_matches": 5235,
+  "total_var_reviews": 2635,
+  "avg_var_per_match": 0.51,
+  "referees": {
+    "Giuseppe Mucera": {
+      "matches": 3,
+      "matches_with_var": 3,
+      "var_reviews": 4,
+      "var_per_match": 1.33,
+      "var_match_pct": 100.0,
+      "var_overturned": 3,
+      "var_confirmed": 1,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 1,
+      "var_goal": 3,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "D. Perenzoni": {
+      "matches": 4,
+      "matches_with_var": 3,
+      "var_reviews": 5,
+      "var_per_match": 1.25,
+      "var_match_pct": 75.0,
+      "var_overturned": 2,
+      "var_confirmed": 0,
+      "var_overturn_pct": 40.0,
+      "var_penalty": 2,
+      "var_goal": 2,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "P. Ittrich": {
+      "matches": 23,
+      "matches_with_var": 10,
+      "var_reviews": 26,
+      "var_per_match": 1.13,
+      "var_match_pct": 43.5,
+      "var_overturned": 18,
+      "var_confirmed": 2,
+      "var_overturn_pct": 69.2,
+      "var_penalty": 7,
+      "var_goal": 12,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 6,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "D. Di Marco": {
+      "matches": 7,
+      "matches_with_var": 3,
+      "var_reviews": 6,
+      "var_per_match": 0.86,
+      "var_match_pct": 42.9,
+      "var_overturned": 4,
+      "var_confirmed": 2,
+      "var_overturn_pct": 66.7,
+      "var_penalty": 3,
+      "var_goal": 1,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "J. Figueroa Vázquez": {
+      "matches": 20,
+      "matches_with_var": 9,
+      "var_reviews": 17,
+      "var_per_match": 0.85,
+      "var_match_pct": 45.0,
+      "var_overturned": 5,
+      "var_confirmed": 4,
+      "var_overturn_pct": 29.4,
+      "var_penalty": 6,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 10,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "T. Reichel": {
+      "matches": 33,
+      "matches_with_var": 11,
+      "var_reviews": 28,
+      "var_per_match": 0.85,
+      "var_match_pct": 33.3,
+      "var_overturned": 18,
+      "var_confirmed": 3,
+      "var_overturn_pct": 64.3,
+      "var_penalty": 8,
+      "var_goal": 12,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "T. Kirk": {
+      "matches": 6,
+      "matches_with_var": 3,
+      "var_reviews": 5,
+      "var_per_match": 0.83,
+      "var_match_pct": 50.0,
+      "var_overturned": 2,
+      "var_confirmed": 2,
+      "var_overturn_pct": 40.0,
+      "var_penalty": 1,
+      "var_goal": 2,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 0,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "F. Willenborg": {
+      "matches": 33,
+      "matches_with_var": 12,
+      "var_reviews": 27,
+      "var_per_match": 0.82,
+      "var_match_pct": 36.4,
+      "var_overturned": 19,
+      "var_confirmed": 4,
+      "var_overturn_pct": 70.4,
+      "var_penalty": 7,
+      "var_goal": 10,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 8,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "B. Dechepy": {
+      "matches": 44,
+      "matches_with_var": 18,
+      "var_reviews": 36,
+      "var_per_match": 0.82,
+      "var_match_pct": 40.9,
+      "var_overturned": 15,
+      "var_confirmed": 11,
+      "var_overturn_pct": 41.7,
+      "var_penalty": 13,
+      "var_goal": 11,
+      "var_red": 3,
+      "var_card": 0,
+      "var_other": 9,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "T. Gerach": {
+      "matches": 27,
+      "matches_with_var": 12,
+      "var_reviews": 22,
+      "var_per_match": 0.81,
+      "var_match_pct": 44.4,
+      "var_overturned": 12,
+      "var_confirmed": 2,
+      "var_overturn_pct": 54.5,
+      "var_penalty": 7,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 7,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "M. Donohue": {
+      "matches": 5,
+      "matches_with_var": 2,
+      "var_reviews": 4,
+      "var_per_match": 0.8,
+      "var_match_pct": 40.0,
+      "var_overturned": 3,
+      "var_confirmed": 1,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 2,
+      "var_goal": 1,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 1,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "I. Díaz de Mera Escuderos": {
+      "matches": 56,
+      "matches_with_var": 22,
+      "var_reviews": 44,
+      "var_per_match": 0.79,
+      "var_match_pct": 39.3,
+      "var_overturned": 30,
+      "var_confirmed": 5,
+      "var_overturn_pct": 68.2,
+      "var_penalty": 13,
+      "var_goal": 15,
+      "var_red": 0,
+      "var_card": 3,
+      "var_other": 13,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "J. Guzmán Mansilla": {
+      "matches": 17,
+      "matches_with_var": 6,
+      "var_reviews": 13,
+      "var_per_match": 0.76,
+      "var_match_pct": 35.3,
+      "var_overturned": 8,
+      "var_confirmed": 1,
+      "var_overturn_pct": 61.5,
+      "var_penalty": 4,
+      "var_goal": 5,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 3,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "B. Millot": {
+      "matches": 45,
+      "matches_with_var": 18,
+      "var_reviews": 34,
+      "var_per_match": 0.76,
+      "var_match_pct": 40.0,
+      "var_overturned": 16,
+      "var_confirmed": 8,
+      "var_overturn_pct": 47.1,
+      "var_penalty": 12,
+      "var_goal": 11,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 9,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "S. Sozza": {
+      "matches": 44,
+      "matches_with_var": 15,
+      "var_reviews": 33,
+      "var_per_match": 0.75,
+      "var_match_pct": 34.1,
+      "var_overturned": 14,
+      "var_confirmed": 9,
+      "var_overturn_pct": 42.4,
+      "var_penalty": 11,
+      "var_goal": 14,
+      "var_red": 2,
+      "var_card": 0,
+      "var_other": 6,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "K. Bonacina": {
+      "matches": 16,
+      "matches_with_var": 8,
+      "var_reviews": 12,
+      "var_per_match": 0.75,
+      "var_match_pct": 50.0,
+      "var_overturned": 6,
+      "var_confirmed": 4,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 5,
+      "var_goal": 3,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 3,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "R. Schröder": {
+      "matches": 27,
+      "matches_with_var": 11,
+      "var_reviews": 20,
+      "var_per_match": 0.74,
+      "var_match_pct": 40.7,
+      "var_overturned": 11,
+      "var_confirmed": 4,
+      "var_overturn_pct": 55.0,
+      "var_penalty": 10,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 4,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "C. Soto Grado": {
+      "matches": 60,
+      "matches_with_var": 22,
+      "var_reviews": 43,
+      "var_per_match": 0.72,
+      "var_match_pct": 36.7,
+      "var_overturned": 24,
+      "var_confirmed": 6,
+      "var_overturn_pct": 55.8,
+      "var_penalty": 11,
+      "var_goal": 17,
+      "var_red": 2,
+      "var_card": 6,
+      "var_other": 7,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "M. Melero López": {
+      "matches": 35,
+      "matches_with_var": 13,
+      "var_reviews": 25,
+      "var_per_match": 0.71,
+      "var_match_pct": 37.1,
+      "var_overturned": 7,
+      "var_confirmed": 9,
+      "var_overturn_pct": 28.0,
+      "var_penalty": 8,
+      "var_goal": 5,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 9,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "A. Quintero González": {
+      "matches": 38,
+      "matches_with_var": 18,
+      "var_reviews": 27,
+      "var_per_match": 0.71,
+      "var_match_pct": 47.4,
+      "var_overturned": 10,
+      "var_confirmed": 5,
+      "var_overturn_pct": 37.0,
+      "var_penalty": 12,
+      "var_goal": 4,
+      "var_red": 4,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "R. Lissorgue": {
+      "matches": 37,
+      "matches_with_var": 15,
+      "var_reviews": 26,
+      "var_per_match": 0.7,
+      "var_match_pct": 40.5,
+      "var_overturned": 13,
+      "var_confirmed": 6,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 7,
+      "var_goal": 9,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 7,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "M. Marcenaro": {
+      "matches": 32,
+      "matches_with_var": 15,
+      "var_reviews": 22,
+      "var_per_match": 0.69,
+      "var_match_pct": 46.9,
+      "var_overturned": 13,
+      "var_confirmed": 2,
+      "var_overturn_pct": 59.1,
+      "var_penalty": 7,
+      "var_goal": 5,
+      "var_red": 0,
+      "var_card": 3,
+      "var_other": 7,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "C. Dingert": {
+      "matches": 39,
+      "matches_with_var": 13,
+      "var_reviews": 27,
+      "var_per_match": 0.69,
+      "var_match_pct": 33.3,
+      "var_overturned": 15,
+      "var_confirmed": 4,
+      "var_overturn_pct": 55.6,
+      "var_penalty": 7,
+      "var_goal": 12,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 5,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "R. Abisso": {
+      "matches": 30,
+      "matches_with_var": 11,
+      "var_reviews": 20,
+      "var_per_match": 0.67,
+      "var_match_pct": 36.7,
+      "var_overturned": 10,
+      "var_confirmed": 1,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 4,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 8,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "I. Pezzuto": {
+      "matches": 3,
+      "matches_with_var": 2,
+      "var_reviews": 2,
+      "var_per_match": 0.67,
+      "var_match_pct": 66.7,
+      "var_overturned": 2,
+      "var_confirmed": 0,
+      "var_overturn_pct": 100.0,
+      "var_penalty": 0,
+      "var_goal": 2,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "G. Scott": {
+      "matches": 6,
+      "matches_with_var": 2,
+      "var_reviews": 4,
+      "var_per_match": 0.67,
+      "var_match_pct": 33.3,
+      "var_overturned": 2,
+      "var_confirmed": 1,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 0,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 4,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "E. Wattellier": {
+      "matches": 51,
+      "matches_with_var": 18,
+      "var_reviews": 33,
+      "var_per_match": 0.65,
+      "var_match_pct": 35.3,
+      "var_overturned": 15,
+      "var_confirmed": 11,
+      "var_overturn_pct": 45.5,
+      "var_penalty": 12,
+      "var_goal": 9,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 9,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "A. Colombo": {
+      "matches": 47,
+      "matches_with_var": 13,
+      "var_reviews": 30,
+      "var_per_match": 0.64,
+      "var_match_pct": 27.7,
+      "var_overturned": 22,
+      "var_confirmed": 3,
+      "var_overturn_pct": 73.3,
+      "var_penalty": 3,
+      "var_goal": 8,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 18,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "L. Marinelli": {
+      "matches": 33,
+      "matches_with_var": 11,
+      "var_reviews": 21,
+      "var_per_match": 0.64,
+      "var_match_pct": 33.3,
+      "var_overturned": 11,
+      "var_confirmed": 3,
+      "var_overturn_pct": 52.4,
+      "var_penalty": 4,
+      "var_goal": 6,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 8,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "G. Manganiello": {
+      "matches": 39,
+      "matches_with_var": 15,
+      "var_reviews": 25,
+      "var_per_match": 0.64,
+      "var_match_pct": 38.5,
+      "var_overturned": 19,
+      "var_confirmed": 2,
+      "var_overturn_pct": 76.0,
+      "var_penalty": 2,
+      "var_goal": 13,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 7,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "J. Sánchez Martínez": {
+      "matches": 56,
+      "matches_with_var": 20,
+      "var_reviews": 36,
+      "var_per_match": 0.64,
+      "var_match_pct": 35.7,
+      "var_overturned": 18,
+      "var_confirmed": 7,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 10,
+      "var_goal": 8,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 16,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "R. Braun": {
+      "matches": 11,
+      "matches_with_var": 5,
+      "var_reviews": 7,
+      "var_per_match": 0.64,
+      "var_match_pct": 45.5,
+      "var_overturned": 2,
+      "var_confirmed": 4,
+      "var_overturn_pct": 28.6,
+      "var_penalty": 3,
+      "var_goal": 2,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "F. Batta": {
+      "matches": 25,
+      "matches_with_var": 10,
+      "var_reviews": 16,
+      "var_per_match": 0.64,
+      "var_match_pct": 40.0,
+      "var_overturned": 5,
+      "var_confirmed": 4,
+      "var_overturn_pct": 31.2,
+      "var_penalty": 8,
+      "var_goal": 1,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 4,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "J. Pulido Santana": {
+      "matches": 35,
+      "matches_with_var": 16,
+      "var_reviews": 22,
+      "var_per_match": 0.63,
+      "var_match_pct": 45.7,
+      "var_overturned": 9,
+      "var_confirmed": 2,
+      "var_overturn_pct": 40.9,
+      "var_penalty": 11,
+      "var_goal": 1,
+      "var_red": 2,
+      "var_card": 2,
+      "var_other": 6,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "J. Stinat": {
+      "matches": 49,
+      "matches_with_var": 18,
+      "var_reviews": 31,
+      "var_per_match": 0.63,
+      "var_match_pct": 36.7,
+      "var_overturned": 18,
+      "var_confirmed": 6,
+      "var_overturn_pct": 58.1,
+      "var_penalty": 10,
+      "var_goal": 11,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 8,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "P. Gaillouste": {
+      "matches": 13,
+      "matches_with_var": 5,
+      "var_reviews": 8,
+      "var_per_match": 0.62,
+      "var_match_pct": 38.5,
+      "var_overturned": 6,
+      "var_confirmed": 0,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 4,
+      "var_goal": 0,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 3,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "M. Mariani": {
+      "matches": 48,
+      "matches_with_var": 17,
+      "var_reviews": 29,
+      "var_per_match": 0.6,
+      "var_match_pct": 35.4,
+      "var_overturned": 15,
+      "var_confirmed": 6,
+      "var_overturn_pct": 51.7,
+      "var_penalty": 12,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 10,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Giua": {
+      "matches": 15,
+      "matches_with_var": 6,
+      "var_reviews": 9,
+      "var_per_match": 0.6,
+      "var_match_pct": 40.0,
+      "var_overturned": 4,
+      "var_confirmed": 1,
+      "var_overturn_pct": 44.4,
+      "var_penalty": 3,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 6,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "V. Crezzini": {
+      "matches": 10,
+      "matches_with_var": 2,
+      "var_reviews": 6,
+      "var_per_match": 0.6,
+      "var_match_pct": 20.0,
+      "var_overturned": 4,
+      "var_confirmed": 0,
+      "var_overturn_pct": 66.7,
+      "var_penalty": 2,
+      "var_goal": 3,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 1,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "M. Busquets Ferrer": {
+      "matches": 58,
+      "matches_with_var": 20,
+      "var_reviews": 35,
+      "var_per_match": 0.6,
+      "var_match_pct": 34.5,
+      "var_overturned": 13,
+      "var_confirmed": 5,
+      "var_overturn_pct": 37.1,
+      "var_penalty": 6,
+      "var_goal": 5,
+      "var_red": 5,
+      "var_card": 7,
+      "var_other": 12,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "S. Frappart": {
+      "matches": 43,
+      "matches_with_var": 16,
+      "var_reviews": 26,
+      "var_per_match": 0.6,
+      "var_match_pct": 37.2,
+      "var_overturned": 12,
+      "var_confirmed": 7,
+      "var_overturn_pct": 46.2,
+      "var_penalty": 9,
+      "var_goal": 10,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 5,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "C. Pawson": {
+      "matches": 61,
+      "matches_with_var": 22,
+      "var_reviews": 36,
+      "var_per_match": 0.59,
+      "var_match_pct": 36.1,
+      "var_overturned": 19,
+      "var_confirmed": 7,
+      "var_overturn_pct": 52.8,
+      "var_penalty": 13,
+      "var_goal": 8,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 13,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "R. Hartmann": {
+      "matches": 37,
+      "matches_with_var": 11,
+      "var_reviews": 22,
+      "var_per_match": 0.59,
+      "var_match_pct": 29.7,
+      "var_overturned": 9,
+      "var_confirmed": 7,
+      "var_overturn_pct": 40.9,
+      "var_penalty": 9,
+      "var_goal": 9,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 2,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "G. Angoula": {
+      "matches": 32,
+      "matches_with_var": 10,
+      "var_reviews": 19,
+      "var_per_match": 0.59,
+      "var_match_pct": 31.2,
+      "var_overturned": 13,
+      "var_confirmed": 3,
+      "var_overturn_pct": 68.4,
+      "var_penalty": 5,
+      "var_goal": 3,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 10,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "E. Feliciani": {
+      "matches": 36,
+      "matches_with_var": 10,
+      "var_reviews": 21,
+      "var_per_match": 0.58,
+      "var_match_pct": 27.8,
+      "var_overturned": 14,
+      "var_confirmed": 2,
+      "var_overturn_pct": 66.7,
+      "var_penalty": 7,
+      "var_goal": 5,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 9,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "M. Piccinini": {
+      "matches": 36,
+      "matches_with_var": 14,
+      "var_reviews": 21,
+      "var_per_match": 0.58,
+      "var_match_pct": 38.9,
+      "var_overturned": 7,
+      "var_confirmed": 6,
+      "var_overturn_pct": 33.3,
+      "var_penalty": 9,
+      "var_goal": 4,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 5,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "H. Ben El Hadj": {
+      "matches": 45,
+      "matches_with_var": 13,
+      "var_reviews": 26,
+      "var_per_match": 0.58,
+      "var_match_pct": 28.9,
+      "var_overturned": 16,
+      "var_confirmed": 4,
+      "var_overturn_pct": 61.5,
+      "var_penalty": 8,
+      "var_goal": 4,
+      "var_red": 2,
+      "var_card": 3,
+      "var_other": 9,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "G. Collu": {
+      "matches": 21,
+      "matches_with_var": 10,
+      "var_reviews": 12,
+      "var_per_match": 0.57,
+      "var_match_pct": 47.6,
+      "var_overturned": 3,
+      "var_confirmed": 4,
+      "var_overturn_pct": 25.0,
+      "var_penalty": 7,
+      "var_goal": 2,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "C. Turpin": {
+      "matches": 53,
+      "matches_with_var": 17,
+      "var_reviews": 30,
+      "var_per_match": 0.57,
+      "var_match_pct": 32.1,
+      "var_overturned": 15,
+      "var_confirmed": 7,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 9,
+      "var_goal": 6,
+      "var_red": 4,
+      "var_card": 3,
+      "var_other": 8,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "A. Kherradji": {
+      "matches": 28,
+      "matches_with_var": 9,
+      "var_reviews": 16,
+      "var_per_match": 0.57,
+      "var_match_pct": 32.1,
+      "var_overturned": 6,
+      "var_confirmed": 6,
+      "var_overturn_pct": 37.5,
+      "var_penalty": 9,
+      "var_goal": 3,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 2,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "J. Gil Manzano": {
+      "matches": 57,
+      "matches_with_var": 20,
+      "var_reviews": 32,
+      "var_per_match": 0.56,
+      "var_match_pct": 35.1,
+      "var_overturned": 16,
+      "var_confirmed": 9,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 14,
+      "var_goal": 6,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 9,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "D. Aytekin": {
+      "matches": 36,
+      "matches_with_var": 13,
+      "var_reviews": 20,
+      "var_per_match": 0.56,
+      "var_match_pct": 36.1,
+      "var_overturned": 5,
+      "var_confirmed": 6,
+      "var_overturn_pct": 25.0,
+      "var_penalty": 11,
+      "var_goal": 2,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 4,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "M. Jöllenbeck": {
+      "matches": 39,
+      "matches_with_var": 14,
+      "var_reviews": 22,
+      "var_per_match": 0.56,
+      "var_match_pct": 35.9,
+      "var_overturned": 9,
+      "var_confirmed": 6,
+      "var_overturn_pct": 40.9,
+      "var_penalty": 11,
+      "var_goal": 5,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 6,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "F. Exner": {
+      "matches": 25,
+      "matches_with_var": 8,
+      "var_reviews": 14,
+      "var_per_match": 0.56,
+      "var_match_pct": 32.0,
+      "var_overturned": 8,
+      "var_confirmed": 2,
+      "var_overturn_pct": 57.1,
+      "var_penalty": 2,
+      "var_goal": 7,
+      "var_red": 2,
+      "var_card": 2,
+      "var_other": 1,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "M. Marchetti": {
+      "matches": 37,
+      "matches_with_var": 10,
+      "var_reviews": 20,
+      "var_per_match": 0.54,
+      "var_match_pct": 27.0,
+      "var_overturned": 13,
+      "var_confirmed": 2,
+      "var_overturn_pct": 65.0,
+      "var_penalty": 5,
+      "var_goal": 7,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 6,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Muñíz Ruiz": {
+      "matches": 57,
+      "matches_with_var": 16,
+      "var_reviews": 30,
+      "var_per_match": 0.53,
+      "var_match_pct": 28.1,
+      "var_overturned": 9,
+      "var_confirmed": 8,
+      "var_overturn_pct": 30.0,
+      "var_penalty": 11,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 11,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "G. Cuadra Fernández": {
+      "matches": 57,
+      "matches_with_var": 18,
+      "var_reviews": 30,
+      "var_per_match": 0.53,
+      "var_match_pct": 31.6,
+      "var_overturned": 10,
+      "var_confirmed": 11,
+      "var_overturn_pct": 33.3,
+      "var_penalty": 10,
+      "var_goal": 8,
+      "var_red": 3,
+      "var_card": 1,
+      "var_other": 8,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "M. Fritz": {
+      "matches": 15,
+      "matches_with_var": 4,
+      "var_reviews": 8,
+      "var_per_match": 0.53,
+      "var_match_pct": 26.7,
+      "var_overturned": 6,
+      "var_confirmed": 1,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 1,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "S. Storks": {
+      "matches": 30,
+      "matches_with_var": 10,
+      "var_reviews": 16,
+      "var_per_match": 0.53,
+      "var_match_pct": 33.3,
+      "var_overturned": 10,
+      "var_confirmed": 3,
+      "var_overturn_pct": 62.5,
+      "var_penalty": 3,
+      "var_goal": 8,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 3,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "G. Paradis": {
+      "matches": 15,
+      "matches_with_var": 4,
+      "var_reviews": 8,
+      "var_per_match": 0.53,
+      "var_match_pct": 26.7,
+      "var_overturned": 6,
+      "var_confirmed": 1,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 2,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "F. Maresca": {
+      "matches": 33,
+      "matches_with_var": 9,
+      "var_reviews": 17,
+      "var_per_match": 0.52,
+      "var_match_pct": 27.3,
+      "var_overturned": 6,
+      "var_confirmed": 5,
+      "var_overturn_pct": 35.3,
+      "var_penalty": 6,
+      "var_goal": 1,
+      "var_red": 2,
+      "var_card": 2,
+      "var_other": 6,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "M. Salisbury": {
+      "matches": 42,
+      "matches_with_var": 14,
+      "var_reviews": 22,
+      "var_per_match": 0.52,
+      "var_match_pct": 33.3,
+      "var_overturned": 10,
+      "var_confirmed": 5,
+      "var_overturn_pct": 45.5,
+      "var_penalty": 7,
+      "var_goal": 9,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 3,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "Javier Alberola Rojas": {
+      "matches": 58,
+      "matches_with_var": 20,
+      "var_reviews": 30,
+      "var_per_match": 0.52,
+      "var_match_pct": 34.5,
+      "var_overturned": 10,
+      "var_confirmed": 12,
+      "var_overturn_pct": 33.3,
+      "var_penalty": 8,
+      "var_goal": 9,
+      "var_red": 2,
+      "var_card": 4,
+      "var_other": 7,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "B. Dankert": {
+      "matches": 42,
+      "matches_with_var": 13,
+      "var_reviews": 22,
+      "var_per_match": 0.52,
+      "var_match_pct": 31.0,
+      "var_overturned": 11,
+      "var_confirmed": 7,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 4,
+      "var_goal": 8,
+      "var_red": 2,
+      "var_card": 0,
+      "var_other": 8,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "J. Pignard": {
+      "matches": 52,
+      "matches_with_var": 15,
+      "var_reviews": 27,
+      "var_per_match": 0.52,
+      "var_match_pct": 28.8,
+      "var_overturned": 16,
+      "var_confirmed": 7,
+      "var_overturn_pct": 59.3,
+      "var_penalty": 5,
+      "var_goal": 14,
+      "var_red": 3,
+      "var_card": 1,
+      "var_other": 4,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "J. Brisard": {
+      "matches": 51,
+      "matches_with_var": 17,
+      "var_reviews": 26,
+      "var_per_match": 0.51,
+      "var_match_pct": 33.3,
+      "var_overturned": 13,
+      "var_confirmed": 8,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 8,
+      "var_goal": 9,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 7,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "B. Bastien": {
+      "matches": 55,
+      "matches_with_var": 16,
+      "var_reviews": 28,
+      "var_per_match": 0.51,
+      "var_match_pct": 29.1,
+      "var_overturned": 15,
+      "var_confirmed": 4,
+      "var_overturn_pct": 53.6,
+      "var_penalty": 8,
+      "var_goal": 7,
+      "var_red": 0,
+      "var_card": 3,
+      "var_other": 10,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "A. Prontera": {
+      "matches": 10,
+      "matches_with_var": 4,
+      "var_reviews": 5,
+      "var_per_match": 0.5,
+      "var_match_pct": 40.0,
+      "var_overturned": 0,
+      "var_confirmed": 0,
+      "var_overturn_pct": 0.0,
+      "var_penalty": 3,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "S. Allison": {
+      "matches": 4,
+      "matches_with_var": 1,
+      "var_reviews": 2,
+      "var_per_match": 0.5,
+      "var_match_pct": 25.0,
+      "var_overturned": 2,
+      "var_confirmed": 0,
+      "var_overturn_pct": 100.0,
+      "var_penalty": 0,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "J. Martínez Munuera": {
+      "matches": 54,
+      "matches_with_var": 18,
+      "var_reviews": 27,
+      "var_per_match": 0.5,
+      "var_match_pct": 33.3,
+      "var_overturned": 11,
+      "var_confirmed": 7,
+      "var_overturn_pct": 40.7,
+      "var_penalty": 8,
+      "var_goal": 7,
+      "var_red": 2,
+      "var_card": 3,
+      "var_other": 7,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "H. Osmers": {
+      "matches": 44,
+      "matches_with_var": 13,
+      "var_reviews": 22,
+      "var_per_match": 0.5,
+      "var_match_pct": 29.5,
+      "var_overturned": 12,
+      "var_confirmed": 6,
+      "var_overturn_pct": 54.5,
+      "var_penalty": 9,
+      "var_goal": 3,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 10,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "S. Stegemann": {
+      "matches": 44,
+      "matches_with_var": 12,
+      "var_reviews": 22,
+      "var_per_match": 0.5,
+      "var_match_pct": 27.3,
+      "var_overturned": 14,
+      "var_confirmed": 4,
+      "var_overturn_pct": 63.6,
+      "var_penalty": 6,
+      "var_goal": 9,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 5,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "M. Bollengier": {
+      "matches": 48,
+      "matches_with_var": 13,
+      "var_reviews": 24,
+      "var_per_match": 0.5,
+      "var_match_pct": 27.1,
+      "var_overturned": 12,
+      "var_confirmed": 4,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 8,
+      "var_goal": 6,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 8,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "J. Brooks": {
+      "matches": 51,
+      "matches_with_var": 14,
+      "var_reviews": 25,
+      "var_per_match": 0.49,
+      "var_match_pct": 27.5,
+      "var_overturned": 15,
+      "var_confirmed": 6,
+      "var_overturn_pct": 60.0,
+      "var_penalty": 5,
+      "var_goal": 13,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 5,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "A. Hernández Hernández": {
+      "matches": 53,
+      "matches_with_var": 15,
+      "var_reviews": 26,
+      "var_per_match": 0.49,
+      "var_match_pct": 28.3,
+      "var_overturned": 7,
+      "var_confirmed": 10,
+      "var_overturn_pct": 26.9,
+      "var_penalty": 13,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "T. Stieler": {
+      "matches": 45,
+      "matches_with_var": 16,
+      "var_reviews": 22,
+      "var_per_match": 0.49,
+      "var_match_pct": 35.6,
+      "var_overturned": 12,
+      "var_confirmed": 3,
+      "var_overturn_pct": 54.5,
+      "var_penalty": 9,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 5,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "D. Schlager": {
+      "matches": 43,
+      "matches_with_var": 10,
+      "var_reviews": 21,
+      "var_per_match": 0.49,
+      "var_match_pct": 23.3,
+      "var_overturned": 14,
+      "var_confirmed": 2,
+      "var_overturn_pct": 66.7,
+      "var_penalty": 5,
+      "var_goal": 10,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 5,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "S. Barrott": {
+      "matches": 61,
+      "matches_with_var": 14,
+      "var_reviews": 29,
+      "var_per_match": 0.48,
+      "var_match_pct": 23.0,
+      "var_overturned": 15,
+      "var_confirmed": 5,
+      "var_overturn_pct": 51.7,
+      "var_penalty": 8,
+      "var_goal": 14,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 5,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "F. Zwayer": {
+      "matches": 52,
+      "matches_with_var": 17,
+      "var_reviews": 25,
+      "var_per_match": 0.48,
+      "var_match_pct": 32.7,
+      "var_overturned": 12,
+      "var_confirmed": 6,
+      "var_overturn_pct": 48.0,
+      "var_penalty": 6,
+      "var_goal": 11,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "A. Rapuano": {
+      "matches": 30,
+      "matches_with_var": 7,
+      "var_reviews": 14,
+      "var_per_match": 0.47,
+      "var_match_pct": 23.3,
+      "var_overturned": 8,
+      "var_confirmed": 1,
+      "var_overturn_pct": 57.1,
+      "var_penalty": 4,
+      "var_goal": 2,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 7,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "I. Galech Apezteguía": {
+      "matches": 19,
+      "matches_with_var": 7,
+      "var_reviews": 9,
+      "var_per_match": 0.47,
+      "var_match_pct": 36.8,
+      "var_overturned": 3,
+      "var_confirmed": 4,
+      "var_overturn_pct": 33.3,
+      "var_penalty": 3,
+      "var_goal": 2,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 1,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "B. Brand": {
+      "matches": 45,
+      "matches_with_var": 14,
+      "var_reviews": 21,
+      "var_per_match": 0.47,
+      "var_match_pct": 31.1,
+      "var_overturned": 9,
+      "var_confirmed": 4,
+      "var_overturn_pct": 42.9,
+      "var_penalty": 7,
+      "var_goal": 6,
+      "var_red": 2,
+      "var_card": 2,
+      "var_other": 4,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "R. Buquet": {
+      "matches": 34,
+      "matches_with_var": 9,
+      "var_reviews": 16,
+      "var_per_match": 0.47,
+      "var_match_pct": 26.5,
+      "var_overturned": 2,
+      "var_confirmed": 7,
+      "var_overturn_pct": 12.5,
+      "var_penalty": 7,
+      "var_goal": 3,
+      "var_red": 2,
+      "var_card": 0,
+      "var_other": 4,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "D. Chiffi": {
+      "matches": 41,
+      "matches_with_var": 13,
+      "var_reviews": 19,
+      "var_per_match": 0.46,
+      "var_match_pct": 31.7,
+      "var_overturned": 7,
+      "var_confirmed": 4,
+      "var_overturn_pct": 36.8,
+      "var_penalty": 9,
+      "var_goal": 4,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 4,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "T. Harrington": {
+      "matches": 39,
+      "matches_with_var": 10,
+      "var_reviews": 18,
+      "var_per_match": 0.46,
+      "var_match_pct": 25.6,
+      "var_overturned": 12,
+      "var_confirmed": 2,
+      "var_overturn_pct": 66.7,
+      "var_penalty": 5,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 7,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "F. Badstübner": {
+      "matches": 41,
+      "matches_with_var": 10,
+      "var_reviews": 19,
+      "var_per_match": 0.46,
+      "var_match_pct": 24.4,
+      "var_overturned": 12,
+      "var_confirmed": 2,
+      "var_overturn_pct": 63.2,
+      "var_penalty": 4,
+      "var_goal": 8,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 7,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "D. Doveri": {
+      "matches": 53,
+      "matches_with_var": 15,
+      "var_reviews": 24,
+      "var_per_match": 0.45,
+      "var_match_pct": 28.3,
+      "var_overturned": 11,
+      "var_confirmed": 4,
+      "var_overturn_pct": 45.8,
+      "var_penalty": 9,
+      "var_goal": 9,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 5,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "F. Fourneau": {
+      "matches": 29,
+      "matches_with_var": 6,
+      "var_reviews": 13,
+      "var_per_match": 0.45,
+      "var_match_pct": 20.7,
+      "var_overturned": 5,
+      "var_confirmed": 6,
+      "var_overturn_pct": 38.5,
+      "var_penalty": 4,
+      "var_goal": 6,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "S. Hooper": {
+      "matches": 64,
+      "matches_with_var": 17,
+      "var_reviews": 29,
+      "var_per_match": 0.45,
+      "var_match_pct": 26.6,
+      "var_overturned": 22,
+      "var_confirmed": 4,
+      "var_overturn_pct": 75.9,
+      "var_penalty": 6,
+      "var_goal": 11,
+      "var_red": 1,
+      "var_card": 3,
+      "var_other": 8,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "Sven Jablonski": {
+      "matches": 47,
+      "matches_with_var": 12,
+      "var_reviews": 21,
+      "var_per_match": 0.45,
+      "var_match_pct": 25.5,
+      "var_overturned": 10,
+      "var_confirmed": 2,
+      "var_overturn_pct": 47.6,
+      "var_penalty": 7,
+      "var_goal": 5,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "D. Siebert": {
+      "matches": 44,
+      "matches_with_var": 12,
+      "var_reviews": 20,
+      "var_per_match": 0.45,
+      "var_match_pct": 27.3,
+      "var_overturned": 14,
+      "var_confirmed": 1,
+      "var_overturn_pct": 70.0,
+      "var_penalty": 5,
+      "var_goal": 8,
+      "var_red": 0,
+      "var_card": 3,
+      "var_other": 4,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "J. Gillett": {
+      "matches": 59,
+      "matches_with_var": 13,
+      "var_reviews": 26,
+      "var_per_match": 0.44,
+      "var_match_pct": 22.0,
+      "var_overturned": 19,
+      "var_confirmed": 2,
+      "var_overturn_pct": 73.1,
+      "var_penalty": 4,
+      "var_goal": 10,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 9,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "D. England": {
+      "matches": 54,
+      "matches_with_var": 13,
+      "var_reviews": 24,
+      "var_per_match": 0.44,
+      "var_match_pct": 24.1,
+      "var_overturned": 15,
+      "var_confirmed": 2,
+      "var_overturn_pct": 62.5,
+      "var_penalty": 7,
+      "var_goal": 8,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 8,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "V. García Verdura": {
+      "matches": 57,
+      "matches_with_var": 18,
+      "var_reviews": 25,
+      "var_per_match": 0.44,
+      "var_match_pct": 31.6,
+      "var_overturned": 9,
+      "var_confirmed": 7,
+      "var_overturn_pct": 36.0,
+      "var_penalty": 10,
+      "var_goal": 8,
+      "var_red": 1,
+      "var_card": 4,
+      "var_other": 2,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "R. De Burgos Bengoetxea": {
+      "matches": 57,
+      "matches_with_var": 17,
+      "var_reviews": 25,
+      "var_per_match": 0.44,
+      "var_match_pct": 29.8,
+      "var_overturned": 14,
+      "var_confirmed": 5,
+      "var_overturn_pct": 56.0,
+      "var_penalty": 8,
+      "var_goal": 6,
+      "var_red": 1,
+      "var_card": 3,
+      "var_other": 7,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "W. Delajod": {
+      "matches": 54,
+      "matches_with_var": 16,
+      "var_reviews": 24,
+      "var_per_match": 0.44,
+      "var_match_pct": 29.6,
+      "var_overturned": 14,
+      "var_confirmed": 3,
+      "var_overturn_pct": 58.3,
+      "var_penalty": 7,
+      "var_goal": 3,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 11,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "F. Dionisi": {
+      "matches": 14,
+      "matches_with_var": 4,
+      "var_reviews": 6,
+      "var_per_match": 0.43,
+      "var_match_pct": 28.6,
+      "var_overturned": 5,
+      "var_confirmed": 0,
+      "var_overturn_pct": 83.3,
+      "var_penalty": 1,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 4,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "L. Pairetto": {
+      "matches": 37,
+      "matches_with_var": 10,
+      "var_reviews": 16,
+      "var_per_match": 0.43,
+      "var_match_pct": 27.0,
+      "var_overturned": 6,
+      "var_confirmed": 5,
+      "var_overturn_pct": 37.5,
+      "var_penalty": 5,
+      "var_goal": 7,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 3,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "S. Attwell": {
+      "matches": 61,
+      "matches_with_var": 14,
+      "var_reviews": 26,
+      "var_per_match": 0.43,
+      "var_match_pct": 23.0,
+      "var_overturned": 14,
+      "var_confirmed": 8,
+      "var_overturn_pct": 53.8,
+      "var_penalty": 4,
+      "var_goal": 13,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 8,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "J. Smith": {
+      "matches": 7,
+      "matches_with_var": 2,
+      "var_reviews": 3,
+      "var_per_match": 0.43,
+      "var_match_pct": 28.6,
+      "var_overturned": 0,
+      "var_confirmed": 1,
+      "var_overturn_pct": 0.0,
+      "var_penalty": 1,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "J. Munuera Montero": {
+      "matches": 58,
+      "matches_with_var": 17,
+      "var_reviews": 25,
+      "var_per_match": 0.43,
+      "var_match_pct": 29.3,
+      "var_overturned": 17,
+      "var_confirmed": 0,
+      "var_overturn_pct": 68.0,
+      "var_penalty": 10,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 2,
+      "var_other": 7,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "F. Brych": {
+      "matches": 23,
+      "matches_with_var": 6,
+      "var_reviews": 10,
+      "var_per_match": 0.43,
+      "var_match_pct": 26.1,
+      "var_overturned": 2,
+      "var_confirmed": 2,
+      "var_overturn_pct": 20.0,
+      "var_penalty": 4,
+      "var_goal": 0,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 4,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "M. Ferrieri Caputi": {
+      "matches": 12,
+      "matches_with_var": 4,
+      "var_reviews": 5,
+      "var_per_match": 0.42,
+      "var_match_pct": 33.3,
+      "var_overturned": 3,
+      "var_confirmed": 0,
+      "var_overturn_pct": 60.0,
+      "var_penalty": 2,
+      "var_goal": 2,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Arena": {
+      "matches": 12,
+      "matches_with_var": 2,
+      "var_reviews": 5,
+      "var_per_match": 0.42,
+      "var_match_pct": 16.7,
+      "var_overturned": 4,
+      "var_confirmed": 0,
+      "var_overturn_pct": 80.0,
+      "var_penalty": 1,
+      "var_goal": 3,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Taylor": {
+      "matches": 88,
+      "matches_with_var": 19,
+      "var_reviews": 37,
+      "var_per_match": 0.42,
+      "var_match_pct": 21.6,
+      "var_overturned": 28,
+      "var_confirmed": 1,
+      "var_overturn_pct": 75.7,
+      "var_penalty": 5,
+      "var_goal": 14,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 16,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "D. Bond": {
+      "matches": 19,
+      "matches_with_var": 5,
+      "var_reviews": 8,
+      "var_per_match": 0.42,
+      "var_match_pct": 26.3,
+      "var_overturned": 2,
+      "var_confirmed": 3,
+      "var_overturn_pct": 25.0,
+      "var_penalty": 5,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 2,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "C. Kavanagh": {
+      "matches": 73,
+      "matches_with_var": 20,
+      "var_reviews": 31,
+      "var_per_match": 0.42,
+      "var_match_pct": 27.4,
+      "var_overturned": 17,
+      "var_confirmed": 4,
+      "var_overturn_pct": 54.8,
+      "var_penalty": 9,
+      "var_goal": 6,
+      "var_red": 0,
+      "var_card": 3,
+      "var_other": 13,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "F. Hernández Maeso": {
+      "matches": 57,
+      "matches_with_var": 14,
+      "var_reviews": 24,
+      "var_per_match": 0.42,
+      "var_match_pct": 24.6,
+      "var_overturned": 8,
+      "var_confirmed": 9,
+      "var_overturn_pct": 33.3,
+      "var_penalty": 11,
+      "var_goal": 4,
+      "var_red": 2,
+      "var_card": 2,
+      "var_other": 5,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "M. Sesma Espinosa": {
+      "matches": 19,
+      "matches_with_var": 4,
+      "var_reviews": 8,
+      "var_per_match": 0.42,
+      "var_match_pct": 21.1,
+      "var_overturned": 5,
+      "var_confirmed": 2,
+      "var_overturn_pct": 62.5,
+      "var_penalty": 2,
+      "var_goal": 5,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 1,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "M. Di Bello": {
+      "matches": 39,
+      "matches_with_var": 12,
+      "var_reviews": 16,
+      "var_per_match": 0.41,
+      "var_match_pct": 30.8,
+      "var_overturned": 7,
+      "var_confirmed": 2,
+      "var_overturn_pct": 43.8,
+      "var_penalty": 5,
+      "var_goal": 1,
+      "var_red": 1,
+      "var_card": 3,
+      "var_other": 6,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Cordero Vega": {
+      "matches": 39,
+      "matches_with_var": 10,
+      "var_reviews": 16,
+      "var_per_match": 0.41,
+      "var_match_pct": 25.6,
+      "var_overturned": 12,
+      "var_confirmed": 1,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 2,
+      "var_goal": 7,
+      "var_red": 2,
+      "var_card": 1,
+      "var_other": 4,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "F. Letexier": {
+      "matches": 46,
+      "matches_with_var": 12,
+      "var_reviews": 19,
+      "var_per_match": 0.41,
+      "var_match_pct": 26.1,
+      "var_overturned": 9,
+      "var_confirmed": 7,
+      "var_overturn_pct": 47.4,
+      "var_penalty": 5,
+      "var_goal": 6,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "F. La Penna": {
+      "matches": 45,
+      "matches_with_var": 10,
+      "var_reviews": 18,
+      "var_per_match": 0.4,
+      "var_match_pct": 22.2,
+      "var_overturned": 11,
+      "var_confirmed": 2,
+      "var_overturn_pct": 61.1,
+      "var_penalty": 10,
+      "var_goal": 7,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 1,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "P. Tremolada": {
+      "matches": 10,
+      "matches_with_var": 3,
+      "var_reviews": 4,
+      "var_per_match": 0.4,
+      "var_match_pct": 30.0,
+      "var_overturned": 3,
+      "var_confirmed": 0,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 1,
+      "var_goal": 0,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "L. Smith": {
+      "matches": 10,
+      "matches_with_var": 3,
+      "var_reviews": 4,
+      "var_per_match": 0.4,
+      "var_match_pct": 30.0,
+      "var_overturned": 2,
+      "var_confirmed": 1,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 1,
+      "var_goal": 2,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "Daniel Siebert": {
+      "matches": 5,
+      "matches_with_var": 2,
+      "var_reviews": 2,
+      "var_per_match": 0.4,
+      "var_match_pct": 40.0,
+      "var_overturned": 0,
+      "var_confirmed": 0,
+      "var_overturn_pct": 0.0,
+      "var_penalty": 2,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "R. Jones": {
+      "matches": 61,
+      "matches_with_var": 15,
+      "var_reviews": 24,
+      "var_per_match": 0.39,
+      "var_match_pct": 24.6,
+      "var_overturned": 14,
+      "var_confirmed": 2,
+      "var_overturn_pct": 58.3,
+      "var_penalty": 8,
+      "var_goal": 6,
+      "var_red": 1,
+      "var_card": 3,
+      "var_other": 6,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "M. Fabbri": {
+      "matches": 45,
+      "matches_with_var": 11,
+      "var_reviews": 17,
+      "var_per_match": 0.38,
+      "var_match_pct": 24.4,
+      "var_overturned": 10,
+      "var_confirmed": 1,
+      "var_overturn_pct": 58.8,
+      "var_penalty": 6,
+      "var_goal": 4,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 6,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Madley": {
+      "matches": 63,
+      "matches_with_var": 17,
+      "var_reviews": 24,
+      "var_per_match": 0.38,
+      "var_match_pct": 27.0,
+      "var_overturned": 11,
+      "var_confirmed": 5,
+      "var_overturn_pct": 45.8,
+      "var_penalty": 8,
+      "var_goal": 6,
+      "var_red": 1,
+      "var_card": 4,
+      "var_other": 5,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "M. Ortiz Arias": {
+      "matches": 60,
+      "matches_with_var": 17,
+      "var_reviews": 23,
+      "var_per_match": 0.38,
+      "var_match_pct": 28.3,
+      "var_overturned": 13,
+      "var_confirmed": 2,
+      "var_overturn_pct": 56.5,
+      "var_penalty": 5,
+      "var_goal": 3,
+      "var_red": 3,
+      "var_card": 5,
+      "var_other": 7,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "D. Massa": {
+      "matches": 52,
+      "matches_with_var": 14,
+      "var_reviews": 19,
+      "var_per_match": 0.37,
+      "var_match_pct": 26.9,
+      "var_overturned": 8,
+      "var_confirmed": 3,
+      "var_overturn_pct": 42.1,
+      "var_penalty": 9,
+      "var_goal": 3,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 5,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "L. Zufferli": {
+      "matches": 38,
+      "matches_with_var": 8,
+      "var_reviews": 14,
+      "var_per_match": 0.37,
+      "var_match_pct": 21.1,
+      "var_overturned": 8,
+      "var_confirmed": 1,
+      "var_overturn_pct": 57.1,
+      "var_penalty": 8,
+      "var_goal": 5,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "T. Robinson": {
+      "matches": 46,
+      "matches_with_var": 10,
+      "var_reviews": 17,
+      "var_per_match": 0.37,
+      "var_match_pct": 21.7,
+      "var_overturned": 7,
+      "var_confirmed": 3,
+      "var_overturn_pct": 41.2,
+      "var_penalty": 4,
+      "var_goal": 1,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 12,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "T. Bramall": {
+      "matches": 44,
+      "matches_with_var": 9,
+      "var_reviews": 16,
+      "var_per_match": 0.36,
+      "var_match_pct": 20.5,
+      "var_overturned": 6,
+      "var_confirmed": 5,
+      "var_overturn_pct": 37.5,
+      "var_penalty": 6,
+      "var_goal": 3,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 6,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "P. Tierney": {
+      "matches": 37,
+      "matches_with_var": 9,
+      "var_reviews": 13,
+      "var_per_match": 0.35,
+      "var_match_pct": 24.3,
+      "var_overturned": 6,
+      "var_confirmed": 2,
+      "var_overturn_pct": 46.2,
+      "var_penalty": 3,
+      "var_goal": 1,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 7,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "G. Ayroldi": {
+      "matches": 29,
+      "matches_with_var": 7,
+      "var_reviews": 10,
+      "var_per_match": 0.34,
+      "var_match_pct": 24.1,
+      "var_overturned": 4,
+      "var_confirmed": 2,
+      "var_overturn_pct": 40.0,
+      "var_penalty": 4,
+      "var_goal": 2,
+      "var_red": 1,
+      "var_card": 0,
+      "var_other": 3,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "Andrea Rapuano": {
+      "matches": 6,
+      "matches_with_var": 1,
+      "var_reviews": 2,
+      "var_per_match": 0.33,
+      "var_match_pct": 16.7,
+      "var_overturned": 0,
+      "var_confirmed": 0,
+      "var_overturn_pct": 0.0,
+      "var_penalty": 2,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Calzavara": {
+      "matches": 3,
+      "matches_with_var": 1,
+      "var_reviews": 1,
+      "var_per_match": 0.33,
+      "var_match_pct": 33.3,
+      "var_overturned": 1,
+      "var_confirmed": 0,
+      "var_overturn_pct": 100.0,
+      "var_penalty": 1,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "F. Hallam": {
+      "matches": 3,
+      "matches_with_var": 1,
+      "var_reviews": 1,
+      "var_per_match": 0.33,
+      "var_match_pct": 33.3,
+      "var_overturned": 0,
+      "var_confirmed": 1,
+      "var_overturn_pct": 0.0,
+      "var_penalty": 1,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "P. González Fuertes": {
+      "matches": 40,
+      "matches_with_var": 7,
+      "var_reviews": 13,
+      "var_per_match": 0.33,
+      "var_match_pct": 17.5,
+      "var_overturned": 6,
+      "var_confirmed": 2,
+      "var_overturn_pct": 46.2,
+      "var_penalty": 4,
+      "var_goal": 3,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 4,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "T. Léonard": {
+      "matches": 52,
+      "matches_with_var": 11,
+      "var_reviews": 17,
+      "var_per_match": 0.33,
+      "var_match_pct": 21.2,
+      "var_overturned": 6,
+      "var_confirmed": 5,
+      "var_overturn_pct": 35.3,
+      "var_penalty": 7,
+      "var_goal": 4,
+      "var_red": 1,
+      "var_card": 1,
+      "var_other": 4,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "D. Coote": {
+      "matches": 22,
+      "matches_with_var": 5,
+      "var_reviews": 7,
+      "var_per_match": 0.32,
+      "var_match_pct": 22.7,
+      "var_overturned": 4,
+      "var_confirmed": 0,
+      "var_overturn_pct": 57.1,
+      "var_penalty": 2,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 4,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "G. Aureliano": {
+      "matches": 16,
+      "matches_with_var": 5,
+      "var_reviews": 5,
+      "var_per_match": 0.31,
+      "var_match_pct": 31.2,
+      "var_overturned": 1,
+      "var_confirmed": 1,
+      "var_overturn_pct": 20.0,
+      "var_penalty": 3,
+      "var_goal": 1,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "D. Orsato": {
+      "matches": 14,
+      "matches_with_var": 1,
+      "var_reviews": 4,
+      "var_per_match": 0.29,
+      "var_match_pct": 7.1,
+      "var_overturned": 2,
+      "var_confirmed": 1,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 1,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 3,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "M. Petersen": {
+      "matches": 31,
+      "matches_with_var": 8,
+      "var_reviews": 9,
+      "var_per_match": 0.29,
+      "var_match_pct": 25.8,
+      "var_overturned": 2,
+      "var_confirmed": 3,
+      "var_overturn_pct": 22.2,
+      "var_penalty": 7,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 0,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "M. Oliver": {
+      "matches": 78,
+      "matches_with_var": 13,
+      "var_reviews": 22,
+      "var_per_match": 0.28,
+      "var_match_pct": 16.7,
+      "var_overturned": 15,
+      "var_confirmed": 5,
+      "var_overturn_pct": 68.2,
+      "var_penalty": 2,
+      "var_goal": 16,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 4,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "M. Vernice": {
+      "matches": 43,
+      "matches_with_var": 8,
+      "var_reviews": 12,
+      "var_per_match": 0.28,
+      "var_match_pct": 18.6,
+      "var_overturned": 4,
+      "var_confirmed": 3,
+      "var_overturn_pct": 33.3,
+      "var_penalty": 4,
+      "var_goal": 2,
+      "var_red": 0,
+      "var_card": 1,
+      "var_other": 5,
+      "leagues": [
+        "france_ligue_1"
+      ]
+    },
+    "T. Welz": {
+      "matches": 33,
+      "matches_with_var": 6,
+      "var_reviews": 9,
+      "var_per_match": 0.27,
+      "var_match_pct": 18.2,
+      "var_overturned": 6,
+      "var_confirmed": 2,
+      "var_overturn_pct": 66.7,
+      "var_penalty": 2,
+      "var_goal": 2,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 5,
+      "leagues": [
+        "germany_bundesliga"
+      ]
+    },
+    "J. Sacchi": {
+      "matches": 37,
+      "matches_with_var": 8,
+      "var_reviews": 9,
+      "var_per_match": 0.24,
+      "var_match_pct": 21.6,
+      "var_overturned": 2,
+      "var_confirmed": 1,
+      "var_overturn_pct": 22.2,
+      "var_penalty": 4,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 2,
+      "var_other": 3,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "M. Guida": {
+      "matches": 41,
+      "matches_with_var": 6,
+      "var_reviews": 8,
+      "var_per_match": 0.2,
+      "var_match_pct": 14.6,
+      "var_overturned": 2,
+      "var_confirmed": 2,
+      "var_overturn_pct": 25.0,
+      "var_penalty": 5,
+      "var_goal": 1,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "J. Iglesias Villanueva": {
+      "matches": 20,
+      "matches_with_var": 3,
+      "var_reviews": 4,
+      "var_per_match": 0.2,
+      "var_match_pct": 15.0,
+      "var_overturned": 3,
+      "var_confirmed": 0,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 2,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "spain_la_liga"
+      ]
+    },
+    "L. Massimi": {
+      "matches": 12,
+      "matches_with_var": 2,
+      "var_reviews": 2,
+      "var_per_match": 0.17,
+      "var_match_pct": 16.7,
+      "var_overturned": 1,
+      "var_confirmed": 0,
+      "var_overturn_pct": 50.0,
+      "var_penalty": 2,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "P. Bankes": {
+      "matches": 55,
+      "matches_with_var": 6,
+      "var_reviews": 8,
+      "var_per_match": 0.15,
+      "var_match_pct": 10.9,
+      "var_overturned": 6,
+      "var_confirmed": 1,
+      "var_overturn_pct": 75.0,
+      "var_penalty": 1,
+      "var_goal": 5,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 2,
+      "leagues": [
+        "england_premier_league"
+      ]
+    },
+    "F. Cosso": {
+      "matches": 3,
+      "matches_with_var": 0,
+      "var_reviews": 0,
+      "var_per_match": 0.0,
+      "var_match_pct": 0.0,
+      "var_overturned": 0,
+      "var_confirmed": 0,
+      "var_overturn_pct": 0,
+      "var_penalty": 0,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Santoro": {
+      "matches": 3,
+      "matches_with_var": 0,
+      "var_reviews": 0,
+      "var_per_match": 0.0,
+      "var_match_pct": 0.0,
+      "var_overturned": 0,
+      "var_confirmed": 0,
+      "var_overturn_pct": 0,
+      "var_penalty": 0,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "italy_serie_a"
+      ]
+    },
+    "A. Kitchen": {
+      "matches": 5,
+      "matches_with_var": 0,
+      "var_reviews": 0,
+      "var_per_match": 0.0,
+      "var_match_pct": 0.0,
+      "var_overturned": 0,
+      "var_confirmed": 0,
+      "var_overturn_pct": 0,
+      "var_penalty": 0,
+      "var_goal": 0,
+      "var_red": 0,
+      "var_card": 0,
+      "var_other": 0,
+      "leagues": [
+        "england_premier_league"
+      ]
+    }
+  }
+}
