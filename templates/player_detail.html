@@ -267,6 +267,9 @@
                 <div class="meta-badge">👕 Numero <strong>{{ player.bio.shirtNumber }}</strong></div>
                 {% endif %}
                 {% endif %}
+                {% if player.market_value %}
+                <div class="meta-badge" style="border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.08);">💰 <strong style="color: #f59e0b;">{{ player.market_value }}</strong></div>
+                {% endif %}
             </div>
         </div>
         

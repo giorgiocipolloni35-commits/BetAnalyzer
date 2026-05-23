@@ -858,11 +858,35 @@ class RosterManager:
             logger.error(f"Errore recupero stats avanzate per {player_id}: {e}")
 
         player_data["advanced_stats"] = advanced_stats
-        
+
         if advanced_stats:
             player_data["goals"] = advanced_stats["goals"]
             player_data["assists"] = advanced_stats["assists"]
             player_data["appearances"] = advanced_stats["appearances"]
+
+        # 4. RECUPERO VALORE DI MERCATO dal DB
+        try:
+            conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT market_value_eur FROM player_market_values
+                WHERE player_id = ?
+                   OR player_id IN (SELECT player_id FROM player_info WHERE name LIKE ?)
+                LIMIT 1
+            """, (player_id, f"%{player_data['name']}%"))
+            mv_row = cursor.fetchone()
+            conn.close()
+            if mv_row and mv_row['market_value_eur'] and mv_row['market_value_eur'] > 0:
+                val = mv_row['market_value_eur']
+                if val >= 1_000_000:
+                    player_data["market_value"] = f"€{val / 1_000_000:.1f}M"
+                elif val >= 1_000:
+                    player_data["market_value"] = f"€{val / 1_000:.0f}K"
+                else:
+                    player_data["market_value"] = f"€{val}"
+        except Exception as e:
+            logger.error(f"Errore recupero market value per {player_id}: {e}")
 
         return {"player": player_data, "team": team_info}
 
