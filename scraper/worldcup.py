@@ -794,73 +794,86 @@ WC_SQUADS = {
     },
 }
 
-# ── Team info: valore rosa, età media, % esteri (fonte: Transfermarkt) ───
-# Colonne: squad_size, avg_age, num_clubs, pct_abroad, total_value_eur, avg_value_eur
+# ── Team info: valore rosa, età media, % esteri, ranking FIFA, storico Mondiali ───
+# Formato: {country: {value fields + FIFA + WC history}}
 WC_TEAM_INFO = {
-    "Francia":          (26, 27.0, 17, 73.1, 1_470_000_000, 56_650_000),
-    "Inghilterra":      (26, 27.1, 17, 19.2, 1_320_000_000, 50_580_000),
-    "Spagna":           (27, 26.7, 18, 29.6, 1_310_000_000, 48_370_000),
-    "Germania":         (26, 27.9, 21, 26.9, 1_010_000_000, 38_670_000),
-    "Portogallo":       (26, 28.0, 10, 80.8,   965_000_000, 37_120_000),
-    "Brasile":          (26, 29.2, 23, 73.1,   905_700_000, 34_830_000),
-    "Olanda":           (25, 27.1, 12, 84.0,   763_000_000, 30_520_000),
-    "Argentina":        (29, 28.1, 20, 82.8,   762_500_000, 26_290_000),
-    "Norvegia":         (26, 26.8,  4, 84.6,   586_500_000, 22_560_000),
-    "Belgio":           (26, 27.6, 15, 88.5,   558_200_000, 21_470_000),
-    "Turchia":          (35, 27.1,  3, 45.7,   525_200_000, 15_010_000),
-    "Costa d'Avorio":   (26, 25.6,  4,100.0,   516_900_000, 19_880_000),
-    "Senegal":          (28, 26.9,  4,100.0,   464_300_000, 16_580_000),
-    "Svezia":           (26, 27.4, 13, 88.5,   435_380_000, 16_750_000),
-    "Ecuador":          (32, 26.1,  5, 87.5,   366_200_000, 11_440_000),
-    "Uruguay":          (28, 28.5, 16,100.0,   363_000_000, 12_960_000),
-    "Croazia":          (26, 28.3,  7, 92.3,   357_300_000, 13_740_000),
-    "USA":              (27, 26.4, 12, 70.4,   356_700_000, 13_210_000),
-    "Svizzera":         (26, 28.3, 13, 92.3,   317_600_000, 12_220_000),
-    "Colombia":         (26, 29.8,  7, 96.2,   296_450_000, 11_400_000),
-    "Ghana":            (30, 26.3,  5, 96.7,   289_180_000,  9_640_000),
-    "Giappone":         (27, 28.1,  8, 88.9,   264_050_000,  9_780_000),
-    "Austria":          (26, 28.5,  9, 88.5,   258_300_000,  9_930_000),
-    "Marocco":          (29, 25.2,  8, 89.7,   235_800_000,  8_130_000),
-    "Algeria":          (26, 26.0,  5, 92.3,   227_850_000,  8_760_000),
-    "Scozia":           (26, 29.4,  9, 69.2,   207_830_000,  7_990_000),
-    "Repubblica Ceca":  (29, 27.5,  2, 34.5,   196_430_000,  6_770_000),
-    "Rep. Dem. Congo":  (26, 29.0,  1,100.0,   149_250_000,  5_740_000),
-    "Corea del Sud":    (26, 28.2, 12, 76.9,   142_300_000,  5_470_000),
-    "Paraguay":         (25, 28.9, 10, 84.0,   137_300_000,  5_490_000),
-    "Egitto":           (27, 28.8,  4, 33.3,   136_230_000,  5_050_000),
-    "Bosnia":           (26, 26.8,  2,100.0,   133_400_000,  5_130_000),
-    "Canada":           (26, 26.6,  3, 88.5,   129_550_000,  4_980_000),
-    "Messico":          (12, 26.9, 18,  0.0,    83_600_000,  6_970_000),
-    "Uzbekistan":       (40, 27.1,  1, 32.5,    79_130_000,  1_980_000),
-    "Tunisia":          (26, 26.6,  7, 76.9,    69_550_000,  2_680_000),
-    "Capo Verde":       (26, 29.6,  1,100.0,    56_380_000,  2_170_000),
-    "Haiti":            (26, 27.5,  2, 96.2,    55_730_000,  2_140_000),
-    "Sudafrica":        (33, 27.3,  4, 24.2,    52_700_000,  1_600_000),
-    "Australia":        (26, 27.2,  7, 84.6,    51_330_000,  1_970_000),
-    "Iran":             (31, 29.3,  7, 29.0,    36_550_000,  1_180_000),
-    "Nuova Zelanda":    (26, 28.1,  3, 69.2,    31_700_000,  1_220_000),
-    "Panama":           (23, 29.7,  2, 95.7,    31_350_000,  1_360_000),
-    "Curacao":          (26, 28.0,  1,100.0,    27_780_000,  1_070_000),
-    "Arabia Saudita":   (23, 28.0,  7,  8.7,    27_630_000,  1_200_000),
-    "Iraq":             (29, 26.3,  2, 55.2,    19_280_000,    665_000),
-    "Qatar":            (25, 27.9,  2,  4.0,    17_930_000,    717_000),
-    "Giordania":        (26, 27.1,  1, 57.7,    16_230_000,    624_000),
+    #                    size  age  clubs abroad  total_value     avg_value    FIFA  WC_app titles best_finish          last_wc
+    "Francia":          {"sz": 26, "age": 27.0, "clubs": 17, "abr": 73.1, "val": 1_470_000_000, "avg": 56_650_000, "fifa":  2, "wc_app": 17, "titles": 2, "best": "Campione (1998, 2018)", "last": 2022},
+    "Inghilterra":      {"sz": 26, "age": 27.1, "clubs": 17, "abr": 19.2, "val": 1_320_000_000, "avg": 50_580_000, "fifa":  5, "wc_app": 17, "titles": 1, "best": "Campione (1966)", "last": 2022},
+    "Spagna":           {"sz": 27, "age": 26.7, "clubs": 18, "abr": 29.6, "val": 1_310_000_000, "avg": 48_370_000, "fifa":  3, "wc_app": 17, "titles": 1, "best": "Campione (2010)", "last": 2022},
+    "Germania":         {"sz": 26, "age": 27.9, "clubs": 21, "abr": 26.9, "val": 1_010_000_000, "avg": 38_670_000, "fifa": 11, "wc_app": 21, "titles": 4, "best": "Campione (1954,74,90,2014)", "last": 2022},
+    "Portogallo":       {"sz": 26, "age": 28.0, "clubs": 10, "abr": 80.8, "val":   965_000_000, "avg": 37_120_000, "fifa":  7, "wc_app":  9, "titles": 0, "best": "3° posto (1966)", "last": 2022},
+    "Brasile":          {"sz": 26, "age": 29.2, "clubs": 23, "abr": 73.1, "val":   905_700_000, "avg": 34_830_000, "fifa":  1, "wc_app": 23, "titles": 5, "best": "Campione (1958,62,70,94,2002)", "last": 2022},
+    "Olanda":           {"sz": 25, "age": 27.1, "clubs": 12, "abr": 84.0, "val":   763_000_000, "avg": 30_520_000, "fifa":  4, "wc_app": 11, "titles": 0, "best": "Finalista (1974, 1978, 2010)", "last": 2022},
+    "Argentina":        {"sz": 29, "age": 28.1, "clubs": 20, "abr": 82.8, "val":   762_500_000, "avg": 26_290_000, "fifa":  6, "wc_app": 19, "titles": 3, "best": "Campione (1978, 1986, 2022)", "last": 2022},
+    "Norvegia":         {"sz": 26, "age": 26.8, "clubs":  4, "abr": 84.6, "val":   586_500_000, "avg": 22_560_000, "fifa": 25, "wc_app":  3, "titles": 0, "best": "Ottavi (1998)", "last": 1998},
+    "Belgio":           {"sz": 26, "age": 27.6, "clubs": 15, "abr": 88.5, "val":   558_200_000, "avg": 21_470_000, "fifa":  8, "wc_app": 15, "titles": 0, "best": "3° posto (2018)", "last": 2022},
+    "Turchia":          {"sz": 35, "age": 27.1, "clubs":  3, "abr": 45.7, "val":   525_200_000, "avg": 15_010_000, "fifa": 36, "wc_app":  2, "titles": 0, "best": "3° posto (2002)", "last": 2002},
+    "Costa d'Avorio":   {"sz": 26, "age": 25.6, "clubs":  4, "abr":100.0, "val":   516_900_000, "avg": 19_880_000, "fifa": 38, "wc_app":  4, "titles": 0, "best": "Gironi (2006, 2010, 2014)", "last": 2014},
+    "Senegal":          {"sz": 28, "age": 26.9, "clubs":  4, "abr":100.0, "val":   464_300_000, "avg": 16_580_000, "fifa": 17, "wc_app":  3, "titles": 0, "best": "Quarti (2002)", "last": 2022},
+    "Svezia":           {"sz": 26, "age": 27.4, "clubs": 13, "abr": 88.5, "val":   435_380_000, "avg": 16_750_000, "fifa": 15, "wc_app": 13, "titles": 0, "best": "Finalista (1958)", "last": 2018},
+    "Ecuador":          {"sz": 32, "age": 26.1, "clubs":  5, "abr": 87.5, "val":   366_200_000, "avg": 11_440_000, "fifa": 32, "wc_app":  4, "titles": 0, "best": "Ottavi (2006)", "last": 2022},
+    "Uruguay":          {"sz": 28, "age": 28.5, "clubs": 16, "abr":100.0, "val":   363_000_000, "avg": 12_960_000, "fifa": 14, "wc_app": 14, "titles": 2, "best": "Campione (1930, 1950)", "last": 2022},
+    "Croazia":          {"sz": 26, "age": 28.3, "clubs":  7, "abr": 92.3, "val":   357_300_000, "avg": 13_740_000, "fifa":  9, "wc_app":  7, "titles": 0, "best": "Finalista (2018)", "last": 2022},
+    "USA":              {"sz": 27, "age": 26.4, "clubs": 12, "abr": 70.4, "val":   356_700_000, "avg": 13_210_000, "fifa": 12, "wc_app": 12, "titles": 0, "best": "Quarti (1930, 2002)", "last": 2022},
+    "Svizzera":         {"sz": 26, "age": 28.3, "clubs": 13, "abr": 92.3, "val":   317_600_000, "avg": 12_220_000, "fifa": 16, "wc_app": 13, "titles": 0, "best": "Quarti (1934, 1938, 1954)", "last": 2022},
+    "Colombia":         {"sz": 26, "age": 29.8, "clubs":  7, "abr": 96.2, "val":   296_450_000, "avg": 11_400_000, "fifa": 13, "wc_app":  7, "titles": 0, "best": "Quarti (2014)", "last": 2018},
+    "Ghana":            {"sz": 30, "age": 26.3, "clubs":  5, "abr": 96.7, "val":   289_180_000, "avg":  9_640_000, "fifa": 48, "wc_app":  4, "titles": 0, "best": "Quarti (2010)", "last": 2022},
+    "Giappone":         {"sz": 27, "age": 28.1, "clubs":  8, "abr": 88.9, "val":   264_050_000, "avg":  9_780_000, "fifa": 18, "wc_app":  8, "titles": 0, "best": "Ottavi (2002, 2010, 2018, 2022)", "last": 2022},
+    "Austria":          {"sz": 26, "age": 28.5, "clubs":  9, "abr": 88.5, "val":   258_300_000, "avg":  9_930_000, "fifa": 22, "wc_app":  8, "titles": 0, "best": "3° posto (1954)", "last": 2022},
+    "Marocco":          {"sz": 29, "age": 25.2, "clubs":  8, "abr": 89.7, "val":   235_800_000, "avg":  8_130_000, "fifa": 10, "wc_app":  7, "titles": 0, "best": "4° posto (2022)", "last": 2022},
+    "Algeria":          {"sz": 26, "age": 26.0, "clubs":  5, "abr": 92.3, "val":   227_850_000, "avg":  8_760_000, "fifa": 33, "wc_app":  5, "titles": 0, "best": "Ottavi (2014)", "last": 2014},
+    "Scozia":           {"sz": 26, "age": 29.4, "clubs":  9, "abr": 69.2, "val":   207_830_000, "avg":  7_990_000, "fifa": 44, "wc_app":  9, "titles": 0, "best": "Gironi (8 volte)", "last": 1998},
+    "Repubblica Ceca":  {"sz": 29, "age": 27.5, "clubs":  2, "abr": 34.5, "val":   196_430_000, "avg":  6_770_000, "fifa": 35, "wc_app":  2, "titles": 0, "best": "Finalista (1934, 1962 come Cecoslov.)", "last": 2006},
+    "Rep. Dem. Congo":  {"sz": 26, "age": 29.0, "clubs":  1, "abr":100.0, "val":   149_250_000, "avg":  5_740_000, "fifa": 54, "wc_app":  2, "titles": 0, "best": "Quarti (1974 come Zaire)", "last": 1974},
+    "Corea del Sud":    {"sz": 26, "age": 28.2, "clubs": 12, "abr": 76.9, "val":   142_300_000, "avg":  5_470_000, "fifa": 23, "wc_app": 12, "titles": 0, "best": "4° posto (2002)", "last": 2022},
+    "Paraguay":         {"sz": 25, "age": 28.9, "clubs": 10, "abr": 84.0, "val":   137_300_000, "avg":  5_490_000, "fifa": 42, "wc_app":  9, "titles": 0, "best": "Quarti (2010)", "last": 2010},
+    "Egitto":           {"sz": 27, "age": 28.8, "clubs":  4, "abr": 33.3, "val":   136_230_000, "avg":  5_050_000, "fifa": 30, "wc_app":  4, "titles": 0, "best": "Gironi (1934, 1990, 2018)", "last": 2018},
+    "Bosnia":           {"sz": 26, "age": 26.8, "clubs":  2, "abr":100.0, "val":   133_400_000, "avg":  5_130_000, "fifa": 57, "wc_app":  1, "titles": 0, "best": "Gironi (2014)", "last": 2014},
+    "Canada":           {"sz": 26, "age": 26.6, "clubs":  3, "abr": 88.5, "val":   129_550_000, "avg":  4_980_000, "fifa": 40, "wc_app":  2, "titles": 0, "best": "Gironi (1986, 2022)", "last": 2022},
+    "Messico":          {"sz": 12, "age": 26.9, "clubs": 18, "abr":  0.0, "val":    83_600_000, "avg":  6_970_000, "fifa": 20, "wc_app": 18, "titles": 0, "best": "Quarti (1970, 1986)", "last": 2022},
+    "Uzbekistan":       {"sz": 40, "age": 27.1, "clubs":  1, "abr": 32.5, "val":    79_130_000, "avg":  1_980_000, "fifa": 60, "wc_app":  0, "titles": 0, "best": "Debutto WC 2026", "last": None},
+    "Tunisia":          {"sz": 26, "age": 26.6, "clubs":  7, "abr": 76.9, "val":    69_550_000, "avg":  2_680_000, "fifa": 28, "wc_app":  7, "titles": 0, "best": "Gironi (6 volte)", "last": 2022},
+    "Capo Verde":       {"sz": 26, "age": 29.6, "clubs":  1, "abr":100.0, "val":    56_380_000, "avg":  2_170_000, "fifa": 55, "wc_app":  0, "titles": 0, "best": "Debutto WC 2026", "last": None},
+    "Haiti":            {"sz": 26, "age": 27.5, "clubs":  2, "abr": 96.2, "val":    55_730_000, "avg":  2_140_000, "fifa": 82, "wc_app":  1, "titles": 0, "best": "Gironi (1974)", "last": 1974},
+    "Sudafrica":        {"sz": 33, "age": 27.3, "clubs":  4, "abr": 24.2, "val":    52_700_000, "avg":  1_600_000, "fifa": 56, "wc_app":  4, "titles": 0, "best": "Gironi (1998, 2002, 2010)", "last": 2010},
+    "Australia":        {"sz": 26, "age": 27.2, "clubs":  7, "abr": 84.6, "val":    51_330_000, "avg":  1_970_000, "fifa": 24, "wc_app":  7, "titles": 0, "best": "Ottavi (2022)", "last": 2022},
+    "Iran":             {"sz": 31, "age": 29.3, "clubs":  7, "abr": 29.0, "val":    36_550_000, "avg":  1_180_000, "fifa": 19, "wc_app":  7, "titles": 0, "best": "Gironi (6 volte)", "last": 2022},
+    "Nuova Zelanda":    {"sz": 26, "age": 28.1, "clubs":  3, "abr": 69.2, "val":    31_700_000, "avg":  1_220_000, "fifa": 93, "wc_app":  3, "titles": 0, "best": "Gironi (1982, 2010)", "last": 2010},
+    "Panama":           {"sz": 23, "age": 29.7, "clubs":  2, "abr": 95.7, "val":    31_350_000, "avg":  1_360_000, "fifa": 43, "wc_app":  2, "titles": 0, "best": "Gironi (2018)", "last": 2018},
+    "Curacao":          {"sz": 26, "age": 28.0, "clubs":  1, "abr":100.0, "val":    27_780_000, "avg":  1_070_000, "fifa": 79, "wc_app":  0, "titles": 0, "best": "Debutto WC 2026", "last": None},
+    "Arabia Saudita":   {"sz": 23, "age": 28.0, "clubs":  7, "abr":  8.7, "val":    27_630_000, "avg":  1_200_000, "fifa": 62, "wc_app":  7, "titles": 0, "best": "Ottavi (1994)", "last": 2022},
+    "Iraq":             {"sz": 29, "age": 26.3, "clubs":  2, "abr": 55.2, "val":    19_280_000, "avg":    665_000, "fifa": 53, "wc_app":  1, "titles": 0, "best": "Gironi (1986)", "last": 1986},
+    "Qatar":            {"sz": 25, "age": 27.9, "clubs":  2, "abr":  4.0, "val":    17_930_000, "avg":    717_000, "fifa": 34, "wc_app":  1, "titles": 0, "best": "Gironi (2022)", "last": 2022},
+    "Giordania":        {"sz": 26, "age": 27.1, "clubs":  1, "abr": 57.7, "val":    16_230_000, "avg":    624_000, "fifa": 68, "wc_app":  0, "titles": 0, "best": "Debutto WC 2026", "last": None},
 }
 
 
 def import_team_info():
-    """Import WC team info (value, age, etc.) into database."""
+    """Import WC team info (value, age, FIFA ranking, WC history) into database."""
     conn = sqlite3.connect(str(DB_PATH), timeout=30)
+
+    # Ensure new columns exist (migration for existing DBs)
+    for col, typ in [("fifa_ranking", "INTEGER"), ("wc_appearances", "INTEGER DEFAULT 0"),
+                     ("wc_titles", "INTEGER DEFAULT 0"), ("wc_best_finish", "TEXT"),
+                     ("wc_last_appearance", "INTEGER")]:
+        try:
+            conn.execute(f"ALTER TABLE wc_team_info ADD COLUMN {col} {typ}")
+        except Exception:
+            pass  # Column already exists
+
     conn.execute("DELETE FROM wc_team_info")
-    for country, (size, age, clubs, abroad, total_v, avg_v) in WC_TEAM_INFO.items():
+    for country, d in WC_TEAM_INFO.items():
         conn.execute("""
             INSERT OR REPLACE INTO wc_team_info
-            (country, squad_size, avg_age, num_clubs, pct_abroad, total_value_eur, avg_value_eur)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (country, size, age, clubs, abroad, total_v, avg_v))
+            (country, squad_size, avg_age, num_clubs, pct_abroad, total_value_eur, avg_value_eur,
+             fifa_ranking, wc_appearances, wc_titles, wc_best_finish, wc_last_appearance)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (country, d["sz"], d["age"], d["clubs"], d["abr"], d["val"], d["avg"],
+              d["fifa"], d["wc_app"], d["titles"], d["best"], d["last"]))
     conn.commit()
     conn.close()
-    logger.info(f"✅ Importati dati team per {len(WC_TEAM_INFO)} nazionali")
+    logger.info(f"✅ Importati dati team + FIFA ranking + storico WC per {len(WC_TEAM_INFO)} nazionali")
     return len(WC_TEAM_INFO)
 
 
@@ -1337,28 +1350,61 @@ def enrich_unmatched_players():
             total_goals = sum(c.get("goalsScored", 0) for c in data)
             total_assists = sum(c.get("assists", 0) for c in data)
             total_yellows = sum(c.get("yellowCards", 0) for c in data)
+            total_second_yellows = sum(c.get("secondYellowCards", 0) for c in data)
             total_reds = sum(c.get("redCards", 0) for c in data)
+            total_minutes = sum(c.get("minutesPlayed", 0) for c in data)
+            total_clean_sheets = sum(c.get("cleanSheets", 0) for c in data)
+            total_conceded = sum(c.get("concededGoals", 0) for c in data)
+
+            # Starter stats (weighted avg across competitions)
+            starter_pcts = [c.get("startElevenPercent", 0) for c in data if c.get("gamesPlayed", 0) > 0]
+            starter_games = [c.get("gamesPlayed", 0) for c in data if c.get("gamesPlayed", 0) > 0]
+            avg_starter_pct = round(sum(p * g for p, g in zip(starter_pcts, starter_games)) / max(sum(starter_games), 1), 1)
+
+            # Goal contribution %
+            contrib_pcts = [c.get("goalsContributedPercent", 0) for c in data if c.get("gamesPlayed", 0) > 0]
+            avg_contrib_pct = round(sum(p * g for p, g in zip(contrib_pcts, starter_games)) / max(sum(starter_games), 1), 1)
 
             if total_apps == 0:
                 time.sleep(1.5)
                 continue
+
+            # Calculate per-90 stats
+            mins_90 = total_minutes / 90 if total_minutes > 0 else max(total_apps, 1)
+            goals_per_90 = round(total_goals / mins_90, 2) if mins_90 > 0 else 0
+            assists_per_90 = round(total_assists / mins_90, 2) if mins_90 > 0 else 0
+
+            # Competitions breakdown
+            competitions = []
+            for c in data:
+                if c.get("gamesPlayed", 0) > 0:
+                    competitions.append({
+                        "name": c.get("competitionDescription", ""),
+                        "season": c.get("nameSeason", ""),
+                        "apps": c.get("gamesPlayed", 0),
+                        "goals": c.get("goalsScored", 0),
+                        "assists": c.get("assists", 0),
+                    })
 
             # Build stats dict compatible with our format
             stats = {
                 "goals": total_goals,
                 "assists": total_assists,
                 "appearances": total_apps,
-                "fouls_committed": total_yellows * 3,  # Estimate: ~3 fouls per yellow
-                "tackles": 0,
-                "shots_total": total_goals * 3 if position == "ATT" else total_goals * 4,  # Rough estimate
-                "shots_on_target": total_goals,  # Minimum
-                "minutes_played": int(total_apps * 75),  # Estimate avg 75 min/game
-                "fouls_drawn": 0,
-                "interceptions": 0,
-                "blocks": 0,
-                "clearances": 0,
+                "minutes_played": total_minutes or int(total_apps * 75),
+                "goals_per_90": goals_per_90,
+                "assists_per_90": assists_per_90,
+                "starter_pct": avg_starter_pct,
+                "goal_contribution_pct": avg_contrib_pct,
                 "yellow_cards": total_yellows,
+                "second_yellows": total_second_yellows,
                 "red_cards": total_reds,
+                "clean_sheets": total_clean_sheets,
+                "goals_conceded": total_conceded,
+                "fouls_committed": total_yellows * 3,  # Estimate
+                "shots_total": total_goals * 3 if position == "ATT" else total_goals * 4,
+                "shots_on_target": total_goals,
+                "competitions": competitions,
                 "source": "transfermarkt",
                 "tm_id": int(tm_id),
             }
@@ -1592,7 +1638,8 @@ def get_group_standings() -> dict:
         standings[g] = {
             t: {"country": t, "pts": 0, "w": 0, "d": 0, "l": 0,
                 "gf": 0, "ga": 0, "gd": 0, "played": 0, "avg_rating": None,
-                "total_value": None, "avg_age": None}
+                "total_value": None, "avg_age": None, "fifa_ranking": None,
+                "wc_titles": 0, "wc_best": None}
             for t in teams
         }
 
@@ -1648,13 +1695,20 @@ def get_group_standings() -> dict:
                 for g in standings:
                     if row["country"] in standings[g]:
                         standings[g][row["country"]]["avg_rating"] = r
-        # Add team value/age from wc_team_info
+        # Add team value/age/FIFA ranking/WC history from wc_team_info
         try:
-            for row in conn.execute("SELECT country, total_value_eur, avg_age FROM wc_team_info").fetchall():
+            for row in conn.execute("""
+                SELECT country, total_value_eur, avg_age, fifa_ranking,
+                       wc_titles, wc_best_finish
+                FROM wc_team_info
+            """).fetchall():
                 for g in standings:
                     if row["country"] in standings[g]:
                         standings[g][row["country"]]["total_value"] = row["total_value_eur"]
                         standings[g][row["country"]]["avg_age"] = row["avg_age"]
+                        standings[g][row["country"]]["fifa_ranking"] = row["fifa_ranking"]
+                        standings[g][row["country"]]["wc_titles"] = row["wc_titles"] or 0
+                        standings[g][row["country"]]["wc_best"] = row["wc_best_finish"]
         except Exception:
             pass  # Table might not exist yet
         conn.close()

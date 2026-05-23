@@ -186,7 +186,12 @@ def init_db():
             num_clubs INTEGER,
             pct_abroad REAL,
             total_value_eur INTEGER,
-            avg_value_eur INTEGER
+            avg_value_eur INTEGER,
+            fifa_ranking INTEGER,
+            wc_appearances INTEGER DEFAULT 0,
+            wc_titles INTEGER DEFAULT 0,
+            wc_best_finish TEXT,
+            wc_last_appearance INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS my_bets (

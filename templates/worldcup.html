@@ -40,6 +40,8 @@
     .standings-tbl .rating-val { color:#f59e0b; font-size:.78rem; font-weight:600; }
     .standings-tbl .no-data { color:#475569; font-size:.75rem; }
     .standings-tbl .value-tag { color:#38bdf8; font-size:.72rem; font-weight:500; white-space:nowrap; }
+    .standings-tbl .fifa-rank { color:#a78bfa; font-size:.78rem; font-weight:600; }
+    .standings-tbl .wc-stars { color:#f59e0b; font-size:.6rem; margin-left:2px; letter-spacing:-1px; }
     .standings-tbl .gd-pos { color:#22c55e; }
     .standings-tbl .gd-neg { color:#ef4444; }
     .group-legend { display:flex; gap:1rem; justify-content:center; margin-top:.8rem; font-size:.7rem; color:#64748b; }
@@ -207,6 +209,7 @@
                         <th title="Differenza Reti">DR</th>
                         <th title="Punti">Pt</th>
                         <th title="Rating medio rosa">Rtg</th>
+                        <th title="Ranking FIFA">FIFA</th>
                         <th title="Valore rosa" class="val-col">Valore</th>
                     </tr>
                 </thead>
@@ -215,7 +218,7 @@
                     <tr class="{% if loop.index <= 2 %}qualify{% elif loop.index == 3 %}playoff{% endif %}"
                         onclick="openSquad('{{ t.country }}')">
                         <td class="pos">{{ loop.index }}</td>
-                        <td class="team-col team-name">{{ t.country }}</td>
+                        <td class="team-col team-name">{{ t.country }}{% if t.wc_titles %}<span class="wc-stars">{% for i in range(t.wc_titles) %}★{% endfor %}</span>{% endif %}</td>
                         <td>{{ t.played }}</td>
                         <td>{{ t.w }}</td>
                         <td>{{ t.d }}</td>
@@ -229,6 +232,13 @@
                         <td>
                             {% if t.avg_rating %}
                             <span class="rating-val">{{ t.avg_rating }}</span>
+                            {% else %}
+                            <span class="no-data">–</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if t.fifa_ranking %}
+                            <span class="fifa-rank">{{ t.fifa_ranking }}°</span>
                             {% else %}
                             <span class="no-data">–</span>
                             {% endif %}
