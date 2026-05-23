@@ -2871,6 +2871,43 @@ def team_detail(team_id):
     from db.database import get_team_formations
     formation_stats = get_team_formations(team_id)
 
+    # Squad market value from TM
+    squad_value = None
+    try:
+        import sqlite3 as _sql
+        _conn = _sql.connect("data/betanalyzer.db", timeout=30)
+        _conn.row_factory = _sql.Row
+        _tname = team.get("name", "")
+        _sname = team.get("shortName", "")
+        # Try exact, then LIKE with shortName, then LIKE with first significant word
+        _row = None
+        for _q in [_tname, _sname]:
+            if not _q:
+                continue
+            _row = _conn.execute("""
+                SELECT squad_value_eur FROM team_squad_values
+                WHERE league_key = ? AND (team_name = ? OR team_name LIKE ?)
+                LIMIT 1
+            """, (lk, _q, f"%{_q}%")).fetchone()
+            if _row:
+                break
+        # Fallback: match by significant words (>3 chars)
+        if not _row:
+            for _w in _tname.split():
+                if len(_w) > 3 and _w.upper() not in ("CLUB", "CALCIO", "FOOTBALL"):
+                    _row = _conn.execute("""
+                        SELECT squad_value_eur FROM team_squad_values
+                        WHERE league_key = ? AND team_name LIKE ?
+                        LIMIT 1
+                    """, (lk, f"%{_w}%")).fetchone()
+                    if _row:
+                        break
+        _conn.close()
+        if _row and _row["squad_value_eur"]:
+            squad_value = _row["squad_value_eur"]
+    except Exception:
+        pass
+
     return render_template("team_detail.html",
                          team=team,
                          players=players,
@@ -2885,6 +2922,7 @@ def team_detail(team_id):
                          top_scores=top_scores,
                          dream_team=dream_team,
                          formation_stats=formation_stats,
+                         squad_value=squad_value,
                          state=_state)
 
 @app.route("/player/<int:player_id>")

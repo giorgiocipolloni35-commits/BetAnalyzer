@@ -502,6 +502,18 @@
                             <i class="fas fa-calendar-alt" style="color: #4f6ef7;"></i> {{ team.founded }}
                         </span>
                         {% endif %}
+                        {% if squad_value %}
+                        <span style="font-size: 0.85rem; display: flex; align-items: center; gap: 6px; background: rgba(245, 158, 11, 0.1); padding: 4px 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25);">
+                            <i class="fas fa-coins" style="color: #f59e0b;"></i>
+                            <span style="color: #f59e0b; font-weight: 700;">
+                                {% if squad_value >= 1000000000 %}€{{ "%.2f"|format(squad_value / 1000000000) }} Mrd
+                                {% elif squad_value >= 1000000 %}€{{ "%.1f"|format(squad_value / 1000000) }}M
+                                {% else %}€{{ "%.0f"|format(squad_value / 1000) }}K
+                                {% endif %}
+                            </span>
+                            <span style="color: #94a3b8; font-size: 0.75rem;">Valore Rosa</span>
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
