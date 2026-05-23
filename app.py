@@ -2879,32 +2879,33 @@ def team_detail(team_id):
         _conn.row_factory = _sql.Row
         _tname = team.get("name", "")
         _sname = team.get("shortName", "")
-        # Try exact, then LIKE with shortName, then LIKE with first significant word
-        _row = None
-        for _q in [_tname, _sname]:
-            if not _q:
-                continue
-            _row = _conn.execute("""
-                SELECT squad_value_eur FROM team_squad_values
-                WHERE league_key = ? AND (team_name = ? OR team_name LIKE ?)
-                LIMIT 1
-            """, (lk, _q, f"%{_q}%")).fetchone()
-            if _row:
-                break
-        # Fallback: match by significant words (>3 chars)
-        if not _row:
-            for _w in _tname.split():
-                if len(_w) > 3 and _w.upper() not in ("CLUB", "CALCIO", "FOOTBALL"):
-                    _row = _conn.execute("""
-                        SELECT squad_value_eur FROM team_squad_values
-                        WHERE league_key = ? AND team_name LIKE ?
-                        LIMIT 1
-                    """, (lk, f"%{_w}%")).fetchone()
-                    if _row:
-                        break
+        # Get all teams for this league and match in Python (more flexible)
+        _all_sv = _conn.execute(
+            "SELECT team_name, squad_value_eur FROM team_squad_values WHERE league_key = ?", (lk,)
+        ).fetchall()
         _conn.close()
-        if _row and _row["squad_value_eur"]:
-            squad_value = _row["squad_value_eur"]
+
+        _tname_low = _tname.lower()
+        _sname_low = _sname.lower() if _sname else ""
+        for _sv in _all_sv:
+            _tm_low = _sv["team_name"].lower()
+            # Exact match
+            if _tm_low == _tname_low or _tm_low == _sname_low:
+                squad_value = _sv["squad_value_eur"]; break
+            # One contains the other (either direction)
+            if _tname_low in _tm_low or _tm_low in _tname_low:
+                squad_value = _sv["squad_value_eur"]; break
+            if _sname_low and (_sname_low in _tm_low or _tm_low in _sname_low):
+                squad_value = _sv["squad_value_eur"]; break
+        # Fallback: match significant words from TM name in our name or vice versa
+        if not squad_value:
+            _skip = {"fc", "sc", "ac", "ss", "us", "cf", "cd", "rc", "club", "calcio", "football", "de", "1907", "1908", "1909", "1913", "1899"}
+            for _sv in _all_sv:
+                _tm_words = [w for w in _sv["team_name"].lower().split() if len(w) > 2 and w not in _skip]
+                for _w in _tm_words:
+                    if _w in _tname_low:
+                        squad_value = _sv["squad_value_eur"]; break
+                if squad_value: break
     except Exception:
         pass
 
