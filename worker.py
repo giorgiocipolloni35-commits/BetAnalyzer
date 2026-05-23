@@ -1344,7 +1344,7 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
         logger.info(f"🧠 Richiesta AI per {home}-{away}...")
         client = OpenAI(api_key=os.getenv("OPENROUTER_API_KEY"), base_url="https://openrouter.ai/api/v1")
         try:
-            resp = client.chat.completions.create(model=os.getenv("AI_MODEL", "openai/gpt-4o-mini"), messages=[{"role": "system", "content": "Analista Senior."}, {"role": "user", "content": prompt}])
+            resp = client.chat.completions.create(model=os.getenv("AI_MODEL", "anthropic/claude-3.5-sonnet"), messages=[{"role": "system", "content": "Analista Senior."}, {"role": "user", "content": prompt}])
             ai_suggestion = resp.choices[0].message.content
             logger.info(f"✅ AI ha risposto per {home}-{away}")
         except Exception as e:
