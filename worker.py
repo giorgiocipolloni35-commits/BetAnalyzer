@@ -791,6 +791,25 @@ class BetAnalyzerWorker:
                             ref_ppm = m_s["referee_penalties_pm"]
                             ref_pen_tend = "PROPENSO" if ref_ppm >= 0.3 else ("NELLA MEDIA" if ref_ppm >= 0.15 else "RESTRITTIVO")
                             ref_line += f" | Rigori: {ref_ppm}/gara → {ref_pen_tend}"
+                        # VAR stats from var_stats.json
+                        try:
+                            import json as _json
+                            var_path = os.path.join(os.path.dirname(__file__), "data", "var_stats.json")
+                            if os.path.exists(var_path):
+                                with open(var_path) as _vf:
+                                    var_data = _json.load(_vf)
+                                var_ref = var_data.get("referees", {}).get(ref_name)
+                                avg_vpm = var_data.get("avg_var_per_match", 0.5)
+                                if var_ref and var_ref.get("matches", 0) >= 3:
+                                    vpm = var_ref["var_per_match"]
+                                    vpct = var_ref["var_match_pct"]
+                                    overturn = var_ref["var_overturn_pct"]
+                                    var_tend = "FREQUENTE" if vpm >= avg_vpm * 1.3 else ("RARO" if vpm <= avg_vpm * 0.6 else "NELLA MEDIA")
+                                    ref_line += f" | VAR: {vpm}/gara ({vpct}% partite con VAR) → {var_tend}"
+                                    ref_line += f" | Ribalta {overturn}% delle decisioni"
+                                    ref_line += f" (Rig:{var_ref['var_penalty']} Gol:{var_ref['var_goal']} Red:{var_ref['var_red']})"
+                        except Exception as e:
+                            logger.debug(f"VAR stats load: {e}")
                         context_parts.append(ref_line)
 
                 # === STATS SQUADRA ===
@@ -1320,8 +1339,17 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
    STRUTTURA OBBLIGATORIA:
    🔥 TOP PICKS (2+2): elenca i 4 giocatori marcati 🔥 nel contesto. Sono la giocata principale.
    Per ognuno: ammonizioni stagionali, falli/gara, e perché è un pick forte.
+   Se ci sono dati H2H (cartellini nei precedenti) o Arb (storico con l'arbitro), citali.
    📋 BACKUP: elenca gli altri 6-8 dal contesto. Sono per giocata separata.
    Segnala i DIFFIDATI con ⚠️. In derby/scontri diretti ci si aspetta più ammonizioni.
+
+6b. ## 📺 6b. ANALISI VAR
+   Se nel contesto ci sono dati VAR sull'arbitro, analizza:
+   - Frequenza VAR dell'arbitro (quante volte va al monitor per partita)
+   - % di decisioni ribaltate dopo il VAR
+   - Tipo di interventi VAR più frequenti (rigori, gol, rossi)
+   - CONSIGLIO per la giocata "Arbitro va al VAR: Sì/No" con motivazione
+   Se non ci sono dati VAR, scrivi "Dati VAR non disponibili per questo arbitro."
 
 7. ## 💹 7. CONSIGLI BETTING
    Almeno 5 opzioni basate sui dati reali:
