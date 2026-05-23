@@ -853,8 +853,10 @@ def _match_players(conn):
             "stats_json": stats_json,
         }
 
-    # Also build surname index for fuzzy matching
+    # Build multiple indexes for flexible matching
     surname_index = {}
+    # Normalized index: remove hyphens, lowercase, for Asian name matching
+    norm_index = {}  # normalized_name -> data
     for name_low, data in our_players.items():
         parts = name_low.split()
         if parts:
@@ -862,6 +864,15 @@ def _match_players(conn):
             if surname not in surname_index:
                 surname_index[surname] = []
             surname_index[surname].append((name_low, data))
+        # Normalized: no hyphens, no dots
+        norm = name_low.replace("-", "").replace(".", "")
+        norm_index[norm] = data
+        # Also index reversed name (for Korean/Japanese/etc: "Min-Jae Kim" ↔ "Kim Min-jae")
+        if len(parts) >= 2:
+            reversed_name = " ".join(parts[1:]) + " " + parts[0]
+            rev_norm = reversed_name.replace("-", "").replace(".", "")
+            if rev_norm not in norm_index:
+                norm_index[rev_norm] = data
 
     # Match each WC player
     wc_players = cursor.execute("SELECT id, player_name, club FROM wc_squads").fetchall()
@@ -873,27 +884,76 @@ def _match_players(conn):
         # 1. Exact match
         match = our_players.get(wc_low)
 
-        # 2. Surname match
+        # 2. Normalized match (handles hyphens + name order)
+        #    "Kim Min-jae" → "kim minjae" matches "minjae kim" → "Min-Jae Kim"
+        if not match:
+            wc_norm = wc_low.replace("-", "").replace(".", "")
+            match = norm_index.get(wc_norm)
+            # Also try reversed WC name normalized
+            if not match:
+                wc_parts = wc_norm.split()
+                if len(wc_parts) >= 2:
+                    wc_reversed = " ".join(wc_parts[1:]) + " " + wc_parts[0]
+                    match = norm_index.get(wc_reversed)
+
+        # 3. Surname match (only for multi-word names to avoid false positives)
         if not match:
             wc_parts = wc_low.replace(".", "").split()
             wc_surname = wc_parts[-1] if wc_parts else wc_low
-            candidates = surname_index.get(wc_surname, [])
+            # Skip very short surnames (<=3 chars) that cause false matches (Sa, Da, etc.)
+            if len(wc_surname) > 3:
+                candidates = surname_index.get(wc_surname, [])
 
-            if len(candidates) == 1:
-                match = candidates[0][1]
-            elif len(candidates) > 1:
-                # Multiple matches — try first initial
-                wc_initial = wc_parts[0][0] if len(wc_parts) > 1 else ""
-                for cand_name, cand_data in candidates:
-                    cand_parts = cand_name.split()
-                    if cand_parts and cand_parts[0][0] == wc_initial:
+                if len(candidates) == 1:
+                    # Verify: single-word WC name must exactly equal surname
+                    # Multi-word WC name: check initial matches
+                    cand_name, cand_data = candidates[0]
+                    if len(wc_parts) == 1:
                         match = cand_data
-                        break
+                    else:
+                        # Verify first initial matches to avoid "Petar Sucic" → "Luka Sucic"
+                        cand_parts = cand_name.split()
+                        wc_initial = wc_parts[0][0]
+                        if any(p[0] == wc_initial for p in cand_parts):
+                            match = cand_data
+                elif len(candidates) > 1:
+                    # Multiple matches — try first initial
+                    wc_initial = wc_parts[0][0] if len(wc_parts) > 1 else ""
+                    for cand_name, cand_data in candidates:
+                        cand_parts = cand_name.split()
+                        if cand_parts and cand_parts[0][0] == wc_initial:
+                            match = cand_data
+                            break
 
-        # 3. Substring match (e.g., "Vinicius Jr" in "vinicius jose")
+        # 4. Surname match with first part as surname (Asian names: "Kim Min-jae" → surname=Kim)
         if not match:
+            wc_parts = wc_low.replace(".", "").split()
+            if len(wc_parts) >= 2:
+                wc_first = wc_parts[0]  # Could be surname for Asian names
+                candidates = surname_index.get(wc_first, [])
+                if len(candidates) == 1:
+                    # Verify given name overlaps to avoid false matches
+                    cand_name, cand_data = candidates[0]
+                    wc_given = wc_parts[-1].replace("-", "") if len(wc_parts) >= 2 else ""
+                    if wc_given and wc_given in cand_name.replace("-", ""):
+                        match = cand_data
+                elif len(candidates) > 1:
+                    # Try matching given name
+                    wc_given = wc_parts[-1].replace("-", "") if len(wc_parts) >= 2 else ""
+                    for cand_name, cand_data in candidates:
+                        if wc_given and wc_given in cand_name.replace("-", ""):
+                            match = cand_data
+                            break
+
+        # 5. Substring match (e.g., "Vinicius Jr" in "vinicius jose")
+        #    Only if WC name is >8 chars and covers >60% of the DB name
+        #    to avoid "Elliot" matching "Elliot Anderson", "Da Costa" matching "Danny da Costa"
+        if not match and len(wc_low) > 8:
             for our_name, our_data in our_players.items():
-                if wc_low in our_name or our_name in wc_low:
+                if wc_low in our_name and len(wc_low) / len(our_name) > 0.6:
+                    match = our_data
+                    break
+                if our_name in wc_low and len(our_name) / len(wc_low) > 0.6:
                     match = our_data
                     break
 
@@ -1382,6 +1442,111 @@ WC_CALENDAR = [
     {"phase": "Finale 3°/4°", "match_id": 103, "home": "P. partita 101", "away": "P. partita 102", "date": "2026-07-18", "time": "23:00", "venue": "Miami Stadium"},
     {"phase": "Finale", "match_id": 104, "home": "V. partita 101", "away": "V. partita 102", "date": "2026-07-19", "time": "21:00", "venue": "New York New Jersey Stadium"},
 ]
+
+
+def get_group_standings() -> dict:
+    """Calculate group standings from WC_CALENDAR results + team ratings.
+
+    Returns dict keyed by group letter, each value is a list of team dicts
+    sorted by pts > gd > gf, with fields:
+        country, pts, w, d, l, gf, ga, gd, avg_rating, played
+    """
+    from collections import defaultdict
+
+    # Init standings for all groups
+    ALL_GROUPS = {
+        "A": ["Messico", "Sudafrica", "Corea del Sud", "Repubblica Ceca"],
+        "B": ["Canada", "Bosnia", "Qatar", "Svizzera"],
+        "C": ["Brasile", "Marocco", "Haiti", "Scozia"],
+        "D": ["USA", "Paraguay", "Australia", "Turchia"],
+        "E": ["Germania", "Curacao", "Costa d'Avorio", "Ecuador"],
+        "F": ["Olanda", "Giappone", "Svezia", "Tunisia"],
+        "G": ["Belgio", "Egitto", "Iran", "Nuova Zelanda"],
+        "H": ["Spagna", "Capo Verde", "Arabia Saudita", "Uruguay"],
+        "I": ["Francia", "Senegal", "Iraq", "Norvegia"],
+        "J": ["Argentina", "Algeria", "Austria", "Giordania"],
+        "K": ["Portogallo", "Rep. Dem. Congo", "Uzbekistan", "Colombia"],
+        "L": ["Inghilterra", "Croazia", "Ghana", "Panama"],
+    }
+
+    standings = {}
+    for g, teams in ALL_GROUPS.items():
+        standings[g] = {
+            t: {"country": t, "pts": 0, "w": 0, "d": 0, "l": 0,
+                "gf": 0, "ga": 0, "gd": 0, "played": 0, "avg_rating": None}
+            for t in teams
+        }
+
+    # Process group stage results from calendar
+    for m in WC_CALENDAR:
+        if m["phase"] != "Gironi":
+            continue
+        if "score_home" not in m or m["score_home"] is None:
+            continue  # Match not played yet
+        g = m["group"]
+        home, away = m["home"], m["away"]
+        sh, sa = m["score_home"], m["score_away"]
+
+        if home in standings.get(g, {}):
+            standings[g][home]["played"] += 1
+            standings[g][home]["gf"] += sh
+            standings[g][home]["ga"] += sa
+        if away in standings.get(g, {}):
+            standings[g][away]["played"] += 1
+            standings[g][away]["gf"] += sa
+            standings[g][away]["ga"] += sh
+
+        if sh > sa:  # Home win
+            if home in standings.get(g, {}):
+                standings[g][home]["w"] += 1
+                standings[g][home]["pts"] += 3
+            if away in standings.get(g, {}):
+                standings[g][away]["l"] += 1
+        elif sa > sh:  # Away win
+            if away in standings.get(g, {}):
+                standings[g][away]["w"] += 1
+                standings[g][away]["pts"] += 3
+            if home in standings.get(g, {}):
+                standings[g][home]["l"] += 1
+        else:  # Draw
+            if home in standings.get(g, {}):
+                standings[g][home]["d"] += 1
+                standings[g][home]["pts"] += 1
+            if away in standings.get(g, {}):
+                standings[g][away]["d"] += 1
+                standings[g][away]["pts"] += 1
+
+    # Add avg_rating from DB
+    try:
+        conn = sqlite3.connect(str(DB_PATH), timeout=30)
+        conn.row_factory = sqlite3.Row
+        for row in conn.execute("""
+            SELECT country, AVG(CASE WHEN matched_rating > 0 THEN matched_rating END) as avg_rating
+            FROM wc_squads GROUP BY country
+        """).fetchall():
+            if row["avg_rating"]:
+                r = round(row["avg_rating"], 1)
+                for g in standings:
+                    if row["country"] in standings[g]:
+                        standings[g][row["country"]]["avg_rating"] = r
+        conn.close()
+    except Exception:
+        pass
+
+    # Build sorted result
+    result = {}
+    for g, teams_dict in sorted(standings.items()):
+        team_list = list(teams_dict.values())
+        for t in team_list:
+            t["gd"] = t["gf"] - t["ga"]
+        # Sort: pts desc, gd desc, gf desc
+        team_list.sort(key=lambda t: (t["pts"], t["gd"], t["gf"]), reverse=True)
+        # If no matches played, sort by rating instead
+        if all(t["played"] == 0 for t in team_list):
+            team_list.sort(key=lambda t: t["avg_rating"] or 0, reverse=True)
+        result[g] = team_list
+
+    return result
 
 
 def get_calendar(phase_filter: str = None) -> list[dict]:

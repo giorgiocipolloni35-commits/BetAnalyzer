@@ -2420,7 +2420,7 @@ def api_correct_score(league_key):
 
 @app.route("/worldcup")
 def worldcup_page():
-    from scraper.worldcup import get_all_squads_summary, get_top_scorers, get_top_card_candidates, WC_SQUADS, get_calendar_by_date
+    from scraper.worldcup import get_all_squads_summary, get_top_scorers, get_top_card_candidates, WC_SQUADS, get_calendar_by_date, get_group_standings
 
     # Import squads if not yet in DB (first visit)
     import sqlite3
@@ -2435,34 +2435,8 @@ def worldcup_page():
     top_scorers = get_top_scorers(20)
     top_cards = get_top_card_candidates(20)
 
-    # Build groups dict for template
-    groups = {}
-    # All WC groups
-    ALL_GROUPS = {
-        "A": ["Messico", "Sudafrica", "Corea del Sud", "Repubblica Ceca"],
-        "B": ["Canada", "Bosnia", "Qatar", "Svizzera"],
-        "C": ["Brasile", "Marocco", "Haiti", "Scozia"],
-        "D": ["USA", "Paraguay", "Australia", "Turchia"],
-        "E": ["Germania", "Curacao", "Costa d'Avorio", "Ecuador"],
-        "F": ["Olanda", "Giappone", "Svezia", "Tunisia"],
-        "G": ["Belgio", "Egitto", "Iran", "Nuova Zelanda"],
-        "H": ["Spagna", "Capo Verde", "Arabia Saudita", "Uruguay"],
-        "I": ["Francia", "Senegal", "Iraq", "Norvegia"],
-        "J": ["Argentina", "Algeria", "Austria", "Giordania"],
-        "K": ["Portogallo", "Rep. Dem. Congo", "Uzbekistan", "Colombia"],
-        "L": ["Inghilterra", "Croazia", "Ghana", "Panama"],
-    }
-
-    ranking_map = {r["country"]: r for r in rankings}
-    missing_groups = []
-    for g, teams in ALL_GROUPS.items():
-        group_teams = []
-        for t in teams:
-            if t in ranking_map:
-                group_teams.append(ranking_map[t])
-            else:
-                group_teams.append({"country": t, "group": g, "avg_rating": None, "matched": 0, "total_players": 0, "total_goals": 0})
-        groups[g] = group_teams
+    # Build groups standings
+    groups = get_group_standings()
 
     total_players = sum(r["total_players"] for r in rankings)
     matched_players = sum(r["matched"] for r in rankings)
@@ -2481,7 +2455,6 @@ def worldcup_page():
         total_players=total_players,
         matched_players=matched_players,
         match_pct=match_pct,
-        missing_groups=[],
     )
 
 

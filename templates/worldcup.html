@@ -21,15 +21,30 @@
     .wc-panel { display:none; }
     .wc-panel.active { display:block; }
 
-    /* Groups */
-    .groups-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem; }
-    .group-card { background:#1e293b; border-radius:12px; padding:1rem; border:1px solid #334155; }
-    .group-card h3 { margin:0 0 .8rem; color:#f59e0b; font-size:1rem; }
-    .group-team { display:flex; justify-content:space-between; align-items:center; padding:.45rem .5rem; border-radius:6px; cursor:pointer; transition:.15s; }
-    .group-team:hover { background:#334155; }
-    .group-team .name { font-weight:500; }
-    .group-team .rating { color:#f59e0b; font-size:.85rem; font-weight:600; }
-    .group-team .no-data { color:#64748b; font-size:.8rem; }
+    /* Groups — standings table */
+    .groups-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:1rem; }
+    .group-card { background:#1e293b; border-radius:12px; padding:1rem; border:1px solid #334155; overflow-x:auto; }
+    .group-card h3 { margin:0 0 .6rem; color:#f59e0b; font-size:1rem; }
+    .standings-tbl { width:100%; border-collapse:collapse; font-size:.82rem; }
+    .standings-tbl th { text-align:center; padding:.35rem .25rem; color:#64748b; font-size:.7rem; font-weight:600; border-bottom:1px solid #334155; letter-spacing:.3px; }
+    .standings-tbl th.team-col { text-align:left; }
+    .standings-tbl td { padding:.4rem .25rem; border-bottom:1px solid rgba(51,65,85,.4); text-align:center; }
+    .standings-tbl td.team-col { text-align:left; }
+    .standings-tbl tr { cursor:pointer; transition:.15s; }
+    .standings-tbl tr:hover { background:#334155; }
+    .standings-tbl tr.qualify { border-left:3px solid #22c55e; }
+    .standings-tbl tr.playoff { border-left:3px solid #f59e0b; }
+    .standings-tbl .pos { color:#64748b; font-weight:600; width:20px; }
+    .standings-tbl .team-name { font-weight:500; white-space:nowrap; }
+    .standings-tbl .pts { color:#f59e0b; font-weight:700; font-size:.9rem; }
+    .standings-tbl .rating-val { color:#f59e0b; font-size:.78rem; font-weight:600; }
+    .standings-tbl .no-data { color:#475569; font-size:.75rem; }
+    .standings-tbl .gd-pos { color:#22c55e; }
+    .standings-tbl .gd-neg { color:#ef4444; }
+    .group-legend { display:flex; gap:1rem; justify-content:center; margin-top:.8rem; font-size:.7rem; color:#64748b; }
+    .group-legend span::before { content:''; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:4px; vertical-align:middle; }
+    .group-legend .leg-qualify::before { background:#22c55e; }
+    .group-legend .leg-playoff::before { background:#f59e0b; }
 
     /* Rankings */
     .rank-table { width:100%; border-collapse:collapse; }
@@ -104,7 +119,12 @@
         .wc-tab i { margin-right:2px; font-size:.7rem; }
 
         .groups-grid { grid-template-columns:1fr; gap:.7rem; }
-        .group-card { padding:.8rem; }
+        .group-card { padding:.6rem .4rem; }
+        .standings-tbl { font-size:.72rem; }
+        .standings-tbl th { font-size:.6rem; padding:.3rem .15rem; }
+        .standings-tbl td { padding:.35rem .15rem; }
+        .standings-tbl .pts { font-size:.78rem; }
+        .group-legend { font-size:.62rem; gap:.6rem; }
 
         .top-players { grid-template-columns:1fr; }
         .top-player { padding:.6rem .7rem; gap:.5rem; }
@@ -171,32 +191,56 @@
         {% for group_letter, teams in groups.items() | sort %}
         <div class="group-card">
             <h3>Gruppo {{ group_letter }}</h3>
-            {% for t in teams %}
-            <div class="group-team" onclick="openSquad('{{ t.country }}')">
-                <span class="name">{{ t.country }}</span>
-                {% if t.avg_rating %}
-                <span class="rating">{{ t.avg_rating }}</span>
-                {% else %}
-                <span class="no-data">N/D</span>
-                {% endif %}
-            </div>
-            {% endfor %}
-            {% set registered = teams | selectattr('avg_rating') | list %}
-            {% if registered %}
-            {% set max_r = registered | map(attribute='avg_rating') | max %}
-            {% set fav = registered | selectattr('avg_rating', 'equalto', max_r) | first %}
-            <div style="margin-top:.5rem; text-align:center; font-size:.75rem; color:#64748b;">
-                Favorita: <strong style="color:#f59e0b;">{{ fav.country }}</strong> ({{ fav.avg_rating }})
-            </div>
-            {% endif %}
+            <table class="standings-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:20px">#</th>
+                        <th class="team-col">Squadra</th>
+                        <th title="Partite giocate">G</th>
+                        <th title="Vittorie">V</th>
+                        <th title="Pareggi">P</th>
+                        <th title="Sconfitte">S</th>
+                        <th title="Gol Fatti">GF</th>
+                        <th title="Gol Subiti">GS</th>
+                        <th title="Differenza Reti">DR</th>
+                        <th title="Punti">Pt</th>
+                        <th title="Rating medio rosa">Rtg</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in teams %}
+                    <tr class="{% if loop.index <= 2 %}qualify{% elif loop.index == 3 %}playoff{% endif %}"
+                        onclick="openSquad('{{ t.country }}')">
+                        <td class="pos">{{ loop.index }}</td>
+                        <td class="team-col team-name">{{ t.country }}</td>
+                        <td>{{ t.played }}</td>
+                        <td>{{ t.w }}</td>
+                        <td>{{ t.d }}</td>
+                        <td>{{ t.l }}</td>
+                        <td>{{ t.gf }}</td>
+                        <td>{{ t.ga }}</td>
+                        <td class="{% if t.gd > 0 %}gd-pos{% elif t.gd < 0 %}gd-neg{% endif %}">
+                            {% if t.gd > 0 %}+{% endif %}{{ t.gd }}
+                        </td>
+                        <td class="pts">{{ t.pts }}</td>
+                        <td>
+                            {% if t.avg_rating %}
+                            <span class="rating-val">{{ t.avg_rating }}</span>
+                            {% else %}
+                            <span class="no-data">–</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% endfor %}
     </div>
-    {% if missing_groups %}
-    <div style="text-align:center; margin-top:1rem; color:#64748b; font-size:.8rem;">
-        Gironi senza convocazioni ufficiali: {{ missing_groups | join(', ') }}
+    <div class="group-legend">
+        <span class="leg-qualify">Qualificate (1ª e 2ª)</span>
+        <span class="leg-playoff">Ripescaggio (3ª)</span>
     </div>
-    {% endif %}
 </div>
 
 <!-- CALENDARIO -->
