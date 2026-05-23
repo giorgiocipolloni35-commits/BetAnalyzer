@@ -716,7 +716,7 @@ class BetAnalyzerWorker:
             try:
                 sm_matches = self.sm.get_all_matches(league_keys=[league_key])
             except: pass
-            target_m = next((m for m in sm_matches if home.lower() in m.home_team.lower() or away.lower() in m.away_team.lower()), None)
+            target_m = next((m for m in sm_matches if (home.lower() in m.home_team.lower() or m.home_team.lower() in home.lower()) and (away.lower() in m.away_team.lower() or m.away_team.lower() in away.lower())), None)
             if target_m:
                 try:
                     lineups_data = self.sm.get_official_lineups(target_m.id)
@@ -1097,10 +1097,10 @@ class BetAnalyzerWorker:
                             if fstats:
                                 match_form = next((f for f in fstats if f["formation"] == tform), None)
                                 if match_form:
-                                    m = match_form
-                                    total = m["matches"]
-                                    wpct = round(m["wins"] / total * 100, 1) if total > 0 else 0
-                                    context_parts.append(f"  📊 {tname} con {tform}: {m['wins']}V-{m['draws']}P-{m['losses']}S ({wpct}% vittorie) | {m['goals_for']}GF-{m['goals_against']}GA in {total} partite")
+                                    fm = match_form
+                                    total = fm["matches"]
+                                    wpct = round(fm["wins"] / total * 100, 1) if total > 0 else 0
+                                    context_parts.append(f"  📊 {tname} con {tform}: {fm['wins']}V-{fm['draws']}P-{fm['losses']}S ({wpct}% vittorie) | {fm['goals_for']}GF-{fm['goals_against']}GA in {total} partite")
                                 # Show if team has a clearly better formation
                                 if len(fstats) >= 2 and fstats[0]["matches"] >= 3:
                                     best = fstats[0]
@@ -1227,7 +1227,7 @@ class BetAnalyzerWorker:
                 # === LINE MOVEMENT ===
                 try:
                     from db.database import get_line_movement
-                    match_date_str = m.get("commence_time", m.get("date", ""))[:10]
+                    match_date_str = m_dict.get("commence_time", m_dict.get("match_date", ""))[:10]
                     lm_key = f"{home}_vs_{away}_{match_date_str}"
                     lm = get_line_movement(lm_key)
                     if lm and lm.get("snapshots", 0) >= 2:
@@ -1324,9 +1324,14 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
 - NELLA SEZIONE FORMAZIONI, COPIA INTEGRALMENTE OGNI RIGA DEL CONTESTO. NON SEMPLIFICARE.
 - OGNI GIOCATORE DEVE AVERE: [VOTO], Stats avanzate, Impatto, Prob.GOL/AMMON se presenti.
 - IL DIVISORE '---' VA SOLO DOPO LA FORMAZIONE AWAY E DOPO LE ASSENZE.
-- COPIA IDENTICHE LE % DEI MARCATORI E CARTELLINI DAL CONTESTO.
+- COPIA IDENTICHE LE % DEI MARCATORI E CARTELLINI DAL CONTESTO. NON MODIFICARE MAI I NUMERI.
 - NON ANALIZZARE MAI I PORTIERI NEL FOCUS TECNICO.
 - USA SOLO I DATI REALI DEL CONTESTO, NON INVENTARE NULLA.
+- ATTENZIONE: I gol, assist, ammonizioni nel contesto sono dati STAGIONALI REALI dal database.
+  Se il contesto dice "Lautaro: 17 gol", scrivi ESATTAMENTE "17 gol". Non arrotondare, non modificare.
+- Le probabilità marcatore e cartellino (es. "Prob.GOL: 28%") sono calcolate dal nostro modello.
+  Riportale IDENTICHE. Non inventare probabilità per giocatori non presenti nel contesto.
+- I RISULTATI ESATTI PROBABILI vengono dal modello Poisson/Dixon-Coles. Copiali come sono.
 """
         
         # Debug: salva contesto grezzo
@@ -1488,8 +1493,8 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
                         sm_matches = self.sm.get_all_matches(league_keys=[m["league_key"]])
                         target_sm = next(
                             (sm for sm in sm_matches
-                             if m["home"].lower() in sm.home_team.lower()
-                             or m["away"].lower() in sm.away_team.lower()),
+                             if (m["home"].lower() in sm.home_team.lower() or sm.home_team.lower() in m["home"].lower())
+                             and (m["away"].lower() in sm.away_team.lower() or sm.away_team.lower() in m["away"].lower())),
                             None
                         )
                         if target_sm:
