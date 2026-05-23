@@ -596,8 +596,8 @@
                             <span class="team-badge">{{ p.team_name }}</span>
                         </td>
                         <td class="text-center">
-                            <span class="rating-badge {% if p.rating >= 80 %}rating-high{% elif p.rating >= 60 %}rating-mid{% else %}rating-low{% endif %}">
-                                {{ p.rating }}
+                            <span class="rating-badge {% if p.rating and p.rating >= 80 %}rating-high{% elif p.rating and p.rating >= 60 %}rating-mid{% else %}rating-low{% endif %}">
+                                {{ p.rating or '-' }}
                             </span>
                         </td>
                         <td class="text-center">
