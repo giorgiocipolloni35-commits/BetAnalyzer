@@ -1452,6 +1452,154 @@ def enrich_unmatched_players():
     return {"searched": len(unmatched), "found": found, "errors": errors}
 
 
+def refresh_tm_stats():
+    """Re-fetch stats from TM for players already matched via TM (negative player_id).
+
+    Updates existing TM-matched players with enhanced stats (minutes, per-90, starter%, etc.)
+    """
+    import time
+    import requests
+    import urllib3
+    urllib3.disable_warnings()
+
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
+    conn.row_factory = sqlite3.Row
+
+    # Get all TM-matched players (negative player_id = TM ID)
+    tm_players = conn.execute("""
+        SELECT id, player_name, position, player_id, matched_stats_json
+        FROM wc_squads
+        WHERE player_id IS NOT NULL AND player_id < 0
+    """).fetchall()
+
+    if not tm_players:
+        logger.info("✅ Nessun giocatore TM da aggiornare")
+        return {"updated": 0, "errors": 0}
+
+    logger.info(f"🔄 Refresh stats TM: {len(tm_players)} giocatori...")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Accept": "application/json,text/html,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive",
+    }
+
+    updated = 0
+    errors = 0
+
+    for i, row in enumerate(tm_players):
+        wc_id = row["id"]
+        name = row["player_name"]
+        position = row["position"]
+        tm_id = abs(row["player_id"])  # Convert negative back to positive
+
+        if i > 0 and i % 20 == 0:
+            logger.info(f"   ... progresso: {i}/{len(tm_players)} aggiornati, {updated} ok")
+
+        try:
+            # Get stats via TM internal API (no search needed, we already have tm_id)
+            perf_url = f"https://www.transfermarkt.com/ceapi/player/{tm_id}/performance"
+            r = requests.get(perf_url, headers=headers, timeout=10, verify=False)
+            if r.status_code != 200 or not r.json():
+                time.sleep(1)
+                continue
+
+            data = r.json()
+
+            total_apps = sum(c.get("gamesPlayed", 0) for c in data)
+            total_goals = sum(c.get("goalsScored", 0) for c in data)
+            total_assists = sum(c.get("assists", 0) for c in data)
+            total_yellows = sum(c.get("yellowCards", 0) for c in data)
+            total_second_yellows = sum(c.get("secondYellowCards", 0) for c in data)
+            total_reds = sum(c.get("redCards", 0) for c in data)
+            total_minutes = sum(c.get("minutesPlayed", 0) for c in data)
+            total_clean_sheets = sum(c.get("cleanSheets", 0) for c in data)
+            total_conceded = sum(c.get("concededGoals", 0) for c in data)
+
+            starter_pcts = [c.get("startElevenPercent", 0) for c in data if c.get("gamesPlayed", 0) > 0]
+            starter_games = [c.get("gamesPlayed", 0) for c in data if c.get("gamesPlayed", 0) > 0]
+            avg_starter_pct = round(sum(p * g for p, g in zip(starter_pcts, starter_games)) / max(sum(starter_games), 1), 1)
+
+            contrib_pcts = [c.get("goalsContributedPercent", 0) for c in data if c.get("gamesPlayed", 0) > 0]
+            avg_contrib_pct = round(sum(p * g for p, g in zip(contrib_pcts, starter_games)) / max(sum(starter_games), 1), 1)
+
+            if total_apps == 0:
+                time.sleep(1)
+                continue
+
+            mins_90 = total_minutes / 90 if total_minutes > 0 else max(total_apps, 1)
+            goals_per_90 = round(total_goals / mins_90, 2) if mins_90 > 0 else 0
+            assists_per_90 = round(total_assists / mins_90, 2) if mins_90 > 0 else 0
+
+            competitions = []
+            for c in data:
+                if c.get("gamesPlayed", 0) > 0:
+                    competitions.append({
+                        "name": c.get("competitionDescription", ""),
+                        "season": c.get("nameSeason", ""),
+                        "apps": c.get("gamesPlayed", 0),
+                        "goals": c.get("goalsScored", 0),
+                        "assists": c.get("assists", 0),
+                    })
+
+            stats = {
+                "goals": total_goals,
+                "assists": total_assists,
+                "appearances": total_apps,
+                "minutes_played": total_minutes or int(total_apps * 75),
+                "goals_per_90": goals_per_90,
+                "assists_per_90": assists_per_90,
+                "starter_pct": avg_starter_pct,
+                "goal_contribution_pct": avg_contrib_pct,
+                "yellow_cards": total_yellows,
+                "second_yellows": total_second_yellows,
+                "red_cards": total_reds,
+                "clean_sheets": total_clean_sheets,
+                "goals_conceded": total_conceded,
+                "fouls_committed": total_yellows * 3,
+                "shots_total": total_goals * 3 if position == "ATT" else total_goals * 4,
+                "shots_on_target": total_goals,
+                "competitions": competitions,
+                "source": "transfermarkt",
+                "tm_id": int(tm_id),
+            }
+
+            # Recalculate rating
+            if position == "GK":
+                rating = min(70, 45 + total_apps * 0.5)
+            elif position == "DEF":
+                rating = min(75, 50 + total_apps * 0.3 + total_goals * 2 + total_assists * 1.5)
+            elif position == "MID":
+                gpg = total_goals / max(total_apps, 1)
+                apg = total_assists / max(total_apps, 1)
+                rating = min(80, 50 + total_apps * 0.2 + total_goals * 2.5 + total_assists * 2 + gpg * 15 + apg * 10)
+            else:
+                gpg = total_goals / max(total_apps, 1)
+                rating = min(85, 50 + total_goals * 2 + total_assists * 1.5 + gpg * 20)
+
+            rating = round(rating, 1)
+            stats_json = json.dumps(stats)
+
+            conn.execute("""
+                UPDATE wc_squads SET matched_rating = ?, matched_stats_json = ?
+                WHERE id = ?
+            """, (rating, stats_json, wc_id))
+            updated += 1
+            time.sleep(1)  # Gentle rate limit
+
+        except Exception as e:
+            errors += 1
+            if errors <= 5:
+                logger.warning(f"   ⚠ Errore refresh {name}: {e}")
+            time.sleep(1.5)
+
+    conn.commit()
+    conn.close()
+    logger.info(f"✅ Refresh TM completato: {updated}/{len(tm_players)} aggiornati ({errors} errori)")
+    return {"updated": updated, "total": len(tm_players), "errors": errors}
+
+
 # ══════════════════════════════════════════════════════════════
 # MATCH CALENDAR — FIFA World Cup 2026
 # All times in Italian timezone (CEST)

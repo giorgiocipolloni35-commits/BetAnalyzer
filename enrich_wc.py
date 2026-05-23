@@ -21,7 +21,7 @@ logging.basicConfig(
     format="%(asctime)s %(message)s",
 )
 
-from scraper.worldcup import import_squads, enrich_unmatched_players
+from scraper.worldcup import import_squads, enrich_unmatched_players, refresh_tm_stats
 
 print("=" * 60)
 print("  WC 2026 — Import + Enrichment giocatori")
@@ -38,11 +38,20 @@ print("\n🔍 Step 2: Enrichment via Sportmonks API...")
 print("   (ogni giocatore = ~2-3 secondi, stampo progresso ogni 20)\n")
 enrich = enrich_unmatched_players()
 
+print(f"\n   Nuovi trovati: {enrich.get('found', 0)}/{enrich.get('searched', 0)}")
+
+# Step 3: refresh stats for already-matched TM players (enhanced stats)
+print("\n🔄 Step 3: Refresh stats avanzate per giocatori TM già matchati...")
+print("   (solo API call, ~1 sec/giocatore)\n")
+refresh = refresh_tm_stats()
+print(f"\n   Aggiornati: {refresh.get('updated', 0)}/{refresh.get('total', 0)}")
+
 print("\n" + "=" * 60)
 print(f"  RISULTATO FINALE")
-print(f"  Cercati:  {enrich.get('searched', 0)}")
-print(f"  Trovati:  {enrich.get('found', 0)}")
-print(f"  Errori:   {enrich.get('errors', 0)}")
+print(f"  Nuovi cercati:  {enrich.get('searched', 0)}")
+print(f"  Nuovi trovati:  {enrich.get('found', 0)}")
+print(f"  Stats aggiornate: {refresh.get('updated', 0)}")
+print(f"  Errori: {enrich.get('errors', 0) + refresh.get('errors', 0)}")
 print("=" * 60)
 
 # Show final coverage
