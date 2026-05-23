@@ -521,6 +521,17 @@ class BetAnalyzerWorker:
             if dapg: stat_parts.append(f"Dribbling:{dapg}/g")
             apg = p.get("aerials_per_game")
             if apg: stat_parts.append(f"Aerei:{apg}/g")
+            # NEW: avg card minute, H2H, recent form, reds
+            acm = p.get("avg_card_minute")
+            if acm: stat_parts.append(f"MinMedio:{acm}'")
+            h2h_y = p.get("h2h_yellows", 0)
+            h2h_m = p.get("h2h_matches", 0)
+            if h2h_m >= 2: stat_parts.append(f"H2H:{h2h_y}amm/{h2h_m}pg")
+            rfr = p.get("recent_form_ratio", 1.0)
+            if rfr > 1.3: stat_parts.append("🔥trend")
+            elif rfr < 0.5 and p.get("yellows", 0) > 0: stat_parts.append("❄️trend")
+            reds = p.get("reds_season", 0)
+            if reds > 0: stat_parts.append(f"{reds}🟥")
             if stat_parts:
                 line += f" | {', '.join(stat_parts)}"
 

@@ -117,6 +117,9 @@ class CardAnalyzer:
             mdays = [m.get("matchday", 0) for m in finished_data.get("matches", []) if m.get("matchday")]
             current_matchday = max(mdays) if mdays else 0
 
+        # Total matchdays in the season (for last-matchday detection, #8)
+        total_matchdays = num_teams * 2 - 2 if num_teams > 1 else 38  # e.g. 38 for 20 teams
+
         # Build diffida status
         diffida_data = self.pa._build_diffida_status(cache, code, current_matchday)
 
@@ -228,6 +231,13 @@ class CardAnalyzer:
             home_players = self._get_team_players(player_stats, home_id)
             away_players = self._get_team_players(player_stats, away_id)
 
+            # ── NEW: H2H card history for this matchup (#3) ──
+            h2h_stats = self._build_h2h_card_stats(cache, home_id, away_id)
+
+            # ── NEW: Team fatigue from fixture density (#9) ──
+            home_fatigue = self._compute_team_fatigue(cache, home_id, current_matchday)
+            away_fatigue = self._compute_team_fatigue(cache, away_id, current_matchday)
+
             picks = []
             for p in home_players + away_players:
                 if p["matches"] < 5:
@@ -237,19 +247,25 @@ class CardAnalyzer:
                 is_home_team = pid_team == home_id
 
                 # ════════════════════════════════════════════════
-                #  COMPOSITE CARD MODEL v3
+                #  COMPOSITE CARD MODEL v4
                 # ════════════════════════════════════════════════
                 #
                 # Architecture: historical base × behavioural multipliers
-                # (NOT additive — signals amplify/dampen the base, never dominate it)
+                # v4 adds: H2H, recent form, away boost, red aggression,
+                #          match importance, fatigue, card-minute timing
                 #
                 # BASE: Historical yellows/match (anchors the probability)
                 hist_ypm = p.get("yellows_per_match", 0)
 
-                # MULTIPLIER 1: Fouls committed (aggressive players foul more → more yellows)
+                # For players with 0 yellows but behavioural data (B1 fix),
+                # use a behaviour-derived base instead of 0
                 fpg = p.get("fouls_per_game") or 0
+                if hist_ypm == 0 and fpg > 0:
+                    # Estimate: ~1 yellow per 6-8 fouls committed historically
+                    hist_ypm = min(fpg / 7.0, 0.15)
+
+                # MULTIPLIER 1: Fouls committed (aggressive players foul more → more yellows)
                 fouls_ratio = fpg / max(league_avg_fpg, 0.3)
-                # Damp: ratio 2.0 → +30%, ratio 0.5 → -15%
                 fouls_mult = 1.0 + (fouls_ratio - 1.0) * 0.30
 
                 # MULTIPLIER 2: Tackles per game (physical engagement)
@@ -258,7 +274,6 @@ class CardAnalyzer:
                 tackles_mult = 1.0 + (tackles_ratio - 1.0) * 0.15
 
                 # MULTIPLIER 3: Role adjustment
-                # Try FD position map first, then Sportmonks position_id
                 player_role = player_positions_map.get(p.get("player_id"), "") if p.get("player_id") else ""
                 role_mult = ROLE_BOOST.get(player_role, None)
                 if role_mult is None:
@@ -279,37 +294,94 @@ class CardAnalyzer:
                 if pos_diff >= 5 and pid_pos > opp_pos:
                     underdog_mult = 1.0 + min(0.15, pos_diff * 0.01)
 
-                # Combine: base × all multipliers (tension added below)
+                # Combine: base × first 5 multipliers
                 adjusted_prob = hist_ypm * fouls_mult * tackles_mult * role_mult * opp_mult * ref_multiplier * underdog_mult
 
                 # MULTIPLIER 6: Match tension (rivalry, relegation, title race, DERBY)
-                # Matches with high positional stakes have more cards
                 tension_mult = 1.0
                 if is_derby:
-                    tension_mult = 1.20  # derby → +20% cards (highest tension)
+                    tension_mult = 1.20
                 elif pos_diff <= 3 and home_pos <= 6:
-                    tension_mult = 1.10  # top-table clash
+                    tension_mult = 1.10
                 elif home_pos >= num_teams - 3 or away_pos >= num_teams - 3:
-                    tension_mult = 1.12  # relegation battle
+                    tension_mult = 1.12
                 elif pos_diff <= 2:
-                    tension_mult = 1.08  # close rivals
-
-                # Combine: base × all multipliers
-                adjusted_prob = adjusted_prob * tension_mult
+                    tension_mult = 1.08
+                adjusted_prob *= tension_mult
 
                 # MULTIPLIER 7: Minutes normalization
-                # A player averaging 60 min/game has ~67% of a full-timer's card risk
                 mr = p.get("minutes_ratio")
                 if mr is not None and mr > 0:
                     minutes_mult = max(0.70, mr)
-                    adjusted_prob = adjusted_prob * minutes_mult
+                    adjusted_prob *= minutes_mult
+
+                # ── NEW MULTIPLIER 8: Away boost (#2 — moved from HIGH to here) ──
+                # Players away from home get ~15% more yellows statistically
+                if not is_home_team:
+                    adjusted_prob *= 1.12
+
+                # ── NEW MULTIPLIER 9: H2H history (#3) ──
+                pid_id = p.get("player_id")
+                h2h_info = h2h_stats.get(pid_id)
+                if h2h_info and h2h_info["h2h_matches"] >= 2:
+                    h2h_rate = h2h_info["h2h_yellows"] / h2h_info["h2h_matches"]
+                    overall_rate = p.get("yellows_per_match", 0)
+                    if overall_rate > 0 and h2h_rate > overall_rate:
+                        # Player gets carded more vs this opponent → boost
+                        h2h_mult = 1.0 + min(0.20, (h2h_rate / overall_rate - 1.0) * 0.25)
+                        adjusted_prob *= h2h_mult
+
+                # ── NEW MULTIPLIER 10: Recent card trend (#6) ──
+                recent_ratio = p.get("recent_form_ratio", 1.0)
+                if recent_ratio > 1.0:
+                    # Hot streak: getting more yellows recently
+                    recent_mult = 1.0 + min(0.20, (recent_ratio - 1.0) * 0.15)
+                    adjusted_prob *= recent_mult
+                elif recent_ratio < 0.5 and p.get("yellows", 0) > 0:
+                    # Cold streak: fewer yellows recently → slight decrease
+                    adjusted_prob *= 0.92
+
+                # ── NEW MULTIPLIER 11: Red card aggression (#7) ──
+                if p.get("has_red"):
+                    reds = p.get("reds_season", 0)
+                    # Players with reds are more aggressive / reckless
+                    red_mult = 1.0 + min(0.15, reds * 0.08)
+                    adjusted_prob *= red_mult
+
+                # ── NEW MULTIPLIER 12: Match importance / last matchdays (#8) ──
+                if matchday and total_matchdays > 0:
+                    remaining = total_matchdays - matchday
+                    if remaining <= 2:
+                        # Last 2 matchdays: higher tension, nothing to lose
+                        adjusted_prob *= 1.10
+                    elif remaining <= 5 and (home_pos <= 4 or away_pos <= 4
+                                              or home_pos >= num_teams - 3 or away_pos >= num_teams - 3):
+                        # Last 5 matchdays + teams fighting for title or survival
+                        adjusted_prob *= 1.06
+
+                # ── NEW MULTIPLIER 13: Card minute timing (#4) ──
+                avg_min = p.get("avg_card_minute")
+                if avg_min is not None and p.get("yellows", 0) >= 3:
+                    # Players who get carded early (< 45') are more reckless
+                    if avg_min < 40:
+                        adjusted_prob *= 1.08
+                    elif avg_min > 75:
+                        # Late-card players: if they play full 90 it's fine,
+                        # but if subbed at 60' they lose card window → slight decrease
+                        avg_mins_played = p.get("avg_minutes")
+                        if avg_mins_played and avg_mins_played < 75:
+                            adjusted_prob *= 0.90
+
+                # ── NEW MULTIPLIER 14: Team fatigue (#9) ──
+                team_fat = home_fatigue if is_home_team else away_fatigue
+                adjusted_prob *= team_fat["fatigue_mult"]
 
                 # FLOOR: players with high fouls/game get a minimum probability
-                # even if their historical yellow rate is low
-                if fpg >= 1.2 and adjusted_prob < 0.15:
-                    adjusted_prob = max(adjusted_prob, 0.12 + (fpg - 1.2) * 0.05)
+                # even if their historical yellow rate is low (B1 enhancement)
+                if fpg >= 1.0 and adjusted_prob < 0.10:
+                    adjusted_prob = max(adjusted_prob, 0.08 + (fpg - 1.0) * 0.06)
 
-                # Cap: realistic maximum ~55% (very few players above 50% in reality)
+                # Cap: realistic maximum ~55%
                 adjusted_prob = min(0.55, adjusted_prob)
 
                 if adjusted_prob < 0.05:
@@ -319,7 +391,6 @@ class CardAnalyzer:
                 team_name = team_names.get(p["team_id"], "?")
 
                 # Check diffida status
-                pid_id = p.get("player_id")
                 diffida_info = diffida_data.get(pid_id) if pid_id else None
                 is_diffidato = diffida_info["diffidato"] if diffida_info else False
                 player_yellows_season = diffida_info["yellows"] if diffida_info else p["yellows"]
@@ -338,6 +409,11 @@ class CardAnalyzer:
                     "yellows_season": player_yellows_season,
                     "is_underdog": underdog_mult > 1.0,
                     "position": player_role,
+                    "avg_card_minute": p.get("avg_card_minute"),
+                    "reds_season": p.get("reds_season", 0),
+                    "recent_form_ratio": p.get("recent_form_ratio", 1.0),
+                    "h2h_yellows": h2h_info["h2h_yellows"] if h2h_info else 0,
+                    "h2h_matches": h2h_info["h2h_matches"] if h2h_info else 0,
                     # Advanced Sportmonks stats
                     "fouls_per_game": p.get("fouls_per_game"),
                     "tackles_per_game": p.get("tackles_per_game"),
@@ -379,35 +455,130 @@ class CardAnalyzer:
 
     @staticmethod
     def _build_player_stats(cache: dict) -> dict:
-        """Build per-player yellow card stats from cache."""
+        """Build per-player yellow card stats from cache.
+
+        B1 FIX: Also registers players from lineups/subs who have 0 yellows,
+        so they can still appear in predictions via behavioural multipliers.
+        """
         players: dict[int, dict] = {}
+
+        # Sort matches by matchday for recency weighting
+        sorted_mids = sorted(cache.keys(),
+                             key=lambda k: cache[k].get("matchday") or 0)
+        max_matchday = max((cache[k].get("matchday") or 0) for k in cache) if cache else 0
+
+        # ── Pass 1: Register ALL players from lineups + subs (B1 fix) ──
+        # Build a player_id → name mapping from all match data
+        player_names_from_cache = {}  # pid → name
+        for mid, detail in cache.items():
+            # From cards (has player names)
+            for card in detail.get("cards", []):
+                pid = card.get("player_id")
+                if pid and card.get("player"):
+                    player_names_from_cache[pid] = card["player"]
+            # From players dict if available (value can be str or dict with "name")
+            for pid_str, pval in detail.get("players", {}).items():
+                try:
+                    pid_int = int(pid_str)
+                    if isinstance(pval, str):
+                        player_names_from_cache[pid_int] = pval
+                    elif isinstance(pval, dict) and pval.get("name"):
+                        player_names_from_cache[pid_int] = pval["name"]
+                except (ValueError, TypeError):
+                    pass
 
         for mid, detail in cache.items():
             home_id = detail.get("home_id")
             away_id = detail.get("away_id")
 
-            # Track appearances
-            for tid in (home_id, away_id):
-                if tid is None:
+            # Register from lineup_ids
+            for pid in detail.get("lineup_ids", []):
+                if pid is None:
                     continue
+                if pid not in players:
+                    # Determine team: check which side this player belongs to
+                    # Use cards or player_positions to infer team
+                    p_team = None
+                    for card in detail.get("cards", []):
+                        if card.get("player_id") == pid:
+                            p_team = card.get("team_id")
+                            break
+                    if not p_team:
+                        # Check substitutions
+                        for s in detail.get("substitutions", []):
+                            if s.get("player_out_id") == pid or s.get("player_in_id") == pid:
+                                p_team = s.get("team_id")
+                                break
+                    players[pid] = {
+                        "player": player_names_from_cache.get(pid, "?"),
+                        "player_id": pid,
+                        "team_id": p_team,
+                        "yellows": 0,
+                        "reds": 0,
+                        "card_minutes": [],
+                        "recent_yellows": 0,
+                        "appearances_set": set(),
+                    }
+                players[pid]["appearances_set"].add(mid)
+
+            # Register from substitutions (players subbed IN)
+            for sub in detail.get("substitutions", []):
+                pid = sub.get("player_in_id")
+                if pid is None:
+                    continue
+                if pid not in players:
+                    players[pid] = {
+                        "player": player_names_from_cache.get(pid, "?"),
+                        "player_id": pid,
+                        "team_id": sub.get("team_id"),
+                        "yellows": 0,
+                        "reds": 0,
+                        "card_minutes": [],
+                        "recent_yellows": 0,
+                        "appearances_set": set(),
+                    }
+                players[pid]["appearances_set"].add(mid)
+
+        # ── Pass 2: Count yellows, reds, card minutes, recent form ──
+        for mid, detail in cache.items():
+            matchday = detail.get("matchday") or 0
 
             for card in detail.get("cards", []):
-                if card.get("card") != "YELLOW":
-                    continue
                 pid = card.get("player_id")
                 if pid is None:
                     continue
 
+                # Register player if not yet known (edge case: card but not in lineup)
                 if pid not in players:
                     players[pid] = {
                         "player": card.get("player", "?"),
                         "player_id": pid,
                         "team_id": card.get("team_id"),
                         "yellows": 0,
-                        "matches_with_team": set(),
+                        "reds": 0,
+                        "card_minutes": [],
+                        "recent_yellows": 0,
+                        "appearances_set": set(),
                     }
-                players[pid]["yellows"] += 1
-                players[pid]["matches_with_team"].add(mid)
+                    players[pid]["appearances_set"].add(mid)
+
+                # Update team_id if still None
+                if players[pid]["team_id"] is None and card.get("team_id"):
+                    players[pid]["team_id"] = card["team_id"]
+                # Update name if still "?"
+                if players[pid]["player"] == "?" and card.get("player"):
+                    players[pid]["player"] = card["player"]
+
+                if card.get("card") == "YELLOW":
+                    players[pid]["yellows"] += 1
+                    minute = card.get("minute")
+                    if minute is not None:
+                        players[pid]["card_minutes"].append(minute)
+                    # Recent form: last 8 matchdays
+                    if max_matchday > 0 and matchday >= max_matchday - 7:
+                        players[pid]["recent_yellows"] += 1
+                elif card.get("card") in ("RED", "YELLOW_RED", "SECOND_YELLOW"):
+                    players[pid]["reds"] += 1
 
         # Count total matches per team to estimate player appearances
         team_matches: dict[int, int] = {}
@@ -484,21 +655,25 @@ class CardAnalyzer:
 
         result = {}
         for pid, data in players.items():
-            tid = data["team_id"]
+            tid = data.get("team_id")
+            # Skip players without a team (can't assign to anyone)
+            if tid is None:
+                continue
             p_name_lower = data["player"].lower()
+            if p_name_lower == "?":
+                continue  # Skip unnamed players
 
             # Use real apps if available, else fallback to team total
             sm_key = resolved_names.get(p_name_lower)
             sm = sportmonks_stats.get(sm_key) if sm_key else None
 
             # Fix mid-season transfers: use current team_id from Sportmonks DB
-            # Prefer direct name match over fuzzy-matched SM name (avoids wrong surname collisions)
             if p_name_lower in current_team_by_name:
                 team_lookup = p_name_lower
             else:
                 team_lookup = _fuzzy_name_match(p_name_lower, current_team_by_name)
                 if not team_lookup:
-                    team_lookup = sm_key  # last resort: use stats-matched name
+                    team_lookup = sm_key
             if team_lookup and team_lookup in current_team_by_name:
                 real_tid = current_team_by_name[team_lookup]
                 if real_tid != tid:
@@ -517,23 +692,55 @@ class CardAnalyzer:
             total_team_matches = team_matches.get(tid, 1)
             est_matches = sm["appearances"] if sm else None
 
-            # Fallback: count real appearances from FD cache for players without SM stats
+            # Fallback: count real appearances from appearances_set or FD cache
             if not est_matches:
-                fd_apps = 0
-                for detail in cache.values():
-                    if detail.get("home_id") != tid and detail.get("away_id") != tid:
-                        continue
-                    lineup_ids = detail.get("lineup_ids", [])
-                    subs_list = detail.get("substitutions", [])
-                    if data["player_id"] in lineup_ids:
-                        fd_apps += 1
-                    elif any(s.get("player_in_id") == data["player_id"] for s in subs_list):
-                        fd_apps += 1
+                fd_apps = len(data.get("appearances_set", set()))
+                if fd_apps == 0:
+                    # Last resort: scan cache
+                    for detail in cache.values():
+                        if detail.get("home_id") != tid and detail.get("away_id") != tid:
+                            continue
+                        lineup_ids = detail.get("lineup_ids", [])
+                        subs_list = detail.get("substitutions", [])
+                        if data["player_id"] in lineup_ids:
+                            fd_apps += 1
+                        elif any(s.get("player_in_id") == data["player_id"] for s in subs_list):
+                            fd_apps += 1
                 est_matches = fd_apps if fd_apps > 0 else total_team_matches
 
             data["matches"] = est_matches
             data["yellows_per_match"] = data["yellows"] / est_matches if est_matches > 0 else 0
-            del data["matches_with_team"]
+
+            # ── NEW: Average card minute (#4) ──
+            card_mins = data.get("card_minutes", [])
+            data["avg_card_minute"] = round(sum(card_mins) / len(card_mins), 1) if card_mins else None
+
+            # ── NEW: Recent form ratio (#6) ──
+            # recent_yellows = yellows in last 8 matchdays
+            # Compare to overall rate: if higher → hot streak
+            recent_y = data.get("recent_yellows", 0)
+            # Estimate recent appearances (last 8 matchdays ≈ 8 games max)
+            recent_apps = min(est_matches, 8)
+            if recent_apps > 0 and est_matches > 0:
+                recent_rate = recent_y / recent_apps
+                overall_rate = data["yellows_per_match"]
+                if overall_rate > 0:
+                    data["recent_form_ratio"] = round(recent_rate / overall_rate, 2)
+                else:
+                    # Player has 0 overall yellows but got one recently
+                    data["recent_form_ratio"] = 2.0 if recent_y > 0 else 1.0
+            else:
+                data["recent_form_ratio"] = 1.0
+
+            # ── NEW: Red card aggression flag (#7) ──
+            data["reds_season"] = data.get("reds", 0)
+            data["has_red"] = data.get("reds", 0) > 0
+
+            # Clean up temp fields
+            data.pop("appearances_set", None)
+            data.pop("card_minutes", None)
+            data.pop("recent_yellows", None)
+            data.pop("reds", None)
 
             # Attach advanced Sportmonks stats
             if sm and sm["appearances"] > 0:
@@ -544,7 +751,6 @@ class CardAnalyzer:
                 data["fouls_drawn_per_game"] = round(sm["fouls_drawn"] / a, 2)
                 data["dribbles_att_per_game"] = round(sm["dribbles_attempts"] / a, 2)
                 data["aerials_per_game"] = round(sm["aerials_won"] / a, 2)
-                # Minutes normalization
                 mins = sm.get("minutes_played", 0)
                 if mins > 0 and a > 0:
                     avg_mins = mins / a
@@ -564,13 +770,73 @@ class CardAnalyzer:
                 data["minutes_ratio"] = None
 
             # Attach Sportmonks position_id for role boost
-            # Prefer direct name, then fuzzy-matched team_lookup, then sm_key
             pos_key = p_name_lower if p_name_lower in sm_position_ids else (team_lookup if team_lookup and team_lookup in sm_position_ids else sm_key)
             data["sm_position_id"] = sm_position_ids.get(pos_key) if pos_key else None
 
             result[pid] = data
 
         return result
+
+    @staticmethod
+    def _build_h2h_card_stats(cache: dict, home_id: int, away_id: int) -> dict:
+        """Build per-player card stats from head-to-head matches only (#3).
+
+        Returns {player_id: {"h2h_yellows": N, "h2h_matches": N}} for players
+        who appeared in previous encounters between these two teams.
+        """
+        h2h: dict[int, dict] = {}
+        for mid, detail in cache.items():
+            hid = detail.get("home_id")
+            aid = detail.get("away_id")
+            # Match must be between these two teams (either direction)
+            if not ({hid, aid} == {home_id, away_id}):
+                continue
+            # Count appearances
+            for pid in detail.get("lineup_ids", []):
+                if pid not in h2h:
+                    h2h[pid] = {"h2h_yellows": 0, "h2h_matches": 0}
+                h2h[pid]["h2h_matches"] += 1
+            for sub in detail.get("substitutions", []):
+                pid = sub.get("player_in_id")
+                if pid and pid not in h2h:
+                    h2h[pid] = {"h2h_yellows": 0, "h2h_matches": 0}
+                if pid:
+                    h2h[pid]["h2h_matches"] += 1
+            # Count yellows
+            for card in detail.get("cards", []):
+                if card.get("card") == "YELLOW":
+                    pid = card.get("player_id")
+                    if pid:
+                        if pid not in h2h:
+                            h2h[pid] = {"h2h_yellows": 0, "h2h_matches": 0}
+                        h2h[pid]["h2h_yellows"] += 1
+        return h2h
+
+    @staticmethod
+    def _compute_team_fatigue(cache: dict, team_id: int, current_matchday: int) -> dict:
+        """Estimate team fatigue from cache fixture density (#9).
+
+        Counts matches in the last 3 matchdays to estimate calendar congestion.
+        Returns {"matches_recent": N, "fatigue_mult": float}.
+        """
+        if current_matchday <= 0:
+            return {"matches_recent": 0, "fatigue_mult": 1.0}
+        count = 0
+        for detail in cache.values():
+            md = detail.get("matchday") or 0
+            if md < current_matchday - 2:  # last 3 matchdays
+                continue
+            if md > current_matchday:
+                continue
+            if detail.get("home_id") == team_id or detail.get("away_id") == team_id:
+                count += 1
+        # 3 matches in 3 matchdays is normal (1/md)
+        # 4+ means cup fixtures squeezed in, or double fixtures
+        if count >= 4:
+            return {"matches_recent": count, "fatigue_mult": 1.12}
+        elif count >= 3:
+            return {"matches_recent": count, "fatigue_mult": 1.05}
+        return {"matches_recent": count, "fatigue_mult": 1.0}
 
     @staticmethod
     def _build_referee_card_stats(cache: dict) -> dict:
