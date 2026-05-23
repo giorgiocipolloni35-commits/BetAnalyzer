@@ -796,10 +796,27 @@ WC_SQUADS = {
 
 
 def import_squads():
-    """Import all WC squads into the database."""
+    """Import all WC squads into the database, preserving TM enrichment data."""
     conn = sqlite3.connect(str(DB_PATH), timeout=30)
 
-    # Clear existing data
+    # Preserve existing enrichment data (TM IDs are negative)
+    existing_enrichment = {}
+    try:
+        for row in conn.execute("""
+            SELECT player_name, country, player_id, matched_rating, matched_stats_json
+            FROM wc_squads
+            WHERE player_id IS NOT NULL
+        """).fetchall():
+            key = (row[0], row[1])  # (player_name, country)
+            existing_enrichment[key] = {
+                "player_id": row[2],
+                "matched_rating": row[3],
+                "matched_stats_json": row[4],
+            }
+    except Exception:
+        pass
+
+    # Clear and re-import
     conn.execute("DELETE FROM wc_squads")
 
     total = 0
@@ -817,11 +834,31 @@ def import_squads():
     conn.commit()
     logger.info(f"✅ Importati {total} giocatori da {len(WC_SQUADS)} nazionali")
 
-    # Now match with our DB
+    # Match with our local DB (5 leagues)
     matched = _match_players(conn)
-    conn.close()
 
-    return {"imported": total, "countries": len(WC_SQUADS), "matched": matched}
+    # Restore TM enrichment for players not matched by local DB
+    restored = 0
+    for row in conn.execute("""
+        SELECT id, player_name, country FROM wc_squads
+        WHERE player_id IS NULL
+    """).fetchall():
+        key = (row[1], row[2])
+        if key in existing_enrichment:
+            e = existing_enrichment[key]
+            conn.execute("""
+                UPDATE wc_squads
+                SET player_id = ?, matched_rating = ?, matched_stats_json = ?
+                WHERE id = ?
+            """, (e["player_id"], e["matched_rating"], e["matched_stats_json"], row[0]))
+            restored += 1
+
+    if restored:
+        conn.commit()
+        logger.info(f"♻️ Ripristinati {restored} enrichment TM precedenti")
+
+    conn.close()
+    return {"imported": total, "countries": len(WC_SQUADS), "matched": matched + restored}
 
 
 def _match_players(conn):
