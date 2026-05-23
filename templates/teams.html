@@ -538,12 +538,14 @@
             } else {
                 statLine = `<span>⚽ ${p.goals}g</span><span>🎯 ${p.assists}a</span><span>🎯 ${p.shots_total}t</span>`;
             }
+            const mvLine = p.market_value ? `<div style="font-size:0.6rem;color:#f59e0b;font-weight:600;margin-top:1px;">💰 ${p.market_value}</div>` : '';
             return `
                 <div class="player-card-pitch">
                     <div class="pos-tag ${posClass}">${p.position_short}</div>
                     <div class="player-rating ${ratingClass(p.rating)}">${p.rating}</div>
                     <div class="player-name-pitch" title="${p.name}">${p.name}</div>
                     <div class="player-team-pitch" title="${p.team}">${p.team}</div>
+                    ${mvLine}
                     <div class="player-stats-pitch">${statLine}</div>
                 </div>
             `;

@@ -948,7 +948,7 @@ def api_deep_analysis(match_id):
                     import sqlite3
                     db_path = Path(__file__).parent / "data" / "betanalyzer.db"
                     if db_path.exists():
-                        conn = sqlite3.connect(str(db_path, timeout=30))
+                        conn = sqlite3.connect(str(db_path), timeout=30)
                         conn.row_factory = sqlite3.Row
                         cur = conn.cursor()
                         cur.execute("""
@@ -2595,7 +2595,7 @@ def league_top_xi(league_id):
     }
     db_league = league_map.get(league_id, league_id.lower().replace(" ", "_").replace("-", "_"))
 
-    conn = sqlite3.connect(str(db_path, timeout=30))
+    conn = sqlite3.connect(str(db_path), timeout=30)
     conn.row_factory = sqlite3.Row
 
     # Formazioni supportate
@@ -2647,6 +2647,23 @@ def league_top_xi(league_id):
                 "pass_accuracy": round(stats.get("accurate_passes_pct", 0) or 0, 1),
                 "aerials_won": stats.get("aerials_won", 0) or 0,
             })
+
+    # Enrich with market values
+    for p in players:
+        mv_row = conn.execute(
+            "SELECT market_value_eur FROM player_market_values WHERE player_id = ? LIMIT 1",
+            (p["id"],)
+        ).fetchone()
+        if mv_row and mv_row["market_value_eur"] and mv_row["market_value_eur"] > 0:
+            val = mv_row["market_value_eur"]
+            if val >= 1_000_000:
+                p["market_value"] = f"€{val / 1_000_000:.1f}M"
+            elif val >= 1_000:
+                p["market_value"] = f"€{val / 1_000:.0f}K"
+            else:
+                p["market_value"] = f"€{val}"
+        else:
+            p["market_value"] = None
 
     conn.close()
 
