@@ -90,11 +90,51 @@ def run_nightly():
     logger.info("=" * 50)
 
 
+def run_weekly():
+    """Weekly data enrichment: market values, squad values, VAR stats."""
+    logger.info("=" * 50)
+    logger.info("📊 Weekly enrichment START")
+    logger.info("=" * 50)
+
+    scripts = [
+        ("fetch_squad_values.py", "Squad Values (TM)", 120),
+        ("fetch_market_values.py", "Player Market Values (TM)", 600),
+        ("fetch_var_stats.py", "VAR Stats (Sportmonks)", 600),
+    ]
+
+    for script, label, timeout_s in scripts:
+        logger.info(f"[WEEKLY] {label}...")
+        try:
+            result = subprocess.run(
+                [sys.executable, script],
+                capture_output=True, text=True, timeout=timeout_s,
+            )
+            # Log last 5 lines of output (summary)
+            if result.stdout:
+                lines = result.stdout.strip().split("\n")
+                for line in lines[-5:]:
+                    logger.info(f"  {line}")
+            if result.returncode != 0:
+                logger.error(f"  {label} failed (exit {result.returncode}): {result.stderr[-200:]}")
+            else:
+                logger.info(f"  ✅ {label} OK")
+        except subprocess.TimeoutExpired:
+            logger.error(f"  {label} timeout ({timeout_s}s)")
+        except Exception as e:
+            logger.error(f"  {label} error: {e}")
+
+    logger.info("✅ Weekly enrichment DONE")
+    logger.info("=" * 50)
+
+
 if __name__ == "__main__":
     scheduler = BlockingScheduler(timezone="UTC")
 
-    # Nightly job: 04:15 UTC (= 06:15 CEST) — same as old cron
+    # Nightly job: 04:15 UTC (= 06:15 CEST) — every day
     scheduler.add_job(run_nightly, "cron", hour=4, minute=15, id="nightly")
+
+    # Weekly job: Monday 05:00 UTC (= 07:00 CEST) — after nightly finishes
+    scheduler.add_job(run_weekly, "cron", day_of_week="mon", hour=5, minute=0, id="weekly")
 
     # Run immediately on startup if we missed today's window
     now = datetime.utcnow()
@@ -102,8 +142,9 @@ if __name__ == "__main__":
         logger.info("⏰ Startup after scheduled time — running nightly now...")
         run_nightly()
 
-    logger.info(f"📅 Scheduler avviato — prossimo run: 04:15 UTC ogni giorno")
-    logger.info(f"   Prossima esecuzione: {scheduler.get_job('nightly').next_run_time}")
+    logger.info(f"📅 Scheduler avviato")
+    logger.info(f"   Nightly: 04:15 UTC ogni giorno → {scheduler.get_job('nightly').next_run_time}")
+    logger.info(f"   Weekly:  Lunedì 05:00 UTC      → {scheduler.get_job('weekly').next_run_time}")
 
     try:
         scheduler.start()
