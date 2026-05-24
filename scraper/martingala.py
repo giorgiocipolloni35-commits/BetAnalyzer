@@ -49,28 +49,62 @@ def _load_cache(league_code: str) -> dict:
 
 
 def _load_standings(league_code: str) -> dict:
-    """Load team ID -> {name, position} from competitions_stats_cache."""
+    """Load team ID -> {name, position} from competitions_stats_cache.
+
+    Falls back to Football-Data API standings if the cache file
+    doesn't exist or doesn't contain data for this league.
+    """
     mapping = {}
+
+    # Try cached file first
     try:
         path = "data/competitions_stats_cache.json"
-        if not os.path.exists(path):
-            return mapping
-        with open(path) as f:
-            data = json.load(f)
-        code_to_key = {}
-        for key, val in data.items():
-            if isinstance(val, dict):
-                code_to_key[val.get("league_code", "")] = key
-        league_key = code_to_key.get(league_code, "")
-        if league_key and league_key in data:
-            teams = data[league_key].get("teams", [])
-            for t in teams:
-                mapping[t["id"]] = {
-                    "name": t["name"],
-                    "position": t.get("position", 99),
-                }
+        if os.path.exists(path):
+            with open(path) as f:
+                data = json.load(f)
+            code_to_key = {}
+            for key, val in data.items():
+                if isinstance(val, dict):
+                    code_to_key[val.get("league_code", "")] = key
+            league_key = code_to_key.get(league_code, "")
+            if league_key and league_key in data:
+                teams = data[league_key].get("teams", [])
+                for t in teams:
+                    mapping[t["id"]] = {
+                        "name": t["name"],
+                        "position": t.get("position", 99),
+                    }
     except Exception as e:
-        logger.warning(f"Standings load error: {e}")
+        logger.warning(f"Standings cache read error: {e}")
+
+    if mapping:
+        return mapping
+
+    # Fallback: call Football-Data API for standings
+    try:
+        import requests
+        api_key = os.environ.get("FOOTBALL_DATA_API_KEY", "")
+        if not api_key:
+            return mapping
+        url = f"https://api.football-data.org/v4/competitions/{league_code}/standings"
+        resp = requests.get(url, headers={"X-Auth-Token": api_key}, timeout=10)
+        if resp.status_code != 200:
+            return mapping
+        data = resp.json()
+        for table in data.get("standings", []):
+            if table.get("type") == "TOTAL":
+                for entry in table.get("table", []):
+                    team = entry.get("team", {})
+                    tid = team.get("id")
+                    if tid:
+                        mapping[tid] = {
+                            "name": team.get("name", f"Team {tid}"),
+                            "position": entry.get("position", 99),
+                        }
+        logger.info(f"Loaded {len(mapping)} teams from FD API for {league_code}")
+    except Exception as e:
+        logger.warning(f"FD API standings fallback error: {e}")
+
     return mapping
 
 
