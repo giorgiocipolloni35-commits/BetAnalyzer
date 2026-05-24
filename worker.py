@@ -19,6 +19,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+LEAGUE_DISPLAY_NAMES = {
+    "italy_serie_a": "Serie A",
+    "england_premier_league": "Premier League",
+    "spain_la_liga": "La Liga",
+    "germany_bundesliga": "Bundesliga",
+    "france_ligue_1": "Ligue 1",
+    "denmark_superliga": "Superliga",
+    "scotland_premiership": "Premiership",
+    "netherlands_eredivisie": "Eredivisie",
+    "champions_league": "Champions League",
+    "england_championship": "Championship",
+    "portugal_primeira_liga": "Primeira Liga",
+    "brazil_serie_a": "Brasileirao",
+}
+
+
 class BetAnalyzerWorker:
     """Worker autonomo per monitoraggio formazioni e invio alert.
 
@@ -308,6 +324,53 @@ class BetAnalyzerWorker:
             except Exception as e:
                 logger.warning(f"⚠️ API-Football fallback error: {e}")
 
+        # 4. Football-Data.org fallback per campionati non coperti da Sportmonks/OddsAPI
+        #    (es. Brasileirão — TIER_ONE su FD ma non in Sportmonks/OddsAPI)
+        fd_key = os.getenv("FOOTBALL_DATA_API_KEY", "")
+        if fd_key:
+            from scraper.sportmonks import SportmonksClient as _SM
+            from scraper.odds_api import LEAGUES as _OL
+            sm_map = _SM("dummy").league_map if True else {}
+            covered_leagues = set(sm_map.keys()) | set(_OL.keys())
+            uncovered = [lk for lk in active_leagues if lk not in covered_leagues]
+
+            if uncovered:
+                from scraper.football_data import FootballDataClient, LEAGUE_CODES as FD_CODES
+                from models.match import Match
+                fd_client = FootballDataClient(fd_key)
+
+                for lk in uncovered:
+                    fd_code = FD_CODES.get(lk)
+                    if not fd_code:
+                        continue
+                    try:
+                        fd_now = datetime.now(timezone.utc)
+                        date_from = fd_now.strftime("%Y-%m-%d")
+                        date_to = (fd_now + timedelta(days=3)).strftime("%Y-%m-%d")
+                        data = fd_client._get(
+                            f"/competitions/{fd_code}/matches",
+                            params={"dateFrom": date_from, "dateTo": date_to}
+                        )
+                        if data:
+                            league_name = LEAGUE_DISPLAY_NAMES.get(lk, lk)
+                            for fm in data.get("matches", []):
+                                if fm.get("status") not in ("TIMED", "SCHEDULED"):
+                                    continue
+                                raw_matches.append(Match(
+                                    id=str(fm.get("id", "")),
+                                    home_team=fm["homeTeam"]["name"],
+                                    away_team=fm["awayTeam"]["name"],
+                                    league=league_name,
+                                    commence_time=fm["utcDate"],
+                                    matchday=fm.get("matchday"),
+                                ))
+                            fd_count = len([fm for fm in data.get("matches", [])
+                                           if fm.get("status") in ("TIMED", "SCHEDULED")])
+                            if fd_count:
+                                logger.info(f"✅ Football-Data fallback: {fd_count} match {lk}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Football-Data fallback {lk}: {e}")
+
         if not raw_matches:
             logger.warning("❌ Nessuna sorgente ha restituito match")
             return []
@@ -347,7 +410,8 @@ class BetAnalyzerWorker:
             "Ligue 1": "france_ligue_1", "Eredivisie": "netherlands_eredivisie",
             "Champions League": "champions_league", "Championship": "england_championship",
             "Primeira Liga": "portugal_primeira_liga", "Superliga": "denmark_superliga",
-            "Premiership": "scotland_premiership",
+            "Premiership": "scotland_premiership", "Brasileirao": "brazil_serie_a",
+            "Campeonato Brasileiro Série A": "brazil_serie_a",
         }
         return mapping.get(league_name, "italy_serie_a")
 

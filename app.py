@@ -2579,6 +2579,45 @@ def worker_page():
             except Exception as e:
                 logger.warning(f"Worker preview: Odds API fallita: {e}")
 
+        # 3. Football-Data.org fallback per campionati non coperti (es. BSA)
+        if FOOTBALL_DATA_KEY:
+            from scraper.sportmonks import SportmonksClient as _SM
+            from scraper.odds_api import LEAGUES as _OL
+            _sm_map = _SM("dummy").league_map
+            _covered = set(_sm_map.keys()) | set(_OL.keys())
+            _uncovered = [lk for lk in active_leagues if lk not in _covered]
+
+            if _uncovered:
+                from scraper.football_data import FootballDataClient, LEAGUE_CODES as _FDC
+                from models.match import Match as _M
+                _fd = FootballDataClient(FOOTBALL_DATA_KEY)
+                _now_fd = datetime.now(timezone.utc)
+                _dfrom = _now_fd.strftime("%Y-%m-%d")
+                _dto = (_now_fd + timedelta(days=3)).strftime("%Y-%m-%d")
+
+                for _lk in _uncovered:
+                    _fc = _FDC.get(_lk)
+                    if not _fc:
+                        continue
+                    try:
+                        _fdata = _fd._get(f"/competitions/{_fc}/matches",
+                                          params={"dateFrom": _dfrom, "dateTo": _dto})
+                        if _fdata:
+                            _ln = LEAGUE_DISPLAY_NAMES.get(_lk, _lk)
+                            for _fm in _fdata.get("matches", []):
+                                if _fm.get("status") not in ("TIMED", "SCHEDULED"):
+                                    continue
+                                raw_matches.append(_M(
+                                    id=str(_fm.get("id", "")),
+                                    home_team=_fm["homeTeam"]["name"],
+                                    away_team=_fm["awayTeam"]["name"],
+                                    league=_ln,
+                                    commence_time=_fm["utcDate"],
+                                    matchday=_fm.get("matchday"),
+                                ))
+                    except Exception:
+                        pass
+
         now = datetime.now(timezone.utc)
         for m in raw_matches:
             try:
