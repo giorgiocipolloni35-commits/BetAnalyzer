@@ -2368,6 +2368,29 @@ def api_arbitri(league_key):
 
 
 # ------------------------------------------------------------------ #
+#  Martingala Pareggi                                                   #
+# ------------------------------------------------------------------ #
+
+@app.route("/martingala")
+def martingala_page():
+    freshness = get_data_freshness(
+        ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
+    )
+    return render_template("martingala.html", state=_state, freshness=freshness)
+
+
+@app.route("/api/martingala/<league_key>")
+def api_martingala(league_key):
+    from scraper.martingala import analyze_martingala
+    try:
+        result = analyze_martingala(league_key)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Errore analisi martingala: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# ------------------------------------------------------------------ #
 #  Doppio Tempo — HT/FT Analysis                                       #
 # ------------------------------------------------------------------ #
 

@@ -1,0 +1,622 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Martingala Pareggi{% endblock %}
+
+{% block content %}
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">🎯 Martingala Pareggi</h1>
+        <p class="rigori-desc">Squadre in astinenza da pareggio: chi giocare e quando il prossimo X è statisticamente vicino.</p>
+    </div>
+
+    <div class="rigori-controls">
+        <label class="rigori-select-label">Campionato:</label>
+        <select id="mg-league" class="rigori-select">
+            <option value="">— Seleziona —</option>
+            <option value="all" selected>🌍 Tutti i campionati</option>
+            <option value="italy_serie_a">🇮🇹 Serie A</option>
+            <option value="england_premier_league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+            <option value="spain_la_liga">🇪🇸 La Liga</option>
+            <option value="germany_bundesliga">🇩🇪 Bundesliga</option>
+            <option value="france_ligue_1">🇫🇷 Ligue 1</option>
+            <option value="netherlands_eredivisie">🇳🇱 Eredivisie</option>
+            <option value="england_championship">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship</option>
+            <option value="portugal_primeira_liga">🇵🇹 Primeira Liga</option>
+            <option value="brazil_serie_a">🇧🇷 Brasileirão</option>
+        </select>
+        <button type="button" class="btn-run btn-rigori-load" id="btn-mg-load">
+            <span id="mg-load-icon">🔍</span>
+            <span id="mg-load-text">Analizza</span>
+        </button>
+    </div>
+
+    <div id="mg-status" class="rigori-status" style="display:none"></div>
+
+    <!-- League summary bar -->
+    <div id="mg-league-avg" class="ref-league-avg" style="display:none"></div>
+
+    <!-- Filters -->
+    <div id="mg-filters" class="ref-filters" style="display:none">
+        <div class="ref-filter-group">
+            <input type="text" id="mg-filter-name" class="ref-filter-input" placeholder="🔍 Cerca squadra...">
+        </div>
+        <div class="ref-filter-group">
+            <select id="mg-filter-status" class="ref-filter-select">
+                <option value="">🎯 Tutti gli status</option>
+                <option value="overdue">🔥 Solo Overdue</option>
+                <option value="late">⚠️ Solo In Ritardo</option>
+                <option value="normal">✅ Solo Nella Media</option>
+            </select>
+        </div>
+        <div class="ref-filter-group">
+            <select id="mg-filter-zone" class="ref-filter-select">
+                <option value="">📊 Tutte le zone</option>
+                <option value="TOP">🟢 Solo Alta classifica</option>
+                <option value="MID">⚪ Solo Media classifica</option>
+                <option value="LOW">🔴 Solo Bassa classifica</option>
+            </select>
+        </div>
+        <div class="ref-filter-group">
+            <select id="mg-filter-sort" class="ref-filter-select">
+                <option value="opportunity">🎯 Ordina: Opportunità ↓</option>
+                <option value="drought">🏜️ Astinenza ↓</option>
+                <option value="draw_pct">📊 Draw% ↓</option>
+                <option value="draws">🤝 Pareggi ↓</option>
+                <option value="position">📋 Classifica ↑</option>
+                <option value="team">🔤 Nome A-Z</option>
+            </select>
+        </div>
+        <span id="mg-filter-count" class="ref-filter-count"></span>
+    </div>
+
+    <div id="mg-results" style="display:none">
+        <!-- Desktop table -->
+        <div class="ref-desktop">
+            <div class="rigori-table-wrap">
+                <table class="rigori-table mg-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Squadra</th>
+                            <th title="Posizione in classifica">Pos</th>
+                            <th title="Partite giocate">PG</th>
+                            <th title="Pareggi totali">X</th>
+                            <th title="Percentuale pareggi">X%</th>
+                            <th title="Giornate consecutive senza pareggio">Astinenza</th>
+                            <th title="Media giornate tra un pareggio e l'altro">Media</th>
+                            <th title="Striscia massima senza pareggio">Max</th>
+                            <th title="X% vs Alta / Media / Bassa classifica">vs A/M/B</th>
+                            <th title="Ultime 10 partite">Forma</th>
+                            <th title="Punteggio opportunità (draw% + pressione astinenza + zona)">Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mg-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mobile cards -->
+        <div class="ref-mobile" id="mg-mobile"></div>
+    </div>
+</section>
+
+<style>
+/* ---- Filter bar (shared pattern) ---- */
+.ref-filters {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 12px 16px; margin-bottom: 14px;
+    background: var(--card-bg, #1e293b); border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.ref-filter-group { flex: 1; min-width: 150px; }
+.ref-filter-input, .ref-filter-select {
+    width: 100%; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04); color: #e2e8f0;
+    font-size: 0.78rem; outline: none; transition: border-color 0.2s;
+}
+.ref-filter-input:focus, .ref-filter-select:focus {
+    border-color: #3b82f6;
+}
+.ref-filter-select option { background: #1e293b; color: #e2e8f0; }
+.ref-filter-count {
+    font-size: 0.75rem; color: #94a3b8; font-weight: 600;
+    white-space: nowrap; padding: 6px 12px;
+    background: rgba(255,255,255,0.04); border-radius: 6px;
+}
+@media (max-width: 768px) {
+    .ref-filters { gap: 8px; padding: 10px 12px; }
+    .ref-filter-group { min-width: 100%; flex-basis: 100%; }
+    .ref-filter-group:nth-child(2),
+    .ref-filter-group:nth-child(3) { min-width: calc(50% - 4px); flex-basis: calc(50% - 4px); }
+    .ref-filter-input, .ref-filter-select { font-size: 0.75rem; padding: 7px 10px; }
+    .ref-filter-count { width: 100%; text-align: center; }
+}
+
+/* ---- Desktop / Mobile toggle ---- */
+.ref-mobile { display: none; }
+@media (max-width: 768px) {
+    .ref-desktop { display: none !important; }
+    .ref-mobile { display: block !important; }
+}
+
+/* ---- Martingala specific ---- */
+.mg-table th { white-space: nowrap; font-size: 0.75rem; }
+.mg-table td { vertical-align: middle; }
+
+.mg-drought { font-weight: 700; font-size: 1.1em; }
+.mg-drought-overdue { color: #ef4444; }
+.mg-drought-late { color: #f59e0b; }
+.mg-drought-normal { color: #22c55e; }
+
+.mg-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+.mg-status-overdue { background: #ef4444; color: #fff; animation: mg-pulse 1.5s infinite; }
+.mg-status-late { background: #f59e0b; color: #000; }
+.mg-status-normal { background: #334155; color: #94a3b8; }
+
+@keyframes mg-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.mg-form {
+    display: flex;
+    gap: 2px;
+}
+.mg-form-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: #fff;
+}
+.mg-form-W { background: #22c55e; }
+.mg-form-D { background: #3b82f6; }
+.mg-form-L { background: #ef4444; }
+
+.mg-draw-pct { font-weight: 600; }
+.mg-draw-pct-high { color: #3b82f6; }
+.mg-draw-pct-mid { color: #94a3b8; }
+.mg-draw-pct-low { color: #64748b; }
+
+.mg-venue-split {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.mg-opp-score {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+/* Zone badges */
+.mg-zone {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+.mg-zone-TOP { background: #16a34a; color: #fff; }
+.mg-zone-MID { background: #475569; color: #e2e8f0; }
+.mg-zone-LOW { background: #dc2626; color: #fff; }
+
+.mg-pos { font-weight: 700; font-size: 0.85rem; }
+.mg-opp-score { font-weight: 800; font-size: 1.1rem; text-align: center; }
+
+/* vs zones mini display */
+.mg-vs-zones {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 0.65rem;
+}
+.mg-vs-zone-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.mg-vs-zone-label {
+    width: 10px;
+    font-weight: 700;
+}
+.mg-vs-zone-bar-wrap {
+    width: 40px;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.mg-vs-zone-bar {
+    height: 100%;
+    border-radius: 3px;
+}
+.mg-vs-zone-val {
+    color: #94a3b8;
+    min-width: 28px;
+}
+
+/* Matchup draw% summary */
+.mg-matchup-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 8px;
+}
+.mg-matchup-item {
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    padding: 6px 10px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    min-width: 90px;
+}
+.mg-matchup-item strong {
+    display: block;
+    font-size: 1rem;
+    color: #e2e8f0;
+}
+.mg-matchup-hot strong { color: #ef4444; }
+.mg-matchup-warm strong { color: #f59e0b; }
+.mg-matchup-cold strong { color: #64748b; }
+
+/* Opportunity bar */
+.mg-opp-bar-wrap {
+    width: 50px;
+    height: 6px;
+    background: #1e293b;
+    border-radius: 3px;
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+.mg-opp-bar {
+    height: 100%;
+    border-radius: 3px;
+}
+
+/* Mobile cards */
+.mg-card {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    border-left: 4px solid #334155;
+}
+.mg-card-overdue { border-left-color: #ef4444; }
+.mg-card-late { border-left-color: #f59e0b; }
+.mg-card-normal { border-left-color: #334155; }
+
+.mg-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.mg-card-team {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #e2e8f0;
+}
+.mg-card-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.mg-card-stat {
+    text-align: center;
+}
+.mg-card-stat-val {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.mg-card-stat-lbl {
+    font-size: 0.65rem;
+    color: #64748b;
+    text-transform: uppercase;
+}
+.mg-card-form {
+    display: flex;
+    gap: 3px;
+    margin-top: 8px;
+    justify-content: center;
+}
+.mg-card-form-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #fff;
+    flex-direction: column;
+}
+.mg-card-form-md {
+    font-size: 0.5rem;
+    opacity: 0.7;
+}
+.mg-card-draw-scores {
+    margin-top: 8px;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    text-align: center;
+}
+
+/* Summary stats bar */
+.mg-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 16px;
+    background: #1e293b;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+.mg-summary-item {
+    font-size: 0.82rem;
+    color: #94a3b8;
+}
+.mg-summary-item strong {
+    color: #e2e8f0;
+}
+.mg-summary-item .mg-hot { color: #ef4444; font-weight: 700; }
+.mg-summary-item .mg-warn { color: #f59e0b; font-weight: 700; }
+</style>
+
+<script>
+(function() {
+    var leagueSel = document.getElementById('mg-league');
+    var btnLoad = document.getElementById('btn-mg-load');
+    var statusEl = document.getElementById('mg-status');
+    var avgEl = document.getElementById('mg-league-avg');
+    var filtersEl = document.getElementById('mg-filters');
+    var resultsEl = document.getElementById('mg-results');
+    var tbody = document.getElementById('mg-tbody');
+    var mobileEl = document.getElementById('mg-mobile');
+
+    var allData = [];
+
+    btnLoad.addEventListener('click', function() { loadData(); });
+    // Auto-load on page load
+    window.addEventListener('DOMContentLoaded', function() { loadData(); });
+
+    function loadData() {
+        var league = leagueSel.value;
+        if (!league) return;
+
+        statusEl.style.display = 'block';
+        statusEl.innerHTML = '<span class="status-loading">Caricamento...</span>';
+        resultsEl.style.display = 'none';
+        filtersEl.style.display = 'none';
+        avgEl.style.display = 'none';
+
+        fetch('/api/martingala/' + league)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    statusEl.innerHTML = '<span class="status-error">' + (data.error || 'Errore') + '</span>';
+                    return;
+                }
+                statusEl.style.display = 'none';
+                allData = data.data || [];
+                renderSummary(data);
+                filtersEl.style.display = 'flex';
+                resultsEl.style.display = 'block';
+                applyFilters();
+            })
+            .catch(function(e) {
+                statusEl.innerHTML = '<span class="status-error">Errore: ' + e.message + '</span>';
+            });
+    }
+
+    function renderSummary(data) {
+        var overdue = data.data.filter(function(t) { return t.status === 'overdue'; }).length;
+        var late = data.data.filter(function(t) { return t.status === 'late'; }).length;
+        avgEl.style.display = 'block';
+        avgEl.className = 'mg-summary-wrap';
+
+        // Summary bar
+        var html = '<div class="mg-summary">' +
+            '<span class="mg-summary-item"><strong>' + data.league + '</strong></span>' +
+            '<span class="mg-summary-item">Draw%: <strong>' + data.league_draw_pct + '%</strong></span>' +
+            '<span class="mg-summary-item">Astinenza media: <strong>' + data.avg_drought + '</strong></span>' +
+            '<span class="mg-summary-item">🔥 Overdue: <span class="mg-hot">' + overdue + '</span></span>' +
+            '<span class="mg-summary-item">⚠️ In Ritardo: <span class="mg-warn">' + late + '</span></span>' +
+            '<span class="mg-summary-item">Squadre: <strong>' + data.teams_count + '</strong></span>' +
+            '</div>';
+
+        // Matchup draw% bar
+        var mu = data.matchup_draw_pct || {};
+        var muKeys = [
+            ['LOW vs LOW', 'Bassa vs Bassa'],
+            ['MID vs MID', 'Media vs Media'],
+            ['TOP vs TOP', 'Alta vs Alta'],
+            ['LOW vs MID', 'Bassa vs Media'],
+            ['MID vs TOP', 'Media vs Alta'],
+            ['LOW vs TOP', 'Bassa vs Alta']
+        ];
+        html += '<div class="mg-matchup-bar">';
+        muKeys.forEach(function(pair) {
+            var key = pair[0], label = pair[1];
+            var pct = mu[key];
+            if (pct === undefined) return;
+            var cls = pct >= 35 ? 'mg-matchup-hot' : (pct >= 25 ? 'mg-matchup-warm' : 'mg-matchup-cold');
+            html += '<div class="mg-matchup-item ' + cls + '"><strong>' + pct + '%</strong>' + label + '</div>';
+        });
+        html += '</div>';
+
+        avgEl.innerHTML = html;
+    }
+
+    // Filters
+    var filterName = document.getElementById('mg-filter-name');
+    var filterStatus = document.getElementById('mg-filter-status');
+    var filterZone = document.getElementById('mg-filter-zone');
+    var filterSort = document.getElementById('mg-filter-sort');
+    var filterCount = document.getElementById('mg-filter-count');
+
+    filterName.addEventListener('input', applyFilters);
+    filterStatus.addEventListener('change', applyFilters);
+    filterZone.addEventListener('change', applyFilters);
+    filterSort.addEventListener('change', applyFilters);
+
+    function applyFilters() {
+        var nameQ = (filterName.value || '').toLowerCase();
+        var statusQ = filterStatus.value;
+        var zoneQ = filterZone.value;
+        var sortQ = filterSort.value;
+
+        var filtered = allData.filter(function(t) {
+            if (nameQ && t.team.toLowerCase().indexOf(nameQ) === -1) return false;
+            if (statusQ && t.status !== statusQ) return false;
+            if (zoneQ && t.zone !== zoneQ) return false;
+            return true;
+        });
+
+        // Sort
+        filtered.sort(function(a, b) {
+            if (sortQ === 'drought') return b.drought - a.drought;
+            if (sortQ === 'draw_pct') return b.draw_pct - a.draw_pct;
+            if (sortQ === 'draws') return b.draws - a.draws;
+            if (sortQ === 'team') return a.team.localeCompare(b.team);
+            if (sortQ === 'position') return a.position - b.position;
+            return b.opportunity - a.opportunity; // default
+        });
+
+        filterCount.textContent = filtered.length + ' / ' + allData.length + ' squadre';
+        renderTable(filtered);
+        renderMobile(filtered);
+    }
+
+    function renderTable(teams) {
+        var html = '';
+        teams.forEach(function(t, i) {
+            var drClass = t.status === 'overdue' ? 'mg-drought-overdue' : (t.status === 'late' ? 'mg-drought-late' : 'mg-drought-normal');
+            var stClass = 'mg-status-' + t.status;
+            var dpClass = t.draw_pct >= 30 ? 'mg-draw-pct-high' : (t.draw_pct >= 20 ? 'mg-draw-pct-mid' : 'mg-draw-pct-low');
+            var drawPctShow = t.draw_pct;
+
+            // Form dots with opponent zone color on border
+            var formHtml = '<div class="mg-form">';
+            t.form.forEach(function(f) {
+                var zBorder = f.opponent_zone === 'TOP' ? 'border-bottom:2px solid #16a34a' :
+                              (f.opponent_zone === 'LOW' ? 'border-bottom:2px solid #dc2626' : '');
+                formHtml += '<div class="mg-form-dot mg-form-' + f.result + '" style="' + zBorder + '" title="GG' + f.matchday + ' ' + (f.is_home ? 'vs' : '@') + ' ' + f.opponent + ' (' + f.opponent_pos + '°) ' + f.score + '">' +
+                    (f.result === 'D' ? 'X' : f.result === 'W' ? 'V' : 'P') + '</div>';
+            });
+            formHtml += '</div>';
+
+            // vs zones mini bars
+            var vsHtml = '<div class="mg-vs-zones">';
+            ['TOP', 'MID', 'LOW'].forEach(function(z) {
+                var label = z === 'TOP' ? 'A' : (z === 'MID' ? 'M' : 'B');
+                var pct = t.draw_pct_vs && t.draw_pct_vs[z] !== undefined ? t.draw_pct_vs[z] : '-';
+                var barW = typeof pct === 'number' ? Math.min(pct, 60) : 0;
+                var barColor = typeof pct === 'number' ? (pct >= 35 ? '#3b82f6' : (pct >= 25 ? '#64748b' : '#334155')) : '#334155';
+                vsHtml += '<div class="mg-vs-zone-row">' +
+                    '<span class="mg-vs-zone-label">' + label + '</span>' +
+                    '<div class="mg-vs-zone-bar-wrap"><div class="mg-vs-zone-bar" style="width:' + barW + '%;background:' + barColor + '"></div></div>' +
+                    '<span class="mg-vs-zone-val">' + (typeof pct === 'number' ? pct + '%' : '-') + '</span></div>';
+            });
+            vsHtml += '</div>';
+
+            html += '<tr>' +
+                '<td>' + (i + 1) + '</td>' +
+                '<td><strong>' + (t.league_flag ? t.league_flag + ' ' : '') + t.team + '</strong></td>' +
+                '<td><span class="mg-pos">' + t.position + '</span> <span class="mg-zone mg-zone-' + t.zone + '">' + t.zone_label + '</span></td>' +
+                '<td>' + t.matches + '</td>' +
+                '<td><strong>' + t.draws + '</strong></td>' +
+                '<td><span class="mg-draw-pct ' + dpClass + '">' + drawPctShow + '%</span></td>' +
+                '<td><span class="mg-drought ' + drClass + '">' + t.drought + '</span></td>' +
+                '<td>' + t.avg_between + '</td>' +
+                '<td>' + t.max_drought + '</td>' +
+                '<td>' + vsHtml + '</td>' +
+                '<td>' + formHtml + '</td>' +
+                '<td><div class="mg-opp-score" style="color:' + (t.opportunity >= 70 ? '#ef4444' : (t.opportunity >= 50 ? '#f59e0b' : '#94a3b8')) + '">' + t.opportunity + '</div></td>' +
+                '<td><span class="mg-status-badge ' + stClass + '">' + t.status_label + '</span></td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    function renderMobile(teams) {
+        var html = '';
+        teams.forEach(function(t) {
+            var cardClass = 'mg-card mg-card-' + t.status;
+            var drClass = t.status === 'overdue' ? 'mg-drought-overdue' : (t.status === 'late' ? 'mg-drought-late' : 'mg-drought-normal');
+            var stClass = 'mg-status-' + t.status;
+            var drawPctShow = t.draw_pct;
+
+            // Form dots with matchday labels
+            var formHtml = '<div class="mg-card-form">';
+            t.form.forEach(function(f) {
+                formHtml += '<div class="mg-card-form-dot mg-form-' + f.result + '">' +
+                    (f.result === 'D' ? 'X' : f.result === 'W' ? 'V' : 'P') +
+                    '<span class="mg-card-form-md">' + f.matchday + '</span></div>';
+            });
+            formHtml += '</div>';
+
+            // Draw scores
+            var scoresHtml = '';
+            if (t.draw_scores && Object.keys(t.draw_scores).length > 0) {
+                var parts = [];
+                for (var sc in t.draw_scores) {
+                    parts.push(sc + ' (' + t.draw_scores[sc] + 'x)');
+                }
+                scoresHtml = '<div class="mg-card-draw-scores">Risultati X: ' + parts.join(', ') + '</div>';
+            }
+
+            // vs zone for mobile
+            var vsT = t.draw_pct_vs && t.draw_pct_vs.TOP !== undefined ? t.draw_pct_vs.TOP + '%' : '-';
+            var vsM = t.draw_pct_vs && t.draw_pct_vs.MID !== undefined ? t.draw_pct_vs.MID + '%' : '-';
+            var vsL = t.draw_pct_vs && t.draw_pct_vs.LOW !== undefined ? t.draw_pct_vs.LOW + '%' : '-';
+
+            html += '<div class="' + cardClass + '">' +
+                '<div class="mg-card-header">' +
+                    '<span class="mg-card-team">' + (t.league_flag ? t.league_flag + ' ' : '') + t.team + ' <span class="mg-zone mg-zone-' + t.zone + '">' + t.position + '° ' + t.zone_label + '</span></span>' +
+                    '<span class="mg-status-badge ' + stClass + '">' + t.status_label + '</span>' +
+                '</div>' +
+                '<div class="mg-card-stats">' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val ' + drClass + '">' + t.drought + '</div><div class="mg-card-stat-lbl">Astinenza</div></div>' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val">' + drawPctShow + '%</div><div class="mg-card-stat-lbl">Draw%</div></div>' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val">' + t.draws + '/' + t.matches + '</div><div class="mg-card-stat-lbl">Pareggi</div></div>' +
+                '</div>' +
+                '<div class="mg-card-stats">' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val">' + t.avg_between + '</div><div class="mg-card-stat-lbl">Media tra X</div></div>' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val">' + t.max_drought + '</div><div class="mg-card-stat-lbl">Max senza X</div></div>' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val">' + t.draw_pct_home + '% / ' + t.draw_pct_away + '%</div><div class="mg-card-stat-lbl">Casa / Trasf</div></div>' +
+                '</div>' +
+                '<div class="mg-card-stats">' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val" style="font-size:0.85rem">' + vsT + '</div><div class="mg-card-stat-lbl">vs Alta</div></div>' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val" style="font-size:0.85rem">' + vsM + '</div><div class="mg-card-stat-lbl">vs Media</div></div>' +
+                    '<div class="mg-card-stat"><div class="mg-card-stat-val" style="font-size:0.85rem">' + vsL + '</div><div class="mg-card-stat-lbl">vs Bassa</div></div>' +
+                '</div>' +
+                formHtml +
+                scoresHtml +
+                '</div>';
+        });
+        mobileEl.innerHTML = html;
+    }
+})();
+</script>
+{% endblock %}
