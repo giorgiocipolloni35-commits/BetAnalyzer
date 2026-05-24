@@ -128,6 +128,34 @@ def run_weekly():
     logger.info("=" * 50)
 
 
+def run_brazil():
+    """Brasileirão player stats from Transfermarkt — every 3 days."""
+    logger.info("=" * 50)
+    logger.info("🇧🇷 Brazil TM scrape START")
+    logger.info("=" * 50)
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "fetch_brazil_stats.py"],
+            capture_output=True, text=True, timeout=900,  # 15 min max
+        )
+        if result.stdout:
+            lines = result.stdout.strip().split("\n")
+            for line in lines[-5:]:
+                logger.info(f"  {line}")
+        if result.returncode != 0:
+            logger.error(f"  Brazil scrape failed (exit {result.returncode}): {result.stderr[-200:]}")
+        else:
+            logger.info("  ✅ Brazil scrape OK")
+    except subprocess.TimeoutExpired:
+        logger.error("  Brazil scrape timeout (15 min)")
+    except Exception as e:
+        logger.error(f"  Brazil scrape error: {e}")
+
+    logger.info("✅ Brazil TM scrape DONE")
+    logger.info("=" * 50)
+
+
 if __name__ == "__main__":
     scheduler = BlockingScheduler(timezone="UTC")
 
@@ -136,6 +164,9 @@ if __name__ == "__main__":
 
     # Weekly job: Monday 05:00 UTC (= 07:00 CEST) — after nightly finishes
     scheduler.add_job(run_weekly, "cron", day_of_week="mon", hour=5, minute=0, id="weekly")
+
+    # Brazil job: every 3 days at 06:00 UTC (= 08:00 CEST)
+    scheduler.add_job(run_brazil, "interval", days=3, hours=6, id="brazil")
 
     # Run immediately on startup if we missed today's window
     now = datetime.utcnow()
@@ -146,6 +177,7 @@ if __name__ == "__main__":
     logger.info(f"📅 Scheduler avviato")
     logger.info(f"   Nightly: 04:15 UTC ogni giorno → {scheduler.get_job('nightly').next_run_time}")
     logger.info(f"   Weekly:  Lunedì 05:00 UTC      → {scheduler.get_job('weekly').next_run_time}")
+    logger.info(f"   Brazil:  ogni 3 giorni 06:00 UTC → {scheduler.get_job('brazil').next_run_time}")
 
     try:
         scheduler.start()
