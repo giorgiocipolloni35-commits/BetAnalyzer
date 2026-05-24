@@ -567,6 +567,8 @@ def _find_league_key(league_name: str) -> str | None:
         "Ligue 1": "france_ligue_1",
         "Superliga": "denmark_superliga",
         "Premiership": "scotland_premiership",
+        "Série A": "brazil_serie_a",
+        "Brasileirão Série A": "brazil_serie_a",
     }
     return mapping.get(league_name)
 

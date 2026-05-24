@@ -15,6 +15,7 @@ LEAGUE_CODES = {
     "germany_bundesliga":     "BL1",
     "denmark_superliga":      "DSL",
     "scotland_premiership":   "SPL",
+    "brazil_serie_a":         "BSA",
 }
 
 BASE_URL = "https://api.football-data.org/v4"
