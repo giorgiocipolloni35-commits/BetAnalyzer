@@ -283,7 +283,7 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
         home_id = d.get("home_id")
         away_id = d.get("away_id")
         rs["match_details"].append({
-            "matchday": d.get("matchday", 0),
+            "matchday": d.get("matchday") or 0,
             "home_id": home_id,
             "away_id": away_id,
             "ft_home": ft.get("home", 0),
@@ -356,7 +356,7 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
             else: goal_zones["76-90"] += 1
 
         # Sort match details by matchday desc, keep last 5
-        match_history = sorted(rs["match_details"], key=lambda x: x["matchday"], reverse=True)[:5]
+        match_history = sorted(rs["match_details"], key=lambda x: x.get("matchday") or 0, reverse=True)[:5]
 
         entry = {
             "name": name,
