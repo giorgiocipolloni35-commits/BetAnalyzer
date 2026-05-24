@@ -116,50 +116,56 @@ def _fetch_referee_stats(tm_id: int, slug: str, season: str = CURRENT_SEASON) ->
         total = None
 
         # Parse tbody rows (per-competition)
+        # TM table columns (rightmost 5 are always numeric stats):
+        #   ... | Competition | Appearances | Yellows | 2nd Yellows | Reds | Penalties
+        # We use the LAST 5 td cells to avoid picking up stray numbers
+        # (e.g. division numbers, season years) from earlier columns.
         tbody = table.find("tbody")
         if tbody:
             for tr in tbody.find_all("tr"):
                 tds = tr.find_all("td")
-                if len(tds) < 5:
+                if len(tds) < 6:
                     continue
-                cells = [td.get_text(strip=True) for td in tds]
-                # cells: ['', 'Serie B', '15', '56', '1', '1', '4']
-                # Find the competition name and numeric values
-                comp_name = ""
-                nums = []
-                for c in cells:
-                    if c.isdigit():
-                        nums.append(int(c))
-                    elif c and not c.startswith("€") and len(c) > 1:
-                        comp_name = c
 
-                if comp_name and len(nums) >= 4:
+                # Competition name: scan non-numeric cells (skip first empty cell)
+                comp_name = ""
+                for td in tds[:-5]:
+                    text = td.get_text(strip=True)
+                    if text and len(text) > 1 and not text.isdigit() and not text.startswith("€"):
+                        comp_name = text
+
+                # Stats: last 5 columns = App, Y, Y2, R, Pen
+                stat_cells = [td.get_text(strip=True) for td in tds[-5:]]
+                nums = []
+                for c in stat_cells:
+                    nums.append(int(c) if c.isdigit() else 0)
+
+                if comp_name and len(nums) == 5 and nums[0] > 0:
                     competitions.append({
                         "competition": comp_name,
                         "appearances": nums[0],
                         "yellows": nums[1],
-                        "second_yellows": nums[2] if len(nums) > 2 else 0,
-                        "reds": nums[3] if len(nums) > 3 else 0,
-                        "penalties": nums[4] if len(nums) > 4 else 0,
+                        "second_yellows": nums[2],
+                        "reds": nums[3],
+                        "penalties": nums[4],
                     })
 
-        # Parse tfoot (total row)
+        # Parse tfoot (total row) — same last-5-columns approach
         tfoot = table.find("tfoot")
         if tfoot:
             for tr in tfoot.find_all("tr"):
                 tds = tr.find_all("td")
-                nums = []
-                for td in tds:
-                    text = td.get_text(strip=True)
-                    if text.isdigit():
-                        nums.append(int(text))
-                if len(nums) >= 4:
+                if len(tds) < 5:
+                    continue
+                stat_cells = [td.get_text(strip=True) for td in tds[-5:]]
+                nums = [int(c) if c.isdigit() else 0 for c in stat_cells]
+                if nums[0] > 0:
                     total = {
                         "appearances": nums[0],
                         "yellows": nums[1],
-                        "second_yellows": nums[2] if len(nums) > 2 else 0,
-                        "reds": nums[3] if len(nums) > 3 else 0,
-                        "penalties": nums[4] if len(nums) > 4 else 0,
+                        "second_yellows": nums[2],
+                        "reds": nums[3],
+                        "penalties": nums[4],
                     }
 
         # Fallback: sum from competitions
