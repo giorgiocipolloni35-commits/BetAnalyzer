@@ -68,6 +68,9 @@
         <span id="mg-filter-count" class="ref-filter-count"></span>
     </div>
 
+    <!-- Hot matchups -->
+    <div id="mg-hot" style="display:none"></div>
+
     <div id="mg-results" style="display:none">
         <!-- Desktop table -->
         <div class="ref-desktop">
@@ -274,6 +277,89 @@
 .mg-matchup-warm strong { color: #f59e0b; }
 .mg-matchup-cold strong { color: #64748b; }
 
+/* Hot matchups section */
+.mg-hot-section {
+    margin-bottom: 16px;
+}
+.mg-hot-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-bottom: 10px;
+    padding-left: 4px;
+}
+.mg-hot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 10px;
+}
+.mg-hot-card {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 12px 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+    overflow: hidden;
+}
+.mg-hot-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+}
+.mg-hot-fire::before { background: linear-gradient(90deg, #ef4444, #f59e0b); }
+.mg-hot-warm::before { background: linear-gradient(90deg, #f59e0b, #64748b); }
+.mg-hot-card-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.mg-hot-team {
+    text-align: center;
+    flex: 1;
+}
+.mg-hot-team-name {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #e2e8f0;
+}
+.mg-hot-team-info {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+.mg-hot-vs {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 700;
+    padding: 0 8px;
+}
+.mg-hot-stats {
+    display: flex;
+    justify-content: space-around;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 8px;
+}
+.mg-hot-stat-val {
+    font-weight: 700;
+    color: #e2e8f0;
+    font-size: 0.85rem;
+}
+.mg-hot-combo {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(239,68,68,0.15);
+    color: #ef4444;
+}
+
 /* Opportunity bar */
 .mg-opp-bar-wrap {
     width: 50px;
@@ -420,6 +506,7 @@
                 statusEl.style.display = 'none';
                 allData = data.data || [];
                 renderSummary(data);
+                renderHotMatchups(data.hot_matchups || []);
                 filtersEl.style.display = 'flex';
                 resultsEl.style.display = 'block';
                 applyFilters();
@@ -469,6 +556,48 @@
     }
 
     // Filters
+    var hotEl = document.getElementById('mg-hot');
+
+    function renderHotMatchups(matchups) {
+        if (!matchups || matchups.length === 0) {
+            hotEl.style.display = 'none';
+            return;
+        }
+        hotEl.style.display = 'block';
+        var html = '<div class="mg-hot-section">' +
+            '<div class="mg-hot-title">🔥 Hot Matchups — Prossime partite con alto potenziale X</div>' +
+            '<div class="mg-hot-grid">';
+
+        matchups.forEach(function(m) {
+            var cardClass = m.combined_score >= 50 ? 'mg-hot-fire' : 'mg-hot-warm';
+            var hStatus = m.home_status === 'overdue' ? '🔥' : (m.home_status === 'late' ? '⚠️' : '');
+            var aStatus = m.away_status === 'overdue' ? '🔥' : (m.away_status === 'late' ? '⚠️' : '');
+
+            html += '<div class="mg-hot-card ' + cardClass + '">' +
+                '<div class="mg-hot-combo">' + m.combined_score + '</div>' +
+                '<div class="mg-hot-card-teams">' +
+                    '<div class="mg-hot-team">' +
+                        '<div class="mg-hot-team-name">' + (m.home_flag || '') + ' ' + m.home + '</div>' +
+                        '<div class="mg-hot-team-info">' + m.home_pos + '° | X%: ' + m.home_draw_pct + '% | DR: ' + m.home_drought + ' ' + hStatus + '</div>' +
+                    '</div>' +
+                    '<div class="mg-hot-vs">vs</div>' +
+                    '<div class="mg-hot-team">' +
+                        '<div class="mg-hot-team-name">' + m.away + '</div>' +
+                        '<div class="mg-hot-team-info">' + m.away_pos + '° | X%: ' + m.away_draw_pct + '% | DR: ' + m.away_drought + ' ' + aStatus + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="mg-hot-stats">' +
+                    '<span>Score: <span class="mg-hot-stat-val">' + m.home_opp + '</span> / <span class="mg-hot-stat-val">' + m.away_opp + '</span></span>' +
+                    '<span>Tipo: <span class="mg-hot-stat-val">' + m.matchup_type + '</span></span>' +
+                    '<span>' + (m.date ? m.date.substring(0, 16) : '') + '</span>' +
+                '</div>' +
+                '</div>';
+        });
+
+        html += '</div></div>';
+        hotEl.innerHTML = html;
+    }
+
     var filterName = document.getElementById('mg-filter-name');
     var filterStatus = document.getElementById('mg-filter-status');
     var filterZone = document.getElementById('mg-filter-zone');

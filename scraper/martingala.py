@@ -335,6 +335,9 @@ def analyze_martingala(league_key: str) -> dict:
     league_draw_pct = round(total_draws_all / max(total_matches, 1) * 100, 1)
     avg_drought = round(sum(t["drought"] for t in result) / max(len(result), 1), 1)
 
+    # ── Hot matchups: upcoming matches where both teams have high opportunity ──
+    hot_matchups = _find_hot_matchups(result)
+
     return {
         "success": True,
         "league": league_name,
@@ -343,6 +346,7 @@ def analyze_martingala(league_key: str) -> dict:
         "league_draw_pct": league_draw_pct,
         "avg_drought": avg_drought,
         "matchup_draw_pct": matchup_draw_pct,  # {"LOW vs LOW": 44.8, ...}
+        "hot_matchups": hot_matchups,
         "data": result,
     }
 
@@ -393,6 +397,117 @@ def _analyze_all_leagues() -> dict:
         "league_draw_pct": league_draw_pct,
         "avg_drought": avg_drought,
         "matchup_draw_pct": {},
+        "hot_matchups": _find_hot_matchups(all_data),
         "leagues_loaded": leagues_loaded,
         "data": all_data,
     }
+
+
+def _load_upcoming_matches() -> list:
+    """Load upcoming matches from Sportmonks cache."""
+    try:
+        path = "cache/sportmonks_matches.json"
+        if not os.path.exists(path):
+            return []
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _fuzzy_match_name(sm_name: str, fd_name: str) -> bool:
+    """Check if a Sportmonks short name matches an FD full name.
+
+    Examples: 'Arsenal' matches 'Arsenal FC',
+              'Juventus' matches 'Juventus FC',
+              'Brighton & Hove Albion' matches 'Brighton & Hove Albion FC',
+              'Napoli' matches 'SSC Napoli'.
+    """
+    sm = sm_name.lower().strip()
+    fd = fd_name.lower().strip()
+    if sm == fd:
+        return True
+    # SM name contained in FD name or vice versa
+    if sm in fd or fd in sm:
+        return True
+    # Try matching significant words (skip FC, SC, SS, AC, etc.)
+    skip = {"fc", "sc", "ss", "ssc", "ac", "acf", "us", "as", "afc",
+            "cf", "cd", "rc", "rcd", "sd", "ud", "ca", "se", "sv",
+            "1909", "1913", "1907", "1899", "1893", "1904", "calcio",
+            "club", "de", "da", "do", "1846"}
+    sm_words = {w for w in sm.split() if w not in skip and len(w) > 2}
+    fd_words = {w for w in fd.split() if w not in skip and len(w) > 2}
+    if sm_words and fd_words:
+        overlap = sm_words & fd_words
+        if overlap and len(overlap) >= min(len(sm_words), len(fd_words)):
+            return True
+    return False
+
+
+def _find_hot_matchups(teams_data: list) -> list:
+    """Find upcoming matches where both teams have elevated opportunity scores."""
+    upcoming = _load_upcoming_matches()
+    if not upcoming:
+        return []
+
+    # Build name → team data lookup
+    team_lookup = {}
+    for t in teams_data:
+        team_lookup[t["team"]] = t
+
+    hot = []
+    for match in upcoming:
+        home_sm = match.get("home_team", "")
+        away_sm = match.get("away_team", "")
+        date = match.get("commence_time", "")
+
+        # Find matching teams in our data
+        home_data = None
+        away_data = None
+        for fd_name, t in team_lookup.items():
+            if not home_data and _fuzzy_match_name(home_sm, fd_name):
+                home_data = t
+            if not away_data and _fuzzy_match_name(away_sm, fd_name):
+                away_data = t
+            if home_data and away_data:
+                break
+
+        if not home_data or not away_data:
+            continue
+
+        # Combined score = average of both opportunities
+        combined = round((home_data["opportunity"] + away_data["opportunity"]) / 2)
+
+        # Both must have at least some signal (opportunity > 30)
+        if home_data["opportunity"] < 30 and away_data["opportunity"] < 30:
+            continue
+
+        # Matchup zone
+        hz = home_data["zone"]
+        az = away_data["zone"]
+        matchup_key = " vs ".join(sorted([hz, az]))
+
+        hot.append({
+            "home": home_data["team"],
+            "away": away_data["team"],
+            "home_flag": home_data.get("league_flag", ""),
+            "date": date,
+            "combined_score": combined,
+            "home_opp": home_data["opportunity"],
+            "away_opp": away_data["opportunity"],
+            "home_drought": home_data["drought"],
+            "away_drought": away_data["drought"],
+            "home_draw_pct": home_data["draw_pct"],
+            "away_draw_pct": away_data["draw_pct"],
+            "home_status": home_data["status"],
+            "away_status": away_data["status"],
+            "home_pos": home_data["position"],
+            "away_pos": away_data["position"],
+            "home_zone": hz,
+            "away_zone": az,
+            "matchup_type": matchup_key,
+        })
+
+    # Sort by combined score descending
+    hot.sort(key=lambda x: x["combined_score"], reverse=True)
+    return hot
