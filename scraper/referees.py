@@ -305,26 +305,30 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
 
         # Also inject TM-only referees not in FD cache at all
         # (e.g., Zanotti with 0 SA matches but assigned to upcoming games)
-        for tm_name, tm in tm_ref_stats.items():
-            if tm_name not in ref_map and tm.get("appearances", 0) >= 3 and not tm.get("not_found"):
-                rs = {
-                    "name": tm_name, "nationality": None, "leagues": set(),
-                    "matches": 0, "yellows": 0, "reds": 0, "yellow_reds": 0,
-                    "total_cards": 0, "penalties_awarded": 0, "penalty_minutes": [],
-                    "goals_total": 0, "goals_ht": 0, "goals_ft": 0,
-                    "home_wins": 0, "away_wins": 0, "draws": 0,
-                    "clean_sheets": 0, "high_scoring": 0,
-                    "cards_first_half": 0, "cards_second_half": 0,
-                    "cards_early": 0, "cards_late": 0,
-                    "cards_by_minute": [], "goals_by_minute": [],
-                    "subs_total": 0, "var_referees": set(), "match_details": [],
-                    "cards_when_draw": 0, "cards_when_home_lead": 0,
-                    "cards_when_away_lead": 0, "cards_to_home": 0,
-                    "cards_to_away": 0, "minutes_draw": 0,
-                    "minutes_home_lead": 0, "minutes_away_lead": 0,
-                }
-                _merge_tm_into_ref(rs, tm)
-                ref_map[tm_name] = rs
+        # ONLY for "ALL" view — for single-league views we can't know
+        # which league a TM-only referee belongs to, so we skip them
+        # to avoid polluting e.g. Serie A with English referees.
+        if league_code == "ALL":
+            for tm_name, tm in tm_ref_stats.items():
+                if tm_name not in ref_map and tm.get("appearances", 0) >= 3 and not tm.get("not_found"):
+                    rs = {
+                        "name": tm_name, "nationality": None, "leagues": set(),
+                        "matches": 0, "yellows": 0, "reds": 0, "yellow_reds": 0,
+                        "total_cards": 0, "penalties_awarded": 0, "penalty_minutes": [],
+                        "goals_total": 0, "goals_ht": 0, "goals_ft": 0,
+                        "home_wins": 0, "away_wins": 0, "draws": 0,
+                        "clean_sheets": 0, "high_scoring": 0,
+                        "cards_first_half": 0, "cards_second_half": 0,
+                        "cards_early": 0, "cards_late": 0,
+                        "cards_by_minute": [], "goals_by_minute": [],
+                        "subs_total": 0, "var_referees": set(), "match_details": [],
+                        "cards_when_draw": 0, "cards_when_home_lead": 0,
+                        "cards_when_away_lead": 0, "cards_to_home": 0,
+                        "cards_to_away": 0, "minutes_draw": 0,
+                        "minutes_home_lead": 0, "minutes_away_lead": 0,
+                    }
+                    _merge_tm_into_ref(rs, tm)
+                    ref_map[tm_name] = rs
 
     # Convert to list with computed metrics
     result = []
