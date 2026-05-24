@@ -2323,6 +2323,44 @@ def api_arbitri(league_key):
     from scraper.referees import analyze_referees
     try:
         result = analyze_referees(league_key)
+        # Enrich with VAR stats from var_stats.json
+        try:
+            var_path = os.path.join(os.path.dirname(__file__), "data", "var_stats.json")
+            if os.path.exists(var_path):
+                with open(var_path) as vf:
+                    var_data = json.load(vf)
+                var_refs = var_data.get("referees", {})
+                avg_vpm = var_data.get("avg_var_per_match", 0.5)
+                # Build surname→VAR data map for fuzzy matching
+                # (Sportmonks uses "S. Sozza", FD uses "Simone Sozza")
+                var_by_surname = {}
+                for vname, vdata in var_refs.items():
+                    surname = vname.split()[-1].lower() if vname else ""
+                    if surname:
+                        var_by_surname[surname] = (vname, vdata)
+                for ref in result.get("data", result.get("referees", [])):
+                    ref_name = ref.get("name", "")
+                    # Try exact match first, then surname
+                    vr = var_refs.get(ref_name)
+                    if not vr:
+                        surname = ref_name.split()[-1].lower() if ref_name else ""
+                        match = var_by_surname.get(surname)
+                        if match:
+                            vr = match[1]
+                    if vr and vr.get("matches", 0) >= 3:
+                        ref["var_per_match"] = vr["var_per_match"]
+                        ref["var_match_pct"] = vr["var_match_pct"]
+                        ref["var_reviews"] = vr["var_reviews"]
+                        ref["var_overturned"] = vr["var_overturned"]
+                        ref["var_confirmed"] = vr["var_confirmed"]
+                        ref["var_overturn_pct"] = vr["var_overturn_pct"]
+                        ref["var_penalty"] = vr["var_penalty"]
+                        ref["var_goal"] = vr["var_goal"]
+                        ref["var_red"] = vr["var_red"]
+                        ref["var_matches_total"] = vr["matches"]
+                        ref["var_avg_league"] = avg_vpm
+        except Exception as e:
+            logger.debug(f"VAR stats enrichment: {e}")
         return jsonify(result)
     except Exception as e:
         logger.error(f"Errore analisi arbitri: {e}")

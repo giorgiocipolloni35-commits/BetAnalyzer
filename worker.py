@@ -798,7 +798,15 @@ class BetAnalyzerWorker:
                             if os.path.exists(var_path):
                                 with open(var_path) as _vf:
                                     var_data = _json.load(_vf)
-                                var_ref = var_data.get("referees", {}).get(ref_name)
+                                var_refs_all = var_data.get("referees", {})
+                                var_ref = var_refs_all.get(ref_name)
+                                # Fuzzy match by surname if exact fails
+                                if not var_ref and ref_name:
+                                    ref_surname = ref_name.split()[-1].lower()
+                                    for vn, vd in var_refs_all.items():
+                                        if vn.split()[-1].lower() == ref_surname:
+                                            var_ref = vd
+                                            break
                                 avg_vpm = var_data.get("avg_var_per_match", 0.5)
                                 if var_ref and var_ref.get("matches", 0) >= 3:
                                     vpm = var_ref["var_per_match"]
