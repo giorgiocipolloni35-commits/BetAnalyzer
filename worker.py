@@ -386,6 +386,13 @@ class BetAnalyzerWorker:
                     m_date = m_date.replace(tzinfo=timezone.utc)
                 # Solo partite nelle prossime 24h (e non già iniziate da più di 2h)
                 if (now - timedelta(hours=2)) < m_date < (now + timedelta(hours=24)):
+                    lk = self._get_league_key(m.league)
+                    match_odds = m.odds
+
+                    # Sofascore odds fallback for leagues without Odds API
+                    if not match_odds and lk in self.SOFASCORE_TOURNAMENTS:
+                        match_odds = self._get_sofascore_odds(m.home_team, m.away_team, lk)
+
                     upcoming.append({
                         "match_id": m.id,
                         "home": m.home_team,
@@ -393,9 +400,9 @@ class BetAnalyzerWorker:
                         "league": m.league,
                         "match_date": m.commence_time,
                         "commence_time": m.commence_time,
-                        "league_key": self._get_league_key(m.league),
+                        "league_key": lk,
                         "kickoff_utc": m_date,
-                        "odds": m.odds,  # BookmakerOdds objects for Value Bet calc
+                        "odds": match_odds,
                     })
             except Exception:
                 continue
@@ -424,46 +431,46 @@ class BetAnalyzerWorker:
         "brazil_serie_a": (325, 87678),  # (tournament_id, season_id 2025/26)
     }
 
-    def _get_sofascore_lineups(self, home: str, away: str, league_key: str) -> dict | None:
-        """Fetch lineups from Sofascore API for leagues not covered by Sportmonks."""
+    _SOFASCORE_HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    }
+
+    def _find_sofascore_event(self, home: str, away: str, league_key: str) -> int | None:
+        """Find a Sofascore event ID by matching team names."""
         tourney = self.SOFASCORE_TOURNAMENTS.get(league_key)
         if not tourney:
             return None
-
         tournament_id, season_id = tourney
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        }
-
-        try:
-            # 1. Find the event ID by matching team names in upcoming events
-            event_id = None
-            for page_type in ("next/0", "last/0"):
-                url = (f"https://www.sofascore.com/api/v1/unique-tournament/"
-                       f"{tournament_id}/season/{season_id}/events/{page_type}")
-                r = requests.get(url, headers=headers, timeout=10)
+        for page_type in ("next/0", "last/0"):
+            url = (f"https://www.sofascore.com/api/v1/unique-tournament/"
+                   f"{tournament_id}/season/{season_id}/events/{page_type}")
+            try:
+                r = requests.get(url, headers=self._SOFASCORE_HEADERS, timeout=10)
                 if r.status_code != 200:
                     continue
-                events = r.json().get("events", [])
-                for ev in events:
+                for ev in r.json().get("events", []):
                     h_name = ev.get("homeTeam", {}).get("name", "")
                     a_name = ev.get("awayTeam", {}).get("name", "")
                     if (self._sofascore_name_match(home, h_name) and
                             self._sofascore_name_match(away, a_name)):
-                        event_id = ev.get("id")
-                        break
-                if event_id:
-                    break
+                        return ev.get("id")
+            except Exception:
+                continue
+        return None
 
-            if not event_id:
-                logger.debug(f"Sofascore: match {home} vs {away} non trovato")
-                return None
+    def _get_sofascore_lineups(self, home: str, away: str, league_key: str) -> dict | None:
+        """Fetch lineups from Sofascore API for leagues not covered by Sportmonks."""
+        event_id = self._find_sofascore_event(home, away, league_key)
+        if not event_id:
+            logger.debug(f"Sofascore: match {home} vs {away} non trovato")
+            return None
 
+        try:
             # 2. Fetch lineups
             r2 = requests.get(
                 f"https://www.sofascore.com/api/v1/event/{event_id}/lineups",
-                headers=headers, timeout=10,
+                headers=self._SOFASCORE_HEADERS, timeout=10,
             )
             if r2.status_code != 200:
                 return None
@@ -507,6 +514,101 @@ class BetAnalyzerWorker:
 
         except Exception as e:
             logger.warning(f"Sofascore lineup error: {e}")
+            return None
+
+    def _get_sofascore_odds(self, home: str, away: str, league_key: str) -> list:
+        """Fetch odds from Sofascore for leagues without Odds API coverage.
+
+        Returns list of BookmakerOdds compatible with the worker pipeline.
+        Tries providers 1 (bet365), 5 (Sisal), 52, 73.
+        """
+        from models.match import BookmakerOdds
+        event_id = self._find_sofascore_event(home, away, league_key)
+        if not event_id:
+            return []
+
+        # Sofascore provider IDs → bookmaker names
+        PROVIDERS = {1: "bet365", 5: "Sisal", 52: "Betfair", 73: "Pinnacle"}
+        all_odds = []
+
+        for pid, bk_name in PROVIDERS.items():
+            try:
+                r = requests.get(
+                    f"https://www.sofascore.com/api/v1/event/{event_id}/odds/{pid}/all",
+                    headers=self._SOFASCORE_HEADERS, timeout=8,
+                )
+                if r.status_code != 200:
+                    continue
+                markets = r.json().get("markets", [])
+                if not markets:
+                    continue
+
+                home_odd = draw_odd = away_odd = None
+                over25 = under25 = gg = ng = None
+
+                for m in markets:
+                    group = m.get("marketGroup", "")
+                    period = m.get("marketPeriod", "")
+                    choices = m.get("choices", [])
+
+                    if group == "1X2" and "Full" in period:
+                        for c in choices:
+                            dec = self._frac_to_dec(c.get("fractionalValue", ""))
+                            if c["name"] == "1":
+                                home_odd = dec
+                            elif c["name"] == "X":
+                                draw_odd = dec
+                            elif c["name"] == "2":
+                                away_odd = dec
+
+                    elif group == "Match goals" and "Full" in period:
+                        # Find the 2.5 line (Over ~1.8-2.2, Under ~1.6-1.9)
+                        if len(choices) == 2:
+                            o = self._frac_to_dec(choices[0].get("fractionalValue", ""))
+                            u = self._frac_to_dec(choices[1].get("fractionalValue", ""))
+                            # The 2.5 line has odds roughly 1.7-2.2 range
+                            if 1.5 < o < 2.5 and 1.5 < u < 2.5:
+                                over25 = o
+                                under25 = u
+
+                    elif "Both teams" in group and "Full" in period:
+                        for c in choices:
+                            dec = self._frac_to_dec(c.get("fractionalValue", ""))
+                            if c["name"] == "Yes":
+                                gg = dec
+                            elif c["name"] == "No":
+                                ng = dec
+
+                if home_odd and draw_odd and away_odd:
+                    all_odds.append(BookmakerOdds(
+                        bookmaker=bk_name,
+                        home=home_odd,
+                        draw=draw_odd,
+                        away=away_odd,
+                        over25=over25,
+                        under25=under25,
+                        gg=gg,
+                        ng=ng,
+                    ))
+
+            except Exception as e:
+                logger.debug(f"Sofascore odds provider {pid}: {e}")
+
+        if all_odds:
+            logger.info(f"📊 Sofascore odds: {len(all_odds)} bookmaker ({', '.join(o.bookmaker for o in all_odds)})")
+        return all_odds
+
+    @staticmethod
+    def _frac_to_dec(frac: str) -> float | None:
+        """Convert fractional odds (e.g. '91/100') to decimal (e.g. 1.91)."""
+        if not frac:
+            return None
+        parts = frac.split("/")
+        try:
+            if len(parts) == 2:
+                return round(int(parts[0]) / int(parts[1]) + 1, 2)
+            return round(float(parts[0]) + 1, 2)
+        except (ValueError, ZeroDivisionError):
             return None
 
     # Known aliases for tricky team names
