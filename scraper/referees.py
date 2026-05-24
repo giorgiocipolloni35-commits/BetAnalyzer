@@ -423,15 +423,19 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
 
 
 def _merge_tm_into_ref(rs: dict, tm: dict):
-    """Merge Transfermarkt season stats into a ref_map entry."""
+    """Merge Transfermarkt season stats into a ref_map entry.
+
+    NOTE: TM sub-competitions (FA Cup, Coppa Italia, etc.) are NOT added
+    to rs["leagues"] — only the main FD league names belong there, so the
+    frontend league filter stays clean.  TM competition names are stored
+    in rs["tm_competitions"] for display purposes only.
+    """
     rs["matches"] += tm["appearances"]
     rs["yellows"] += tm.get("yellows", 0)
     rs["reds"] += tm.get("reds", 0) + tm.get("second_yellows", 0)
     rs["total_cards"] += tm.get("yellows", 0) + tm.get("reds", 0) + tm.get("second_yellows", 0)
     rs["penalties_awarded"] += tm.get("penalties", 0)
-    tm_comps = [c["competition"] for c in tm.get("competitions", [])]
-    for comp in tm_comps:
-        rs["leagues"].add(comp)
+    rs["tm_competitions"] = [c["competition"] for c in tm.get("competitions", [])]
     rs["_tm_enriched"] = True
 
 
