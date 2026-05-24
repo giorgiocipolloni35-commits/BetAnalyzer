@@ -294,6 +294,38 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
             "league": LEAGUE_NAMES.get(d.get("_league", league_code), ""),
         })
 
+    # ── Enrich with Transfermarkt stats for refs with few FD matches ──
+    tm_ref_stats = _load_tm_referee_stats()
+    if tm_ref_stats:
+        for name, rs in ref_map.items():
+            if rs["matches"] < 3:
+                tm = tm_ref_stats.get(name)
+                if tm and tm.get("appearances", 0) >= 3:
+                    _merge_tm_into_ref(rs, tm)
+
+        # Also inject TM-only referees not in FD cache at all
+        # (e.g., Zanotti with 0 SA matches but assigned to upcoming games)
+        for tm_name, tm in tm_ref_stats.items():
+            if tm_name not in ref_map and tm.get("appearances", 0) >= 3 and not tm.get("not_found"):
+                rs = {
+                    "name": tm_name, "nationality": None, "leagues": set(),
+                    "matches": 0, "yellows": 0, "reds": 0, "yellow_reds": 0,
+                    "total_cards": 0, "penalties_awarded": 0, "penalty_minutes": [],
+                    "goals_total": 0, "goals_ht": 0, "goals_ft": 0,
+                    "home_wins": 0, "away_wins": 0, "draws": 0,
+                    "clean_sheets": 0, "high_scoring": 0,
+                    "cards_first_half": 0, "cards_second_half": 0,
+                    "cards_early": 0, "cards_late": 0,
+                    "cards_by_minute": [], "goals_by_minute": [],
+                    "subs_total": 0, "var_referees": set(), "match_details": [],
+                    "cards_when_draw": 0, "cards_when_home_lead": 0,
+                    "cards_when_away_lead": 0, "cards_to_home": 0,
+                    "cards_to_away": 0, "minutes_draw": 0,
+                    "minutes_home_lead": 0, "minutes_away_lead": 0,
+                }
+                _merge_tm_into_ref(rs, tm)
+                ref_map[tm_name] = rs
+
     # Convert to list with computed metrics
     result = []
     for name, rs in ref_map.items():
@@ -378,10 +410,38 @@ def _build_referee_stats(cache: dict, league_code: str) -> list:
             "cards_to_away": rs["cards_to_away"],
             "cards_home_pct": round(rs["cards_to_home"] / max(rs["total_cards"], 1) * 100),
             "cards_away_pct": round(rs["cards_to_away"] / max(rs["total_cards"], 1) * 100),
+            # --- TM enrichment flag ---
+            "tm_enriched": rs.get("_tm_enriched", False),
         }
         result.append(entry)
 
     return result
+
+
+def _merge_tm_into_ref(rs: dict, tm: dict):
+    """Merge Transfermarkt season stats into a ref_map entry."""
+    rs["matches"] += tm["appearances"]
+    rs["yellows"] += tm.get("yellows", 0)
+    rs["reds"] += tm.get("reds", 0) + tm.get("second_yellows", 0)
+    rs["total_cards"] += tm.get("yellows", 0) + tm.get("reds", 0) + tm.get("second_yellows", 0)
+    rs["penalties_awarded"] += tm.get("penalties", 0)
+    tm_comps = [c["competition"] for c in tm.get("competitions", [])]
+    for comp in tm_comps:
+        rs["leagues"].add(comp)
+    rs["_tm_enriched"] = True
+
+
+def _load_tm_referee_stats() -> dict:
+    """Load Transfermarkt referee stats fallback from referee_tm_stats.json."""
+    try:
+        tm_path = os.path.join("data", "referee_tm_stats.json")
+        if os.path.exists(tm_path):
+            with open(tm_path) as f:
+                data = json.load(f)
+            return data.get("referees", {})
+    except Exception as e:
+        logger.warning("TM referee stats load error: %s", e)
+    return {}
 
 
 def _compute_league_averages(refs: list) -> dict:
