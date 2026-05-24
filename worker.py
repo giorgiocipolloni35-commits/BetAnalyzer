@@ -415,6 +415,131 @@ class BetAnalyzerWorker:
         }
         return mapping.get(league_name, "italy_serie_a")
 
+    # ------------------------------------------------------------------ #
+    #  Sofascore fallback per formazioni (campionati non coperti da SM)
+    # ------------------------------------------------------------------ #
+
+    # Sofascore unique tournament IDs
+    SOFASCORE_TOURNAMENTS = {
+        "brazil_serie_a": (325, 87678),  # (tournament_id, season_id 2025/26)
+    }
+
+    def _get_sofascore_lineups(self, home: str, away: str, league_key: str) -> dict | None:
+        """Fetch lineups from Sofascore API for leagues not covered by Sportmonks."""
+        tourney = self.SOFASCORE_TOURNAMENTS.get(league_key)
+        if not tourney:
+            return None
+
+        tournament_id, season_id = tourney
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        }
+
+        try:
+            # 1. Find the event ID by matching team names in upcoming events
+            event_id = None
+            for page_type in ("next/0", "last/0"):
+                url = (f"https://www.sofascore.com/api/v1/unique-tournament/"
+                       f"{tournament_id}/season/{season_id}/events/{page_type}")
+                r = requests.get(url, headers=headers, timeout=10)
+                if r.status_code != 200:
+                    continue
+                events = r.json().get("events", [])
+                for ev in events:
+                    h_name = ev.get("homeTeam", {}).get("name", "")
+                    a_name = ev.get("awayTeam", {}).get("name", "")
+                    if (self._sofascore_name_match(home, h_name) and
+                            self._sofascore_name_match(away, a_name)):
+                        event_id = ev.get("id")
+                        break
+                if event_id:
+                    break
+
+            if not event_id:
+                logger.debug(f"Sofascore: match {home} vs {away} non trovato")
+                return None
+
+            # 2. Fetch lineups
+            r2 = requests.get(
+                f"https://www.sofascore.com/api/v1/event/{event_id}/lineups",
+                headers=headers, timeout=10,
+            )
+            if r2.status_code != 200:
+                return None
+
+            data = r2.json()
+            home_data = data.get("home", {})
+            away_data = data.get("away", {})
+
+            if not home_data.get("players") or not away_data.get("players"):
+                return None
+
+            # 3. Parse into same format as Sportmonks lineups
+            def _parse_players(team_data, is_starter=True):
+                players = []
+                for p in team_data.get("players", []):
+                    if bool(p.get("substitute")) != (not is_starter):
+                        continue
+                    pl = p.get("player", {})
+                    pos_map = {"G": "Goalkeeper", "D": "Defender", "M": "Midfielder", "F": "Forward"}
+                    players.append({
+                        "name": pl.get("name", ""),
+                        "number": pl.get("shirtNumber"),
+                        "position": pos_map.get(pl.get("position", ""), pl.get("position", "")),
+                    })
+                return players
+
+            result = {
+                "home": _parse_players(home_data, True),
+                "away": _parse_players(away_data, True),
+                "home_bench": _parse_players(home_data, False),
+                "away_bench": _parse_players(away_data, False),
+                "formation": {
+                    "home": home_data.get("formation"),
+                    "away": away_data.get("formation"),
+                },
+            }
+
+            logger.info(f"✅ Sofascore lineups: {len(result['home'])}+{len(result['away'])} titolari, "
+                        f"formation {result['formation']['home']} vs {result['formation']['away']}")
+            return result
+
+        except Exception as e:
+            logger.warning(f"Sofascore lineup error: {e}")
+            return None
+
+    # Known aliases for tricky team names
+    _TEAM_ALIASES = {
+        "athletico": ["paranaense", "ca paranaense", "club athletico"],
+        "paranaense": ["athletico"],
+        "bragantino": ["red bull bragantino", "rb bragantino"],
+        "atletico mineiro": ["clube atletico mineiro", "galo"],
+        "vasco": ["vasco da gama", "cr vasco"],
+        "flamengo": ["cr flamengo"],
+        "remo": ["clube do remo"],
+    }
+
+    @staticmethod
+    def _sofascore_name_match(our_name: str, ss_name: str) -> bool:
+        """Fuzzy match team names between FD and Sofascore."""
+        a = our_name.lower().replace("fc ", "").replace(" fc", "").replace("sc ", "").strip()
+        b = ss_name.lower().replace("fc ", "").replace(" fc", "").replace("sc ", "").strip()
+        # Direct containment
+        if a in b or b in a:
+            return True
+        # Check aliases
+        for key, aliases in BetAnalyzerWorker._TEAM_ALIASES.items():
+            names = [key] + aliases
+            a_match = any(n in a for n in names)
+            b_match = any(n in b for n in names)
+            if a_match and b_match:
+                return True
+        # Word overlap (at least 1 significant word matches)
+        words_a = set(w for w in a.split() if len(w) > 3)
+        words_b = set(w for w in b.split() if len(w) > 3)
+        return len(words_a & words_b) >= 1
+
     def _is_in_lineup_window(self, kickoff_utc):
         """Controlla se siamo nella finestra 70→0 minuti prima del kickoff."""
         now = datetime.now(timezone.utc)
@@ -1641,11 +1766,17 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
                         logger.warning(f"⚠️  Errore recupero formazioni per {label}: {e}")
 
                     if not official_lineups:
-                        # Per campionati non coperti da Sportmonks (es. BSA),
-                        # invia alert senza formazioni quando mancano ≤20 min al kickoff
+                        # Fallback Sofascore per campionati non coperti da Sportmonks (es. BSA)
                         _sm_covered = set(self.sm.league_map.keys())
-                        if m["league_key"] not in _sm_covered and minutes_to <= 20:
-                            logger.info(f"📋 {label} — campionato senza copertura Sportmonks, invio alert senza formazioni")
+                        if m["league_key"] not in _sm_covered:
+                            official_lineups = self._get_sofascore_lineups(m["home"], m["away"], m["league_key"])
+                            if official_lineups:
+                                logger.info(f"📋 {label} — FORMAZIONI SOFASCORE! Home={len(official_lineups.get('home',[]))}, Away={len(official_lineups.get('away',[]))}")
+                            elif minutes_to <= 20:
+                                logger.info(f"📋 {label} — nessuna formazione disponibile, invio alert senza")
+                            else:
+                                logger.info(f"⏳ {label} — formazioni Sofascore non ancora disponibili, riprovo tra {self.CHECK_INTERVAL}s")
+                                continue
                         else:
                             logger.info(f"⏳ {label} — formazioni non ancora disponibili, riprovo tra {self.CHECK_INTERVAL}s")
                             continue
