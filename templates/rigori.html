@@ -34,12 +34,17 @@
     <div id="rigori-status" class="rigori-status" style="display:none"></div>
 
     <div id="rigori-legend" class="rigori-legend" style="display:none">
-        <span class="legend-item"><span class="legend-dot dot-drought"></span> AST = Astinenza (0-25)</span>
-        <span class="legend-item"><span class="legend-dot dot-attack"></span> ATT = Attacco (0-20)</span>
-        <span class="legend-item"><span class="legend-dot dot-defense"></span> DIF = Difesa avv. gol+cartellini (0-20)</span>
-        <span class="legend-item"><span class="legend-dot dot-referee"></span> ARB = Arbitro (0-15)</span>
-        <span class="legend-item"><span class="legend-dot dot-home"></span> 🏠/✈️ = Casa/Trasf. (0-10)</span>
-        <span class="legend-item"><span class="legend-dot dot-history"></span> STO = Storico (0-10)</span>
+        <span class="legend-item"><span class="legend-dot dot-drought"></span> AST = Astinenza (0-15)</span>
+        <span class="legend-item"><span class="legend-dot dot-attack"></span> ATT = Attacco (0-12)</span>
+        <span class="legend-item"><span class="legend-dot dot-defense"></span> DIF = Difesa avv. falli+gol (0-15)</span>
+        <span class="legend-item"><span class="legend-dot dot-referee"></span> ARB = Arbitro (0-12)</span>
+        <span class="legend-item"><span class="legend-dot dot-home"></span> 🏠/✈️ = Casa/Trasf. (0-3)</span>
+        <span class="legend-item"><span class="legend-dot dot-history"></span> STO = Storico (0-8)</span>
+        <span class="legend-item"><span class="legend-dot dot-area"></span> ⚡ = Pressione area (0-10)</span>
+        <span class="legend-item"><span class="legend-dot dot-var"></span> 📺 = VAR arbitro (0-5)</span>
+        <span class="legend-item"><span class="legend-dot dot-importance"></span> 🏆 = Importanza (0-5)</span>
+        <span class="legend-item"><span class="legend-dot dot-h2h"></span> 🔄 = H2H rigori (0-5)</span>
+        <span class="legend-item"><span class="legend-dot dot-trend"></span> 📈 = Trend recente (-5/+5)</span>
     </div>
 
     <div id="rigori-results" style="display:none">
@@ -134,11 +139,11 @@
                     const droughtHint = abs >= 10 ? 'Lunga astinenza — rigore molto atteso'
                                       : abs >= 5  ? 'Media astinenza — potrebbe arrivare'
                                       : 'Rigore recente — bassa astinenza';
-                    const attackHint = f.attacco >= 15 ? 'Attacco forte — molte azioni in area'
-                                     : f.attacco >= 8  ? 'Attacco nella media'
+                    const attackHint = f.attacco >= 10 ? 'Attacco forte — molte azioni in area'
+                                     : f.attacco >= 6  ? 'Attacco nella media'
                                      : 'Attacco debole — poche azioni in area';
-                    const defHint = f.difesa_avv >= 15 ? 'Avversario con difesa fragile — subisce molti gol, tende a fare falli'
-                                  : f.difesa_avv >= 8  ? 'Difesa avversaria nella media'
+                    const defHint = f.difesa_avv >= 12 ? 'Avversario con difesa fragile — subisce molti gol e falli'
+                                  : f.difesa_avv >= 7  ? 'Difesa avversaria nella media'
                                   : 'Avversario con difesa solida — pochi falli concessi';
                     const refPpm = t.referee_ppm !== null && t.referee_ppm !== undefined && t.referee_ppm > 0
                         ? t.referee_ppm.toFixed(2) + ' rig/gara'
@@ -179,14 +184,21 @@
                             return '<span class="taker-pill ' + cls + '" title="' + tk.player + ': ' + conv + ' segnati (' + pct + '%)' + absentHint + '">' + tk.player.split(' ').pop() + ' <b>' + conv + '</b>' + absentIcon + '</span>';
                           }).join('');
 
-                    // Factors HTML (shared)
+                    // Factors HTML (shared) — Model v2: 11 factors
+                    const trendSign = f.trend > 0 ? '+' : '';
+                    const trendClass = f.trend > 0 ? 'fp-trend-hot' : f.trend < 0 ? 'fp-trend-cold' : 'fp-trend-neutral';
                     const factorsHtml = `
-                        <span class="factor-pill fp-drought"><b>AST</b>${f.astinenza}</span>
-                        <span class="factor-pill fp-attack"><b>ATT</b>${f.attacco}</span>
-                        <span class="factor-pill fp-defense"><b>DIF</b>${f.difesa_avv}</span>
+                        <span class="factor-pill fp-drought" title="Astinenza ${f.astinenza}/15&#10;${droughtHint}"><b>AST</b>${f.astinenza}</span>
+                        <span class="factor-pill fp-attack" title="Attacco ${f.attacco}/12&#10;${attackHint}"><b>ATT</b>${f.attacco}</span>
+                        <span class="factor-pill fp-defense" title="Difesa avv. ${f.difesa_avv}/15&#10;${defHint}"><b>DIF</b>${f.difesa_avv}</span>
                         ${refPill}
-                        <span class="factor-pill fp-home"><b>${f.casa >= 8 ? '🏠' : '✈️'}</b>${f.casa}</span>
-                        <span class="factor-pill fp-history"><b>STO</b>${f.storico}</span>`;
+                        <span class="factor-pill fp-home" title="${homeHint}"><b>${f.casa >= 2 ? '🏠' : '✈️'}</b>${f.casa}</span>
+                        <span class="factor-pill fp-history" title="Storico ${f.storico}/8&#10;${histHint}"><b>STO</b>${f.storico}</span>
+                        ${f.area_press > 0 ? `<span class="factor-pill fp-area" title="Pressione area (falli subiti + dribbling)"><b>⚡</b>${f.area_press}</span>` : ''}
+                        ${f.var > 0 ? `<span class="factor-pill fp-var" title="VAR tendency arbitro"><b>📺</b>${f.var}</span>` : ''}
+                        ${f.importanza > 0 ? `<span class="factor-pill fp-importance" title="Importanza partita"><b>🏆</b>${f.importanza}</span>` : ''}
+                        ${f.h2h > 0 ? `<span class="factor-pill fp-h2h" title="H2H: ${t.h2h_penalties || 0} rigori in ${t.h2h_matches || 0} scontri diretti"><b>🔄</b>${f.h2h}</span>` : ''}
+                        ${f.trend !== 0 ? `<span class="factor-pill ${trendClass}" title="Trend ultime 5 giornate"><b>📈</b>${trendSign}${f.trend}</span>` : ''}`;
 
                     // Advanced stats pills
                     const advHtml = t.advanced_stats && Object.keys(t.advanced_stats).length > 0 ? `
@@ -237,9 +249,11 @@
                                 <div class="pm-row"><span class="pm-label">Nome</span><span class="pm-value">${t.referee || 'Da assegnare'}</span></div>
                                 ${hasRef ? `
                                 <div class="pm-row"><span class="pm-label">Partite</span><span class="pm-value">${t.referee_matches} gare</span></div>
-                                ${refPpm ? `<div class="pm-row"><span class="pm-label">Rigori/gara</span><span class="pm-value">${refPpm}</span></div>` : ''}
+                                ${refPpm ? `<div class="pm-row"><span class="pm-label">Rigori/gara</span><span class="pm-value">${refPpm} (media lega: ${(t.league_avg_ppm || 0).toFixed(2)})</span></div>` : ''}
                                 ${refCardsPm ? `<div class="pm-row"><span class="pm-label">Cartellini/gara</span><span class="pm-value">${refCardsPm}</span></div>` : ''}
+                                ${t.var_ref ? `<div class="pm-row"><span class="pm-label">VAR</span><span class="pm-value">${t.var_ref.var_per_match}/gara — ${t.var_ref.var_penalty} rigori VAR</span></div>` : ''}
                                 ` : ''}
+                                ${t.h2h_penalties > 0 ? `<div class="pm-row"><span class="pm-label">H2H rigori</span><span class="pm-value">${t.h2h_penalties} in ${t.h2h_matches} scontri</span></div>` : ''}
                             </div>
                             <div class="rig-card-section">
                                 <div class="pm-section-title" style="margin-top:0;">Rigoristi</div>

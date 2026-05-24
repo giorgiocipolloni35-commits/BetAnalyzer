@@ -359,44 +359,105 @@ class PenaltyAnalyzer:
             ref_stats_map[ref]["reds"] += sum(1 for c in detail.get("cards", []) if c.get("card") != "YELLOW")
 
         results = []
+        # ── Model v2: recalibrated weights ──
         # Max weights for factor visualization
-        max_weights = {"astinenza": 25, "attacco": 20, "difesa_avv": 20, "arbitro": 15, "casa": 10, "storico": 10}
-        
+        max_weights = {
+            "astinenza": 15, "attacco": 12, "difesa_avv": 15, "arbitro": 12,
+            "casa": 3, "storico": 8, "area_press": 10, "var": 5,
+            "importanza": 5, "h2h": 5, "trend": 5,
+        }
+
         # Build player positions map for faster lookup
         player_positions = self._build_player_positions(cache)
-        
+
+        # ── Pre-compute league-wide referee average (B3 fix) ──
+        league_avg_ppm = 0
+        ref_ppms = []
+        for rn, rs in ref_stats_map.items():
+            if rs["matches"] >= 3:
+                ref_ppms.append(rs["penalties"] / rs["matches"])
+        league_avg_ppm = round(sum(ref_ppms) / len(ref_ppms), 3) if ref_ppms else 0.21
+
+        # ── Pre-compute H2H penalty map (M6) ──
+        h2h_penalty_map = self._build_h2h_penalty_map(cache)
+
+        # ── Pre-compute team recent penalty trend (M7) ──
+        team_recent_trend = self._build_recent_penalty_trend(cache, window=5)
+
+        # ── Load VAR stats (M5) ──
+        var_stats_data = self._load_var_stats()
+
+        latest_md = max((d.get("matchday") or 0 for d in cache.values()), default=0)
+
         for tid, stats in team_stats.items():
             if stats["played"] < 5: continue
-            
-            # 1. Abstinence factor (max 25)
-            # Find last matchday with penalty for this team
+
+            # ── F1. Astinenza (max 15) — B5 fix: plateau con rendimenti decrescenti ──
             last_p_md = 0
             for mid, detail in sorted(cache.items(), key=lambda x: (x[1].get("matchday") or 0), reverse=True):
                 if any(g.get("team_id") == tid and g.get("type") == "PENALTY" for g in detail.get("goals", [])):
                     last_p_md = detail.get("matchday", 0)
                     break
-            
-            latest_md = max((d.get("matchday") or 0 for d in cache.values()), default=0)
+
             abstinence = latest_md - last_p_md
-            f_ast = min(25, abstinence * 3)
-            
-            # 2. Attack factor (max 20)
+            # Diminishing returns: first 5 matchdays = 2pt each, then 1pt each, cap 15
+            if abstinence <= 5:
+                f_ast = abstinence * 2
+            else:
+                f_ast = 10 + (abstinence - 5)
+            f_ast = min(15, f_ast)
+
+            # ── F2. Attacco (max 12) ──
             avg_g = (stats.get("goals_for", 0) / stats["played"]) if stats["played"] > 0 else 0
-            f_att = min(20, round(avg_g * 10))
-            
-            # 3. Next opponent defense factor (max 20)
+            f_att = min(12, round(avg_g * 6))
+
+            # ── F3. Vulnerabilità difensiva avversario (max 15) — B4 fix ──
+            # Uses opponent's fouls_committed (Sportmonks M3) + goals_against (FD)
             nm = next_matches.get(tid)
-            f_dif = 10 # Default
+            f_dif = 7  # Default (neutral)
             opp_id = None
+            opp_sm_team = None
             if nm:
-                # Find opponent stats
                 opp_name = nm["opponent"]
                 opp_id = next((sid for sid, s in team_stats.items() if s["team"] == opp_name), None)
                 if opp_id and opp_id in team_stats:
-                    opp_avg_g = (team_stats[opp_id].get("goals_against", 0) / team_stats[opp_id]["played"])
-                    f_dif = min(20, round(opp_avg_g * 8))
-            
-            # 4. Referee factor (max 15)
+                    opp_played = team_stats[opp_id]["played"]
+                    # Component 1: goals conceded (max 8)
+                    opp_avg_ga = (team_stats[opp_id].get("goals_against", 0) / opp_played) if opp_played > 0 else 1
+                    f_dif_goals = min(8, round(opp_avg_ga * 4))
+                    # Component 2: opponent fouls committed per game (max 7) — from Sportmonks (M3)
+                    f_dif_fouls = 4  # default neutral
+                    opp_low = opp_name.lower()
+                    opp_sm_team = sportmonks_team_stats.get(opp_low)
+                    if not opp_sm_team:
+                        for sm_name, sm_data in sportmonks_team_stats.items():
+                            t1 = opp_low.replace("fc ", "").replace("cf ", "").replace("club ", "").strip()
+                            t2 = sm_name.replace("fc ", "").replace("cf ", "").replace("club ", "").strip()
+                            if t1 in t2 or t2 in t1:
+                                opp_sm_team = sm_data
+                                break
+                    if opp_sm_team and opp_sm_team.get("total_apps", 0) > 0:
+                        opp_fouls_pg = opp_sm_team["fouls_committed"] / opp_sm_team["total_apps"] * 11
+                        # Average ~12 fouls/game, scale: 15+ = 7, 12 = 4, <9 = 1
+                        if opp_fouls_pg >= 16:
+                            f_dif_fouls = 7
+                        elif opp_fouls_pg >= 14:
+                            f_dif_fouls = 6
+                        elif opp_fouls_pg >= 12:
+                            f_dif_fouls = 4
+                        elif opp_fouls_pg >= 10:
+                            f_dif_fouls = 3
+                        else:
+                            f_dif_fouls = 1
+                    # Also factor in penalties conceded by opponent
+                    opp_pens_against = team_stats[opp_id].get("penalties_against", 0)
+                    opp_pen_bonus = min(3, opp_pens_against)  # up to +3 if they concede many
+                    f_dif = min(15, f_dif_goals + f_dif_fouls + opp_pen_bonus)
+                    # Clamp to avoid extremes for low-sample
+                    if opp_played < 10:
+                        f_dif = min(f_dif, 10)
+
+            # ── F4. Arbitro (max 12) — B3 fix: normalized to league average ──
             f_ref = 0
             ref_name = None
             ref_matches = 0
@@ -409,67 +470,185 @@ class PenaltyAnalyzer:
                     has_referee = True
                     rs = ref_stats_map[ref_name]
                     ref_matches = rs["matches"]
-                    if ref_matches >= 3:  # Almeno 3 partite per essere significativo
+                    if ref_matches >= 3:
                         ref_ppm = round(rs["penalties"] / ref_matches, 2)
                         ref_cards_pm = round((rs["yellows"] + rs["reds"]) / ref_matches, 1)
-                        # Score: più rigori fischia, più alto il fattore
-                        # Media Serie A ~0.25 rig/gara. >0.4 = molto propenso
-                        if ref_ppm >= 0.5:
-                            f_ref = 15
-                        elif ref_ppm >= 0.4:
-                            f_ref = 12
-                        elif ref_ppm >= 0.3:
-                            f_ref = 9
-                        elif ref_ppm >= 0.2:
-                            f_ref = 6
-                        elif ref_ppm >= 0.1:
-                            f_ref = 3
+                        # Normalized: deviation from league average
+                        if league_avg_ppm > 0:
+                            ratio = ref_ppm / league_avg_ppm
+                            if ratio >= 2.0:
+                                f_ref = 12
+                            elif ratio >= 1.6:
+                                f_ref = 10
+                            elif ratio >= 1.3:
+                                f_ref = 8
+                            elif ratio >= 1.0:
+                                f_ref = 6
+                            elif ratio >= 0.7:
+                                f_ref = 4
+                            elif ratio >= 0.4:
+                                f_ref = 2
+                            else:
+                                f_ref = 0
                         else:
-                            f_ref = 1
-                
-            # 5. Home/Away factor (max 10)
-            f_casa = 10 if nm and nm.get("is_home") else 5
-            
-            # 6. History factor (max 10)
-            f_sto = min(10, round((stats["penalties_for"] / stats["played"]) * 15)) if stats["played"] > 0 else 0
-            
-            # Total score
-            prob = f_ast + f_att + f_dif + f_ref + f_casa + f_sto
-            
-            # Penalty takers
-            takers = {} # player_id -> {name, taken, scored}
-            for mid, detail in cache.items():
-                for g in detail.get("goals", []):
-                    if g.get("team_id") == tid and g.get("type") == "PENALTY":
-                        pid = g.get("scorer_id")
-                        if pid:
-                            if pid not in takers: takers[pid] = {"player": g.get("scorer", "Unknown"), "taken": 0, "scored": 0}
-                            takers[pid]["taken"] += 1
-                            takers[pid]["scored"] += 1
-            
-            # Sportmonks team-level advanced stats (with fuzzy team name match)
+                            f_ref = 6  # neutral if no league data
+
+            # ── F5. Casa/Trasferta (max 3) — B1 fix: data shows 49/51 ──
+            # Minimal bonus — real data shows almost no home advantage for penalties
+            f_casa = 2 if nm and nm.get("is_home") else 1
+
+            # ── F6. Storico rigori (max 8) — B2 note: only scored penalties tracked ──
+            pen_rate = (stats["penalties_for"] / stats["played"]) if stats["played"] > 0 else 0
+            f_sto = min(8, round(pen_rate * 20))
+
+            # ── F7. Area pressure: fouls drawn + dribbling (max 10) — M1 + M2 ──
+            f_area = 0
             team_low = stats["team"].lower()
             sm_team = sportmonks_team_stats.get(team_low)
             if not sm_team:
-                # Try fuzzy: check if any SM team name contains or is contained in FD team name
                 for sm_name, sm_data in sportmonks_team_stats.items():
-                    # Strip common prefixes for matching
                     t1 = team_low.replace("fc ", "").replace("cf ", "").replace("club ", "").strip()
                     t2 = sm_name.replace("fc ", "").replace("cf ", "").replace("club ", "").strip()
                     if t1 in t2 or t2 in t1:
                         sm_team = sm_data
                         break
             team_adv = {}
-            if sm_team and sm_team.get("players", 0) > 0:
-                apps_avg = sm_team["total_apps"] / sm_team["players"] if sm_team["players"] > 0 else 1
+            if sm_team and sm_team.get("total_apps", 0) > 0:
                 total_apps = sm_team["total_apps"] or 1
+                fd_pg = round(sm_team["fouls_drawn"] / total_apps * 11, 1)
+                drib_pg = round(sm_team["dribbles_success"] / total_apps * 11, 1)
+                shots_pg = round(sm_team["shots_total"] / total_apps * 11, 1)
                 team_adv = {
-                    "fouls_drawn_pg": round(sm_team["fouls_drawn"] / total_apps * 11, 1),  # per 11 players per game
-                    "dribbles_pg": round(sm_team["dribbles_success"] / total_apps * 11, 1),
-                    "shots_pg": round(sm_team["shots_total"] / total_apps * 11, 1),
+                    "fouls_drawn_pg": fd_pg,
+                    "dribbles_pg": drib_pg,
+                    "shots_pg": shots_pg,
                     "big_chances": sm_team["big_chances_created"],
                     "key_passes_pg": round(sm_team["key_passes"] / total_apps * 11, 1),
+                    "fouls_committed_pg": round(sm_team.get("fouls_committed", 0) / total_apps * 11, 1),
                 }
+                # Fouls drawn score (max 6): >12/g = 6, >10 = 4, >8 = 3, else 1
+                if fd_pg >= 12:
+                    f_fd = 6
+                elif fd_pg >= 10:
+                    f_fd = 4
+                elif fd_pg >= 8:
+                    f_fd = 3
+                else:
+                    f_fd = 1
+                # Dribbling score (max 4): >6/g = 4, >4 = 3, >2 = 2, else 1
+                if drib_pg >= 6:
+                    f_dr = 4
+                elif drib_pg >= 4:
+                    f_dr = 3
+                elif drib_pg >= 2:
+                    f_dr = 2
+                else:
+                    f_dr = 1
+                f_area = min(10, f_fd + f_dr)
+
+            # ── F8. VAR tendency arbitro (max 5) — M5 ──
+            f_var = 0
+            var_ref_data = None
+            if has_referee and ref_name and var_stats_data:
+                var_refs_all = var_stats_data.get("referees", {})
+                avg_vpm = var_stats_data.get("avg_var_per_match", 0.5)
+                # Exact match first, then surname fuzzy
+                var_ref_data = var_refs_all.get(ref_name)
+                if not var_ref_data and ref_name:
+                    ref_surname = ref_name.split()[-1].lower()
+                    for vn, vd in var_refs_all.items():
+                        if vn.split()[-1].lower() == ref_surname:
+                            var_ref_data = vd
+                            break
+                if var_ref_data and var_ref_data.get("matches", 0) >= 3:
+                    vpm = var_ref_data["var_per_match"]
+                    var_pen = var_ref_data.get("var_penalty", 0)
+                    # Referees who go to VAR often AND have penalty-related reviews
+                    if vpm >= avg_vpm * 1.3 and var_pen >= 2:
+                        f_var = 5
+                    elif vpm >= avg_vpm * 1.0 and var_pen >= 1:
+                        f_var = 3
+                    elif vpm >= avg_vpm * 0.6:
+                        f_var = 2
+                    else:
+                        f_var = 0
+
+            # ── F9. Importanza partita (max 5) — M4 ──
+            f_imp = 0
+            if standings and nm:
+                team_pos = next((s.get("position", 0) for s in standings if s.get("team_id") == tid), 0)
+                opp_pos = next((s.get("position", 0) for s in standings if s.get("team_id") == opp_id), 0) if opp_id else 0
+                total_teams = len(standings) or 20
+                # Last 5 matchdays → higher importance
+                remaining = (total_teams - 1) * 2 - latest_md  # approximate remaining matchdays
+                if remaining <= 4:
+                    f_imp += 3  # season finale
+                elif remaining <= 8:
+                    f_imp += 1
+                # Relegation/title battle → more intense, more fouls, more penalties
+                if team_pos <= 3 or team_pos >= total_teams - 3:
+                    f_imp += 1
+                if opp_pos <= 3 or opp_pos >= total_teams - 3:
+                    f_imp += 1
+                f_imp = min(5, f_imp)
+
+            # ── F10. H2H rigori (max 5) — M6 ──
+            f_h2h = 0
+            h2h_pens_total = 0
+            h2h_matches_total = 0
+            if opp_id:
+                pair = tuple(sorted([tid, opp_id]))
+                h2h_info = h2h_penalty_map.get(pair)
+                if h2h_info:
+                    h2h_pens_total = h2h_info["penalties"]
+                    h2h_matches_total = h2h_info["matches"]
+                    h2h_rate = h2h_pens_total / h2h_matches_total if h2h_matches_total > 0 else 0
+                    if h2h_rate >= 0.8:
+                        f_h2h = 5
+                    elif h2h_rate >= 0.5:
+                        f_h2h = 3
+                    elif h2h_pens_total >= 1:
+                        f_h2h = 1
+
+            # ── F11. Trend recente rigori (range -5 to +5) — M7 ──
+            f_trend = 0
+            trend_data = team_recent_trend.get(tid)
+            if trend_data:
+                recent_pens = trend_data["penalties"]
+                recent_matches = trend_data["matches"]
+                season_rate = pen_rate  # from F6
+                if recent_matches >= 3:
+                    recent_rate = recent_pens / recent_matches
+                    if season_rate > 0:
+                        trend_ratio = recent_rate / season_rate if season_rate > 0 else 1
+                    else:
+                        trend_ratio = 1 + recent_pens  # if no season pens, any recent is hot
+                    if trend_ratio >= 2.0:
+                        f_trend = 5
+                    elif trend_ratio >= 1.5:
+                        f_trend = 3
+                    elif trend_ratio >= 1.0:
+                        f_trend = 1
+                    elif trend_ratio >= 0.5:
+                        f_trend = -2
+                    else:
+                        f_trend = -5  # cold streak
+
+            # ── Penalty takers (B2 note: only scored penalties from FD goals[]) ──
+            takers = {}
+            for mid, detail in cache.items():
+                for g in detail.get("goals", []):
+                    if g.get("team_id") == tid and g.get("type") == "PENALTY":
+                        pid = g.get("scorer_id")
+                        if pid:
+                            if pid not in takers:
+                                takers[pid] = {"player": g.get("scorer", "Unknown"), "taken": 0, "scored": 0}
+                            takers[pid]["taken"] += 1
+                            takers[pid]["scored"] += 1
+
+            # ── Total score ──
+            prob = (f_ast + f_att + f_dif + f_ref + f_casa + f_sto
+                    + f_area + f_var + f_imp + f_h2h + f_trend)
 
             results.append({
                 "team_id": tid,
@@ -477,6 +656,7 @@ class PenaltyAnalyzer:
                 "abstinence": abstinence,
                 "last_penalty": f"G{last_p_md}" if last_p_md > 0 else None,
                 "penalties_total": stats["penalties_for"],
+                "penalties_against": stats["penalties_against"],
                 "matches_played": stats["played"],
                 "next_match": f"vs {nm['opponent']}" if nm else "",
                 "has_referee": has_referee,
@@ -484,6 +664,7 @@ class PenaltyAnalyzer:
                 "referee_matches": ref_matches,
                 "referee_ppm": ref_ppm,
                 "referee_cards_pm": ref_cards_pm if has_referee else 0,
+                "league_avg_ppm": league_avg_ppm,
                 "penalty_takers": sorted(takers.values(), key=lambda x: x["taken"], reverse=True),
                 "factors": {
                     "astinenza": f_ast,
@@ -491,11 +672,27 @@ class PenaltyAnalyzer:
                     "difesa_avv": f_dif,
                     "arbitro": f_ref,
                     "casa": f_casa,
-                    "storico": f_sto
+                    "storico": f_sto,
+                    "area_press": f_area,
+                    "var": f_var,
+                    "importanza": f_imp,
+                    "h2h": f_h2h,
+                    "trend": f_trend,
                 },
                 "max_weights": max_weights,
-                "probability_score": min(95, prob),
+                "probability_score": max(0, min(95, prob)),
                 "advanced_stats": team_adv,
+                "h2h_penalties": h2h_pens_total,
+                "h2h_matches": h2h_matches_total,
+                "var_ref": {
+                    "var_per_match": var_ref_data["var_per_match"],
+                    "var_penalty": var_ref_data.get("var_penalty", 0),
+                    "var_overturn_pct": var_ref_data.get("var_overturn_pct", 0),
+                } if var_ref_data else None,
+                "trend_recent": {
+                    "penalties": trend_data["penalties"],
+                    "matches": trend_data["matches"],
+                } if trend_data else None,
             })
             
         return sorted(results, key=lambda x: x["probability_score"], reverse=True)
@@ -529,7 +726,8 @@ class PenaltyAnalyzer:
     @staticmethod
     def _load_sportmonks_team_stats() -> dict:
         """Load aggregated team stats from Sportmonks DB.
-        Returns dict keyed by team_name.lower() with summed player stats."""
+        Returns dict keyed by team_name.lower() with summed player stats.
+        Includes fouls_committed (M3) for opponent vulnerability scoring."""
         import sqlite3
         result = {}
         try:
@@ -540,31 +738,93 @@ class PenaltyAnalyzer:
                        COUNT(*) as num_players,
                        SUM(JSON_EXTRACT(psc.stats_json, '$.appearances')) as total_apps,
                        SUM(JSON_EXTRACT(psc.stats_json, '$.fouls_drawn')) as fouls_drawn,
+                       SUM(JSON_EXTRACT(psc.stats_json, '$.fouls_committed')) as fouls_committed,
                        SUM(JSON_EXTRACT(psc.stats_json, '$.dribbles_success')) as dribbles_success,
                        SUM(JSON_EXTRACT(psc.stats_json, '$.shots_total')) as shots_total,
                        SUM(JSON_EXTRACT(psc.stats_json, '$.big_chances_created')) as big_chances,
-                       SUM(JSON_EXTRACT(psc.stats_json, '$.key_passes')) as key_passes
+                       SUM(JSON_EXTRACT(psc.stats_json, '$.key_passes')) as key_passes,
+                       SUM(JSON_EXTRACT(psc.stats_json, '$.tackles')) as tackles
                 FROM player_stats_cache psc
                 JOIN player_info pi ON psc.player_id = pi.player_id
                 WHERE JSON_EXTRACT(psc.stats_json, '$.appearances') > 0
                 GROUP BY pi.team_name
             """)
             for row in cursor.fetchall():
-                team_name, n_players, total_apps, fd, drib, shots, bc, kp = row
+                team_name, n_players, total_apps, fd, fc, drib, shots, bc, kp, tackles = row
                 if team_name:
                     result[team_name.lower()] = {
                         "players": int(n_players or 0),
                         "total_apps": int(total_apps or 0),
                         "fouls_drawn": int(fd or 0),
+                        "fouls_committed": int(fc or 0),
                         "dribbles_success": int(drib or 0),
                         "shots_total": int(shots or 0),
                         "big_chances_created": int(bc or 0),
                         "key_passes": int(kp or 0),
+                        "tackles": int(tackles or 0),
                     }
             conn.close()
         except Exception as e:
             logger.warning("Sportmonks team stats load error: %s", e)
         return result
+
+    @staticmethod
+    def _build_h2h_penalty_map(cache: dict) -> dict:
+        """Build map of (team_a, team_b) sorted tuple -> {matches, penalties}.
+        M6: H2H penalty history for head-to-head matchups."""
+        h2h = {}
+        for mid, d in cache.items():
+            h_id = d.get("home_id")
+            a_id = d.get("away_id")
+            if not h_id or not a_id:
+                continue
+            pair = tuple(sorted([h_id, a_id]))
+            if pair not in h2h:
+                h2h[pair] = {"matches": 0, "penalties": 0}
+            h2h[pair]["matches"] += 1
+            h2h[pair]["penalties"] += sum(
+                1 for g in d.get("goals", []) if g.get("type") == "PENALTY"
+            )
+        return h2h
+
+    @staticmethod
+    def _build_recent_penalty_trend(cache: dict, window: int = 5) -> dict:
+        """Build per-team recent penalty trend from last N matchdays.
+        M7: momentum indicator — hot or cold streak."""
+        latest_md = max((d.get("matchday") or 0 for d in cache.values()), default=0)
+        cutoff_md = latest_md - window
+
+        team_trend = {}
+        for mid, d in cache.items():
+            md = d.get("matchday") or 0
+            if md <= cutoff_md:
+                continue
+            h_id = d.get("home_id")
+            a_id = d.get("away_id")
+            for tid in [h_id, a_id]:
+                if not tid:
+                    continue
+                if tid not in team_trend:
+                    team_trend[tid] = {"matches": 0, "penalties": 0}
+                team_trend[tid]["matches"] += 1
+            for g in d.get("goals", []):
+                if g.get("type") == "PENALTY":
+                    gtid = g.get("team_id")
+                    if gtid and gtid in team_trend:
+                        team_trend[gtid]["penalties"] += 1
+        return team_trend
+
+    @staticmethod
+    def _load_var_stats() -> dict | None:
+        """Load VAR stats from var_stats.json. M5: VAR tendency per referee."""
+        try:
+            var_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "var_stats.json")
+            if os.path.exists(var_path):
+                with open(var_path) as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.warning("VAR stats load error: %s", e)
+        return None
 
     def _build_player_positions(self, cache):
         """Helper to build a map of player_id -> position from cache."""

@@ -1785,7 +1785,7 @@ footer {
 .abs-low { background: rgba(148,163,184,0.15); color: #94a3b8; }
 
 /* ---- FACTOR PILLS ---- */
-.factors-cell { display: flex; gap: 3px; flex-wrap: nowrap; align-items: center; white-space: nowrap; }
+.factors-cell { display: flex; gap: 3px; flex-wrap: wrap; align-items: center; max-width: 220px; }
 .factor-pill {
     display: inline-flex; align-items: center; justify-content: center;
     gap: 1px; padding: 0 3px; height: 20px; border-radius: 3px;
@@ -1798,6 +1798,13 @@ footer {
 .fp-referee  { background: rgba(168,85,247,0.15); color: #a855f7; }
 .fp-home     { background: rgba(34,197,94,0.15); color: #22c55e; }
 .fp-history  { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.fp-area     { background: rgba(251,146,60,0.15); color: #fb923c; }
+.fp-var      { background: rgba(6,182,212,0.15); color: #06b6d4; }
+.fp-importance { background: rgba(234,179,8,0.15); color: #eab308; }
+.fp-h2h      { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+.fp-trend-hot  { background: rgba(34,197,94,0.15); color: #22c55e; }
+.fp-trend-cold { background: rgba(239,68,68,0.15); color: #ef4444; }
+.fp-trend-neutral { background: rgba(148,163,184,0.08); color: #94a3b8; }
 
 .ref-stat { font-size: 0.8rem; }
 .ref-rate { font-size: 0.75rem; color: var(--text-muted); margin-left: 4px; }
@@ -1890,6 +1897,11 @@ footer {
 .dot-referee  { background: rgba(168,85,247,0.5); }
 .dot-home     { background: rgba(34,197,94,0.5); }
 .dot-history  { background: rgba(148,163,184,0.5); }
+.dot-area     { background: rgba(251,146,60,0.5); }
+.dot-var      { background: rgba(6,182,212,0.5); }
+.dot-importance { background: rgba(234,179,8,0.5); }
+.dot-h2h      { background: rgba(139,92,246,0.5); }
+.dot-trend    { background: rgba(34,197,94,0.5); }
 
 /* ---- CARTELLINI PAGE ---- */
 .cards-match-card {
@@ -2229,9 +2241,10 @@ footer {
 /* Advanced scorer stat pills (Sportmonks) */
 .scorer-adv-line {
     display: inline-flex;
-    gap: 0.3rem;
+    gap: 3px;
     flex-wrap: wrap;
-    margin-top: 0.2rem;
+    margin-top: 2px;
+    max-width: 220px;
 }
 .scorer-adv-pill {
     font-size: 0.6rem;
