@@ -346,17 +346,62 @@ class PenaltyAnalyzer:
                 if h_id not in next_matches: next_matches[h_id] = {"opponent": a_name, "is_home": True, "date": m.get("utcDate"), "referee": match_referee}
                 if a_id not in next_matches: next_matches[a_id] = {"opponent": h_name, "is_home": False, "date": m.get("utcDate"), "referee": match_referee}
 
-        # Costruisci stats storiche per ogni arbitro dalla cache
+        # Costruisci stats storiche per ogni arbitro — cross-league
+        # Prima: stats dalla cache corrente (stessa lega)
         ref_stats_map = {}
         for mid, detail in cache.items():
             ref = detail.get("referee")
             if not ref: continue
             if ref not in ref_stats_map:
-                ref_stats_map[ref] = {"matches": 0, "penalties": 0, "yellows": 0, "reds": 0, "fouls": 0}
+                ref_stats_map[ref] = {"matches": 0, "penalties": 0, "yellows": 0, "reds": 0, "fouls": 0, "leagues": set()}
             ref_stats_map[ref]["matches"] += 1
             ref_stats_map[ref]["penalties"] += sum(1 for g in detail.get("goals", []) if g.get("type") == "PENALTY")
             ref_stats_map[ref]["yellows"] += sum(1 for c in detail.get("cards", []) if c.get("card") == "YELLOW")
             ref_stats_map[ref]["reds"] += sum(1 for c in detail.get("cards", []) if c.get("card") != "YELLOW")
+            ref_stats_map[ref]["leagues"].add(league_code)
+
+        # Poi: arricchisci con partite di ALTRE leghe per arbitri con pochi dati
+        # (es. Zanotti ha 0 partite SA ma ne ha in B/Coppa/CL)
+        refs_needing_more = {r for r, s in ref_stats_map.items() if s["matches"] < 5}
+        # Aggiungi anche arbitri che non compaiono affatto nella cache corrente
+        # ma potrebbero essere assegnati a partite future
+        scheduled_refs = set()
+        if next_matches:
+            for nm_data in next_matches.values():
+                rn = nm_data.get("referee")
+                if rn and rn not in ref_stats_map:
+                    scheduled_refs.add(rn)
+                    refs_needing_more.add(rn)
+                    ref_stats_map[rn] = {"matches": 0, "penalties": 0, "yellows": 0, "reds": 0, "fouls": 0, "leagues": set()}
+
+        if refs_needing_more:
+            for other_code in LEAGUE_CODES.values():
+                if other_code == league_code:
+                    continue
+                other_cache = self._load_cache(other_code)
+                if not other_cache:
+                    continue
+                for mid2, detail2 in other_cache.items():
+                    ref2 = detail2.get("referee")
+                    if not ref2 or ref2 not in refs_needing_more:
+                        continue
+                    ref_stats_map[ref2]["matches"] += 1
+                    ref_stats_map[ref2]["penalties"] += sum(1 for g in detail2.get("goals", []) if g.get("type") == "PENALTY")
+                    ref_stats_map[ref2]["yellows"] += sum(1 for c in detail2.get("cards", []) if c.get("card") == "YELLOW")
+                    ref_stats_map[ref2]["reds"] += sum(1 for c in detail2.get("cards", []) if c.get("card") != "YELLOW")
+                    ref_stats_map[ref2]["leagues"].add(other_code)
+
+        # ── Fallback: Transfermarkt referee stats for refs with 0 FD matches ──
+        tm_ref_stats = self._load_tm_referee_stats()
+        for rn, rs in ref_stats_map.items():
+            if rs["matches"] < 3 and tm_ref_stats:
+                tm = tm_ref_stats.get(rn)
+                if tm and tm.get("appearances", 0) >= 3:
+                    rs["matches"] = tm["appearances"]
+                    rs["penalties"] = tm.get("penalties", 0)
+                    rs["yellows"] = tm.get("yellows", 0)
+                    rs["reds"] = tm.get("reds", 0) + tm.get("second_yellows", 0)
+                    rs["leagues"].add("TM")
 
         results = []
         # ── Model v2: recalibrated weights ──
@@ -664,6 +709,8 @@ class PenaltyAnalyzer:
                 "referee_matches": ref_matches,
                 "referee_ppm": ref_ppm,
                 "referee_cards_pm": ref_cards_pm if has_referee else 0,
+                "referee_cross_league": len(ref_stats_map.get(ref_name, {}).get("leagues", set())) > 1 if ref_name else False,
+                "referee_leagues": len(ref_stats_map.get(ref_name, {}).get("leagues", set())) if ref_name else 0,
                 "league_avg_ppm": league_avg_ppm,
                 "penalty_takers": sorted(takers.values(), key=lambda x: x["taken"], reverse=True),
                 "factors": {
@@ -825,6 +872,20 @@ class PenaltyAnalyzer:
         except Exception as e:
             logger.warning("VAR stats load error: %s", e)
         return None
+
+    @staticmethod
+    def _load_tm_referee_stats() -> dict:
+        """Load Transfermarkt referee stats fallback from referee_tm_stats.json.
+        Returns dict keyed by referee name with season stats."""
+        try:
+            tm_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "referee_tm_stats.json")
+            if os.path.exists(tm_path):
+                with open(tm_path) as f:
+                    data = json.load(f)
+                return data.get("referees", {})
+        except Exception as e:
+            logger.warning("TM referee stats load error: %s", e)
+        return {}
 
     def _build_player_positions(self, cache):
         """Helper to build a map of player_id -> position from cache."""

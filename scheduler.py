@@ -100,6 +100,7 @@ def run_weekly():
         ("fetch_squad_values.py", "Squad Values (TM)", 120),
         ("fetch_market_values.py", "Player Market Values (TM)", 600),
         ("fetch_var_stats.py", "VAR Stats (Sportmonks)", 600),
+        ("fetch_referee_stats.py", "Referee Stats (TM)", 600),
     ]
 
     for script, label, timeout_s in scripts:
