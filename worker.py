@@ -808,7 +808,7 @@ class BetAnalyzerWorker:
                 except: pass
 
             # 2. Dati completi: Roster, Stats squadra, Marcatori, Cartellini, Assenze
-            codes = {"italy_serie_a": "SA", "england_premier_league": "PL", "spain_la_liga": "PD", "germany_bundesliga": "BL1", "france_ligue_1": "FL1", "netherlands_eredivisie": "DED", "champions_league": "CL", "england_championship": "ELC", "portugal_primeira_liga": "PPL", "denmark_superliga": "DSU", "scotland_premiership": "SPL"}
+            codes = {"italy_serie_a": "SA", "england_premier_league": "PL", "spain_la_liga": "PD", "germany_bundesliga": "BL1", "france_ligue_1": "FL1", "netherlands_eredivisie": "DED", "champions_league": "CL", "england_championship": "ELC", "portugal_primeira_liga": "PPL", "denmark_superliga": "DSU", "scotland_premiership": "SPL", "brazil_serie_a": "BSA"}
             l_code = codes.get(league_key, "SA")
             standings = self.pa._get_standings(l_code)
             def clean_n(n):
@@ -1641,13 +1641,20 @@ REGOLE DI FORMATTAZIONE TASSATIVE (NON DEROGARE MAI):
                         logger.warning(f"⚠️  Errore recupero formazioni per {label}: {e}")
 
                     if not official_lineups:
-                        logger.info(f"⏳ {label} — formazioni non ancora disponibili, riprovo tra {self.CHECK_INTERVAL}s")
-                        continue
+                        # Per campionati non coperti da Sportmonks (es. BSA),
+                        # invia alert senza formazioni quando mancano ≤20 min al kickoff
+                        _sm_covered = set(self.sm.league_map.keys())
+                        if m["league_key"] not in _sm_covered and minutes_to <= 20:
+                            logger.info(f"📋 {label} — campionato senza copertura Sportmonks, invio alert senza formazioni")
+                        else:
+                            logger.info(f"⏳ {label} — formazioni non ancora disponibili, riprovo tra {self.CHECK_INTERVAL}s")
+                            continue
 
                     # 6b. Salva lineup in cache per cartellini/marcatori
-                    self._save_lineup_cache(m, official_lineups)
+                    if official_lineups:
+                        self._save_lineup_cache(m, official_lineups)
 
-                    # 7. Formazioni trovate! Lancia analisi AI + invio email
+                    # 7. Formazioni trovate (o fallback senza)! Lancia analisi AI + invio email
                     logger.info(f"🚀 {label} — Avvio analisi completa + invio email a {alert_email}")
                     self.alert_email = alert_email  # aggiorna per trigger_ai_analysis
                     self.trigger_ai_analysis(m)
