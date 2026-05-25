@@ -578,7 +578,7 @@ function renderLineups(lineups) {
         var starters = players.filter(function(p) { return !p.substitute; });
         var subs = players.filter(function(p) { return p.substitute; });
 
-        var h = '<div style="flex:1;min-width:200px;">';
+        var h = '<div style="width:240px;flex-shrink:0;">';
         h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">';
         h += '<strong style="color:#e2e8f0;font-size:0.95rem;">'+label+'</strong>';
         if (formation) h += '<span style="background:#fbbf2422;color:#fbbf24;border:1px solid #fbbf2444;padding:1px 7px;border-radius:4px;font-size:0.78rem;font-weight:700;">'+formation+'</span>';
@@ -615,13 +615,13 @@ function renderLineups(lineups) {
     var html = '';
 
     // Layout: Home list | Pitch | Away list (desktop) — stacked on mobile
-    html += '<div style="display:flex;gap:0.75rem;align-items:flex-start;flex-wrap:wrap;">';
+    html += '<div style="display:flex;gap:0.5rem;align-items:flex-start;justify-content:center;flex-wrap:wrap;">';
 
     // Home team list (left)
     html += _teamList(lineups.home, lineups.home_label || 'Casa', lineups.home_formation);
 
-    // Football pitch (center) — constrained width
-    html += '<div style="flex:1;min-width:260px;max-width:380px;">';
+    // Football pitch (center) — fixed width
+    html += '<div style="width:360px;flex-shrink:0;">';
     html += _buildPitch(lineups.home, lineups.away, lineups.home_formation, lineups.away_formation, lineups.home_label, lineups.away_label);
     html += '</div>';
 
