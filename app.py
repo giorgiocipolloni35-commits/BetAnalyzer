@@ -2471,11 +2471,18 @@ def api_custom_match_info():
     result["home_players"] = _get_top_players(home.get("id"), home_dom_tid, home_dom_sid)
     result["away_players"] = _get_top_players(away.get("id"), away_dom_tid, away_dom_sid)
 
-    # 4. Form (last 5 matches per team)
-    def _get_form(team_id, team_name):
+    # 4. Form (last 5 matches per team — domestic league only)
+    def _get_form(team_id, team_name, dom_tid, dom_sid):
+        # Use domestic league filtered endpoint for accurate form
         form_data = _ss_get(f"/team/{team_id}/events/last/0")
         form = []
-        for e in form_data.get("events", [])[:5]:
+        for e in form_data.get("events", []):
+            if len(form) >= 5:
+                break
+            # Filter: only domestic league matches
+            evt_tid = e.get("tournament", {}).get("uniqueTournament", {}).get("id")
+            if dom_tid and evt_tid != dom_tid:
+                continue
             ht = e.get("homeTeam", {})
             at = e.get("awayTeam", {})
             hs = e.get("homeScore", {}).get("current")
@@ -2494,8 +2501,8 @@ def api_custom_match_info():
             })
         return form
 
-    result["home_form"] = _get_form(home.get("id"), home.get("name", ""))
-    result["away_form"] = _get_form(away.get("id"), away.get("name", ""))
+    result["home_form"] = _get_form(home.get("id"), home.get("name", ""), home_dom_tid, home_dom_sid)
+    result["away_form"] = _get_form(away.get("id"), away.get("name", ""), away_dom_tid, away_dom_sid)
 
     # 5. H2H
     h2h_data = _ss_get(f"/event/{event_id}/h2h")
