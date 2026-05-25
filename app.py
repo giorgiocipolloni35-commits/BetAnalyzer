@@ -205,11 +205,8 @@ def load_data(force: bool = False, source: str = "odds_api"):
                     f.unlink(missing_ok=True)
                 logger.info("Cache svuotata")
 
-            if source == "sportmonks":
-                # Legacy: redirect a odds_api (Sportmonks eliminato)
-                source = "odds_api"
-
-            if True:  # odds_api (default — unica source attiva)
+            # Sportmonks eliminato — tutto passa da odds_api + FD
+            if True:
                 from scraper.odds_api import OddsAPIClient
                 matches = []
                 if ODDS_API_KEY:
