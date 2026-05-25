@@ -438,31 +438,43 @@ def _analyze_all_leagues() -> dict:
 
 
 def _load_upcoming_matches() -> list:
-    """Load upcoming matches from Sportmonks cache + Football-Data fallback."""
-    matches = []
+    """Load upcoming matches (next 14 days) from fixture cache + Football-Data."""
+    from datetime import datetime, timedelta
 
-    # 1. Sportmonks cache (covers European leagues)
+    matches = []
+    now = datetime.now()
+    cutoff = now + timedelta(days=14)
+
+    # 1. Fixture cache (sportmonks_matches.json — ora contiene fixture FD)
     try:
         path = "cache/sportmonks_matches.json"
         if os.path.exists(path):
             with open(path) as f:
-                matches = json.load(f)
+                cached = json.load(f)
+            for m in cached:
+                ct = m.get("commence_time", "")
+                if ct:
+                    try:
+                        dt = datetime.fromisoformat(ct.replace("Z", "+00:00")).replace(tzinfo=None)
+                        if now <= dt <= cutoff:
+                            matches.append(m)
+                    except (ValueError, TypeError):
+                        pass
     except Exception:
         pass
 
-    # 2. Football-Data fallback for uncovered leagues (e.g. BSA)
+    # 2. Football-Data per leghe extra (BSA, etc.)
     try:
-        from datetime import datetime, timedelta
         api_key = os.environ.get("FOOTBALL_DATA_API_KEY")
         if not api_key:
             return matches
 
-        # Only fetch FD matches for leagues not in Sportmonks
-        fd_only_codes = ["BSA"]  # Add more as needed
+        # Tutte le leghe ora usano FD — fetch solo se cache vuota o per BSA
+        fd_codes = ["BSA"]
         import requests
-        for code in fd_only_codes:
-            date_from = datetime.now().strftime("%Y-%m-%d")
-            date_to = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+        for code in fd_codes:
+            date_from = now.strftime("%Y-%m-%d")
+            date_to = cutoff.strftime("%Y-%m-%d")
             resp = requests.get(
                 f"https://api.football-data.org/v4/competitions/{code}/matches",
                 headers={"X-Auth-Token": api_key},
@@ -576,6 +588,17 @@ def _find_hot_matchups(teams_data: list) -> list:
             "matchup_type": matchup_key,
         })
 
+    # Deduplica: solo la prossima partita per ogni coppia di squadre
+    seen_pairs = set()
+    unique_hot = []
+    # Ordina per data (prima le più vicine) poi prendi solo la prima per coppia
+    hot.sort(key=lambda x: x.get("date", ""))
+    for h in hot:
+        pair = tuple(sorted([h["home"], h["away"]]))
+        if pair not in seen_pairs:
+            seen_pairs.add(pair)
+            unique_hot.append(h)
+
     # Sort by combined score descending
-    hot.sort(key=lambda x: x["combined_score"], reverse=True)
-    return hot
+    unique_hot.sort(key=lambda x: x["combined_score"], reverse=True)
+    return unique_hot
