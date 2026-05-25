@@ -956,7 +956,13 @@ def list_players_with_stats(filters: dict, page: int = 1, per_page: int = 40):
         # the same player (same name + league), prefer Sofascore (player_id >= 90M)
         # which has richer stats (xG, xA, cards, minutes, etc.)
         query = f"""
-            SELECT pi.*, psc.stats_json, psc.rating
+            SELECT pi.*, psc.stats_json,
+                COALESCE(
+                    (SELECT MAX(psc2.rating) FROM player_stats_cache psc2
+                     JOIN player_info pi2 ON psc2.player_id = pi2.player_id
+                     WHERE pi2.name = pi.name AND pi2.league_id = pi.league_id),
+                    psc.rating
+                ) as rating
             FROM player_info pi
             LEFT JOIN player_stats_cache psc ON pi.player_id = psc.player_id AND pi.team_id = psc.team_id
             AND psc.season_id = (
