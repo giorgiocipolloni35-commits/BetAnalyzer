@@ -52,10 +52,16 @@
 
             <!-- Standings snippet -->
             <div class="card" style="padding: 1.2rem;">
-                <h3 style="margin: 0 0 0.8rem; color: #38bdf8;"><i class="fas fa-list-ol"></i> Classifica</h3>
+                <h3 style="margin: 0 0 0.8rem; color: #38bdf8;"><i class="fas fa-list-ol"></i> <span id="standings-title">Classifica</span></h3>
                 <div id="standings-section">
                     <p style="color: #64748b;">Caricamento...</p>
                 </div>
+            </div>
+
+            <!-- Away standings (only if different league, e.g., CL match) -->
+            <div class="card" id="away-standings-card" style="padding: 1.2rem; display: none;">
+                <h3 style="margin: 0 0 0.8rem; color: #38bdf8;"><i class="fas fa-list-ol"></i> <span id="away-standings-title">Classifica Ospite</span></h3>
+                <div id="away-standings-section"></div>
             </div>
 
             <!-- Form -->
@@ -70,6 +76,22 @@
             <div class="card" style="padding: 1.2rem;">
                 <h3 style="margin: 0 0 0.8rem; color: #f472b6;"><i class="fas fa-exchange-alt"></i> Testa a Testa</h3>
                 <div id="h2h-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+
+            <!-- Top Scorers -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #4ade80;"><i class="fas fa-futbol"></i> Top Marcatori</h3>
+                <div id="scorers-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+
+            <!-- Top Cards -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #fbbf24;"><i class="fas fa-square"></i> Cartellini Probabili</h3>
+                <div id="cards-section">
                     <p style="color: #64748b;">Caricamento...</p>
                 </div>
             </div>
@@ -172,14 +194,28 @@ function renderMatch(data) {
     // Odds
     renderOdds(d.odds);
 
-    // Standings
-    renderStandings(d.standings, d.home_team_id, d.away_team_id);
+    // Standings (domestic)
+    document.getElementById('standings-title').textContent = 'Classifica ' + (d.standings_league || '');
+    renderStandings(d.standings, d.home_team_id, d.away_team_id, 'standings-section');
+
+    // Away standings (if different league, e.g. CL match)
+    if (d.away_standings && d.away_standings.length) {
+        document.getElementById('away-standings-card').style.display = 'block';
+        document.getElementById('away-standings-title').textContent = 'Classifica ' + (d.away_standings_league || '');
+        renderStandings(d.away_standings, d.home_team_id, d.away_team_id, 'away-standings-section');
+    }
 
     // Form
     renderForm(d.home_form, d.away_form, d.home_team, d.away_team);
 
     // H2H
     renderH2H(d.h2h);
+
+    // Scorers
+    renderScorers(d.home_players, d.away_players, d.home_team, d.away_team);
+
+    // Cards
+    renderCards(d.home_players, d.away_players, d.home_team, d.away_team);
 
     // Venue & Referee
     renderVenue(d.venue, d.referee);
@@ -235,8 +271,8 @@ function renderForm(homeForm, awayForm, homeName, awayName) {
     el.innerHTML = html;
 }
 
-function renderStandings(standings, homeId, awayId) {
-    var el = document.getElementById('standings-section');
+function renderStandings(standings, homeId, awayId, elId) {
+    var el = document.getElementById(elId || 'standings-section');
     if (!standings || !standings.length) { el.innerHTML = '<p style="color:#64748b;">Classifica non disponibile</p>'; return; }
 
     var html = '<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">';
@@ -258,6 +294,66 @@ function renderStandings(standings, homeId, awayId) {
     });
     html += '</table>';
     el.innerHTML = html;
+}
+
+function renderScorers(homePlayers, awayPlayers, homeName, awayName) {
+    var el = document.getElementById('scorers-section');
+    if ((!homePlayers || !homePlayers.scorers.length) && (!awayPlayers || !awayPlayers.scorers.length)) {
+        el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>';
+        return;
+    }
+
+    function _teamScorers(players, teamName) {
+        if (!players || !players.scorers.length) return '';
+        var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
+        h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
+        h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Pos</th><th>Gol</th><th>PG</th><th>G/P</th><th>xG</th><th>Tiri</th></tr>';
+        players.scorers.forEach(function(p) {
+            h += '<tr style="border-top:1px solid #1e293b;">';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;">' + p.position + '</td>';
+            h += '<td style="text-align:center; color:#4ade80; font-weight:600;">' + p.goals + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
+            h += '<td style="text-align:center; color:#fbbf24; font-weight:600;">' + p.goals_per_match + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8;">' + p.xg + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8;">' + p.shots_on_target + '/' + p.shots + '</td>';
+            h += '</tr>';
+        });
+        h += '</table></div>';
+        return h;
+    }
+
+    el.innerHTML = _teamScorers(homePlayers, homeName) + _teamScorers(awayPlayers, awayName);
+}
+
+function renderCards(homePlayers, awayPlayers, homeName, awayName) {
+    var el = document.getElementById('cards-section');
+    if ((!homePlayers || !homePlayers.cards.length) && (!awayPlayers || !awayPlayers.cards.length)) {
+        el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>';
+        return;
+    }
+
+    function _teamCards(players, teamName) {
+        if (!players || !players.cards.length) return '';
+        var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
+        h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
+        h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Ruolo</th><th style="color:#fbbf24;">Gialli</th><th>PG</th><th style="color:#fbbf24;">G/P</th><th>Tackle</th></tr>';
+        players.cards.forEach(function(p) {
+            var ypmColor = p.yellows_per_match >= 0.3 ? '#f87171' : (p.yellows_per_match >= 0.2 ? '#fbbf24' : '#94a3b8');
+            h += '<tr style="border-top:1px solid #1e293b;">';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;" title="' + p.position_full + '">' + p.position + '</td>';
+            h += '<td style="text-align:center; color:#fbbf24; font-weight:600;">' + p.yellows + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
+            h += '<td style="text-align:center; color:' + ypmColor + '; font-weight:600;">' + p.yellows_per_match + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8;">' + p.tackles + '</td>';
+            h += '</tr>';
+        });
+        h += '</table></div>';
+        return h;
+    }
+
+    el.innerHTML = _teamCards(homePlayers, homeName) + _teamCards(awayPlayers, awayName);
 }
 
 function renderH2H(h2h) {

@@ -2343,12 +2343,36 @@ def api_custom_match_info():
                     pass
     result["odds"] = odds_out
 
-    # 3. Standings
-    tid = tournament.get("id")
-    sid = season.get("id")
+    # 3. Standings — prefer DOMESTIC league over CL/cups
+    from scraper.cards import _load_tm_positions, _normalize_name
+    tm_positions = _load_tm_positions()
+    event_tid = tournament.get("id")
+    event_sid = season.get("id")
+
+    def _find_domestic(team_id):
+        """Find team's domestic league tid/sid via near-events."""
+        ne = _ss_get(f"/team/{team_id}/near-events")
+        for side in ["previousEvent", "nextEvent"]:
+            e = ne.get(side, {})
+            if not e:
+                continue
+            ut = e.get("tournament", {}).get("uniqueTournament", {})
+            utid = ut.get("id")
+            if utid and utid not in (7, 679, 17015) and utid != event_tid:
+                return utid, e.get("season", {}).get("id"), ut.get("name", "")
+        return event_tid, event_sid, tournament.get("name", "")
+
+    # Get domestic info for both teams
+    home_dom_tid, home_dom_sid, home_dom_name = _find_domestic(home.get("id"))
+    away_dom_tid, away_dom_sid, away_dom_name = _find_domestic(away.get("id"))
+
+    # Build standings from home team's domestic league (or event league if domestic)
     standings_out = []
-    if tid and sid:
-        st_data = _ss_get(f"/unique-tournament/{tid}/season/{sid}/standings/total")
+    standings_league = home_dom_name
+    st_tid, st_sid = home_dom_tid, home_dom_sid
+    # If both from same league, use that; if different (e.g., CL match), use home's domestic
+    if st_tid and st_sid:
+        st_data = _ss_get(f"/unique-tournament/{st_tid}/season/{st_sid}/standings/total")
         for group in st_data.get("standings", []):
             for row in group.get("rows", []):
                 t = row.get("team", {})
@@ -2363,7 +2387,70 @@ def api_custom_match_info():
                     "goals_for": row.get("scoresFor", 0),
                     "goals_against": row.get("scoresAgainst", 0),
                 })
+
+    # If teams are from different leagues (CL match), also get away's domestic standings
+    away_standings = []
+    if away_dom_tid != home_dom_tid and away_dom_tid and away_dom_sid:
+        st_data2 = _ss_get(f"/unique-tournament/{away_dom_tid}/season/{away_dom_sid}/standings/total")
+        for group in st_data2.get("standings", []):
+            for row in group.get("rows", []):
+                t = row.get("team", {})
+                away_standings.append({
+                    "position": row.get("position"),
+                    "team": t.get("name", ""),
+                    "team_id": t.get("id"),
+                    "points": row.get("points", 0),
+                    "wins": row.get("wins", 0),
+                    "draws": row.get("draws", 0),
+                    "losses": row.get("losses", 0),
+                    "goals_for": row.get("scoresFor", 0),
+                    "goals_against": row.get("scoresAgainst", 0),
+                })
+
     result["standings"] = standings_out
+    result["standings_league"] = standings_league
+    result["away_standings"] = away_standings
+    result["away_standings_league"] = away_dom_name if away_standings else ""
+
+    # 3b. Player stats (top scorers + top cards per team)
+    def _get_top_players(team_id, dom_tid, dom_sid):
+        tp = _ss_get(f"/team/{team_id}/unique-tournament/{dom_tid}/season/{dom_sid}/top-players/overall")
+        top = tp.get("topPlayers", {})
+        scorers = []
+        for p in top.get("goals", [])[:5]:
+            pl = p.get("player", {})
+            s = p.get("statistics", {})
+            apps = s.get("appearances", 1) or 1
+            tm = tm_positions.get(_normalize_name(pl.get("name", "")), {})
+            scorers.append({
+                "name": pl.get("name", ""),
+                "position": tm.get("position_short", pl.get("position", "?")),
+                "goals": s.get("goals", 0),
+                "appearances": apps,
+                "goals_per_match": round(s.get("goals", 0) / apps, 2),
+                "xg": round(s.get("expectedGoals", 0), 1),
+                "shots": s.get("totalShots", 0),
+                "shots_on_target": s.get("shotsOnTarget", 0),
+            })
+        cards = []
+        for p in top.get("yellowCards", [])[:6]:
+            pl = p.get("player", {})
+            s = p.get("statistics", {})
+            apps = s.get("appearances", 1) or 1
+            tm = tm_positions.get(_normalize_name(pl.get("name", "")), {})
+            cards.append({
+                "name": pl.get("name", ""),
+                "position": tm.get("position_short", pl.get("position", "?")),
+                "position_full": tm.get("position", pl.get("position", "?")),
+                "yellows": s.get("yellowCards", 0),
+                "appearances": apps,
+                "yellows_per_match": round(s.get("yellowCards", 0) / apps, 2),
+                "tackles": s.get("tackles", 0),
+            })
+        return {"scorers": scorers, "cards": cards}
+
+    result["home_players"] = _get_top_players(home.get("id"), home_dom_tid, home_dom_sid)
+    result["away_players"] = _get_top_players(away.get("id"), away_dom_tid, away_dom_sid)
 
     # 4. Form (last 5 matches per team)
     def _get_form(team_id, team_name):
