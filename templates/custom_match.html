@@ -352,20 +352,28 @@ function _findMissing(playerName, missList) {
     for (var i = 0; i < missList.length; i++) {
         if (missList[i].nameLower === key) return missList[i];
     }
-    // Partial: missing "Erick" matches player "Erick Pulga", or "Luciano Juba" matches "Juba"
+    // Partial match — requires LAST name (surname) to match, not just any part
+    // This avoids "Pedro Morisco" matching "Pedro Rocha" via shared "Pedro"
     var playerParts = key.split(/\s+/);
+    var playerLast = playerParts[playerParts.length - 1];
     for (var i = 0; i < missList.length; i++) {
         var m = missList[i];
-        // Check if any missing name part matches any player name part (surname match)
-        for (var j = 0; j < m.parts.length; j++) {
-            if (m.parts[j].length < 3) continue; // skip short parts like "de", "da"
+        var missLast = m.parts[m.parts.length - 1];
+        // Single-word names: "Erick" matches "Erick Pulga" only if missing name is contained
+        if (m.parts.length === 1 && m.parts[0].length >= 3) {
+            // Single word missing name: check if it matches any player part exactly
             for (var k = 0; k < playerParts.length; k++) {
-                if (playerParts[k].length < 3) continue;
-                if (m.parts[j] === playerParts[k]) return m;
+                if (playerParts[k] === m.parts[0]) return m;
             }
         }
-        // Check if one contains the other
-        if (key.indexOf(m.nameLower) >= 0 || m.nameLower.indexOf(key) >= 0) return m;
+        // Multi-word: surnames must match
+        if (m.parts.length > 1 && playerParts.length > 1) {
+            if (missLast === playerLast && missLast.length >= 3) return m;
+        }
+        // Containment: only if one is fully contained in the other
+        if (key === m.nameLower) return m;
+        if (m.nameLower.length >= 5 && key.indexOf(m.nameLower) >= 0) return m;
+        if (key.length >= 5 && m.nameLower.indexOf(key) >= 0) return m;
     }
     return null;
 }
