@@ -703,7 +703,9 @@ class CardAnalyzer:
                     team_lookup = sm_key
             if team_lookup and team_lookup in current_team_by_name:
                 real_tid = current_team_by_name[team_lookup]
-                if real_tid != tid:
+                # Skip reassignment when DB team_id is from a different ID system
+                # (e.g. Sofascore IDs >= 900_000 vs Football-Data IDs < 100_000)
+                if real_tid != tid and real_tid < 900_000:
                     logger.info(f"Transfer fix: {data['player']} team {tid} → {real_tid}")
                     data["team_id"] = real_tid
                     tid = real_tid

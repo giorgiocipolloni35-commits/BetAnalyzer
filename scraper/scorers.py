@@ -500,16 +500,19 @@ class ScorerAnalyzer:
             # Transfer handling: keep goals_team_id (where goals were scored)
             # but also store current_team_id (where player is NOW) for squad filtering.
             # Goals stay with the original team; the player shows up for their current team.
+            # NOTE: Skip reassignment when DB team_id is from a different ID system
+            # (e.g. Sofascore IDs >= 900_000 vs Football-Data IDs < 100_000).
+            # In that case, the player is on the same team — just tracked with a different ID.
             data["goals_team_id"] = tid   # team where goals were scored
             if p_name_lower in current_team_by_name:
                 real_tid = current_team_by_name[p_name_lower]
-                if real_tid != tid:
+                if real_tid != tid and real_tid < 900_000:
                     logger.info(f"Transfer detected: {data['player']} scored for {tid}, now at {real_tid}")
                     data["team_id"] = real_tid   # current team for squad listing
                     tid = real_tid
             elif sm_key and sm_key in current_team_by_name:
                 real_tid = current_team_by_name[sm_key]
-                if real_tid != tid:
+                if real_tid != tid and real_tid < 900_000:
                     logger.info(f"Transfer detected: {data['player']} scored for {tid}, now at {real_tid}")
                     data["team_id"] = real_tid
                     tid = real_tid
