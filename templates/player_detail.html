@@ -257,7 +257,11 @@
             
             <div class="player-meta-badges">
                 <div class="meta-badge">
+                    {% if team.id >= 900000 %}
+                    <img src="https://api.sofascore.app/api/v1/team/{{ team.id - 900000 }}/image" style="width: 20px; height: 20px; object-fit: contain;" onerror="this.style.display='none'">
+                    {% else %}
                     <img src="https://crests.football-data.org/{{ team.id }}.png" style="width: 20px; height: 20px; object-fit: contain;">
+                    {% endif %}
                     <strong>{{ team.name }}</strong>
                 </div>
                 {% if player.bio %}
@@ -274,8 +278,14 @@
         </div>
         
         <div class="team-crest-large">
-            <img src="https://crests.football-data.org/{{ team.id }}.png" 
+            {% if team.id >= 900000 %}
+            <img src="https://api.sofascore.app/api/v1/team/{{ team.id - 900000 }}/image"
+                 style="width: 150px; height: 150px; object-fit: contain; opacity: 0.8; filter: drop-shadow(0 0 20px rgba(79, 110, 247, 0.2));"
+                 onerror="this.style.display='none'">
+            {% else %}
+            <img src="https://crests.football-data.org/{{ team.id }}.png"
                  style="width: 150px; height: 150px; object-fit: contain; opacity: 0.8; filter: drop-shadow(0 0 20px rgba(79, 110, 247, 0.2));">
+            {% endif %}
         </div>
     </header>
 
