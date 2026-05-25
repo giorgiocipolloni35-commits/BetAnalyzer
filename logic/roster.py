@@ -685,7 +685,19 @@ class RosterManager:
             
         from scraper.injuries import get_injured_by_team
         inj_data = get_injured_by_team(league_key)
-        team_name_lower = self.get_team_details(team_id)["name"].lower()
+        team_details = self.get_team_details(team_id)
+        if not team_details:
+            # Fallback for Sofascore team IDs (>= 900000): look up name from DB
+            import sqlite3
+            try:
+                conn = sqlite3.connect('data/betanalyzer.db', timeout=10)
+                row = conn.execute("SELECT team_name FROM player_info WHERE team_id = ? LIMIT 1", (team_id,)).fetchone()
+                conn.close()
+                team_name_lower = row[0].lower() if row else ""
+            except Exception:
+                team_name_lower = ""
+        else:
+            team_name_lower = team_details["name"].lower()
         team_injuries = inj_data.get(team_name_lower, [])
         suspended_by_team = self.pa.get_suspended_for_league(league_key)
         team_suspensions = suspended_by_team.get(team_id, [])
@@ -753,7 +765,10 @@ class RosterManager:
             "la_liga": "spain_la_liga",
             "bundesliga": "germany_bundesliga",
             "ligue_1": "france_ligue_1",
-            "eredivisie": "netherlands_eredivisie"
+            "eredivisie": "netherlands_eredivisie",
+            "brasileirao": "brazil_serie_a",
+            "primeira_liga": "portugal_primeira_liga",
+            "championship": "england_championship",
         }
         league_key = mapping.get(league_key, league_key)
         
