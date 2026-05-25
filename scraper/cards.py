@@ -8,6 +8,8 @@ Crosses player card rate with referee card tendency to find value bets.
 import logging
 import os
 import json
+import unicodedata
+import re
 
 from scraper.penalties import PenaltyAnalyzer, LEAGUE_CODES, CACHE_DIR
 from logic.match_importance import detect_derby
@@ -43,10 +45,30 @@ def _fuzzy_name_match(fd_name: str, sm_names: dict) -> Optional[str]:
     return None
 
 
+def _normalize_name(name: str) -> str:
+    """Normalize player name for fuzzy matching (same logic as fetch_tm_positions.py)."""
+    nfkd = unicodedata.normalize("NFKD", name)
+    ascii_name = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", ascii_name.lower().strip())
+
+
+def _load_tm_positions() -> dict:
+    """Load detailed positions from Transfermarkt cache."""
+    tm_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "tm_positions.json")
+    if not os.path.exists(tm_file):
+        return {}
+    try:
+        with open(tm_file) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 class CardAnalyzer:
 
     def __init__(self, api_key: str):
         self.pa = PenaltyAnalyzer(api_key)
+        self._tm_positions = _load_tm_positions()
 
     def analyze_league(self, league_key: str) -> dict:
         code = LEAGUE_CODES.get(league_key)
@@ -277,7 +299,19 @@ class CardAnalyzer:
                 tackles_mult = 1.0 + (tackles_ratio - 1.0) * 0.15
 
                 # MULTIPLIER 3: Role adjustment
-                player_role = player_positions_map.get(p.get("player_id"), "") if p.get("player_id") else ""
+                # Try TM detailed position first (Centre-Back, Left-Back, etc.)
+                player_role = ""
+                player_name = p.get("player", "")
+                if player_name and self._tm_positions:
+                    tm_key = _normalize_name(player_name)
+                    tm_info = self._tm_positions.get(tm_key)
+                    if tm_info:
+                        player_role = tm_info.get("position", "")
+
+                # Fallback to FD generic position
+                if not player_role:
+                    player_role = player_positions_map.get(p.get("player_id"), "") if p.get("player_id") else ""
+
                 role_mult = ROLE_BOOST.get(player_role, None)
                 if role_mult is None:
                     sm_pos = p.get("sm_position_id")

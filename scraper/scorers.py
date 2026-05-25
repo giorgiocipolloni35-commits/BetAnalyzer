@@ -7,6 +7,7 @@ Crosses player scoring rate with opponent defense weakness to find value picks.
 
 import logging
 from scraper.penalties import PenaltyAnalyzer, LEAGUE_CODES
+from scraper.cards import _load_tm_positions, _normalize_name
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class ScorerAnalyzer:
 
     def __init__(self, api_key: str):
         self.pa = PenaltyAnalyzer(api_key)
+        self._tm_positions = _load_tm_positions()
 
     def analyze_league(self, league_key: str) -> dict:
         code = LEAGUE_CODES.get(league_key)
@@ -205,8 +207,18 @@ class ScorerAnalyzer:
                 def_mult = home_def_mult if is_home else away_def_mult
 
                 # MULT 3: Position weight (strikers > midfielders > defenders)
-                pid = p.get("player_id")
-                position = player_positions.get(pid, "") if pid else ""
+                # Try TM detailed position first
+                position = ""
+                player_name_s = p.get("player", "")
+                if player_name_s and self._tm_positions:
+                    tm_key = _normalize_name(player_name_s)
+                    tm_info = self._tm_positions.get(tm_key)
+                    if tm_info:
+                        position = tm_info.get("position", "")
+                # Fallback to FD generic position
+                if not position:
+                    pid = p.get("player_id")
+                    position = player_positions.get(pid, "") if pid else ""
                 # v2: detect set piece/penalty scorers — less position penalty
                 penalty_goals = p.get("penalty_goals", 0)
                 has_set_piece_goals = penalty_goals > 0 or (

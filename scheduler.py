@@ -117,6 +117,7 @@ def run_weekly():
     logger.info("=" * 50)
 
     scripts = [
+        ("fetch_tm_positions.py", "Detailed Positions (TM)", 600),
         ("fetch_squad_values.py", "Squad Values (TM)", 120),
         ("fetch_market_values.py", "Player Market Values (TM)", 600),
         ("fetch_var_stats.py", "VAR Stats (Sportmonks)", 600),
