@@ -41,6 +41,67 @@ FOOTBALL_DATA_KEY = os.getenv("FOOTBALL_DATA_API_KEY", "")
 
 
 # ------------------------------------------------------------------ #
+#  League activity helper — active leagues first in dropdowns          #
+# ------------------------------------------------------------------ #
+_league_season_cache: dict = {}
+_league_season_ts: float = 0.0
+
+
+def _get_sorted_leagues(league_codes: dict) -> list[dict]:
+    """Return league list sorted: active leagues first, then finished.
+
+    Uses Football-Data.org season endDate to determine if a league is active.
+    Caches results for 24 hours.
+    """
+    import time
+    global _league_season_cache, _league_season_ts
+
+    now = time.time()
+    # Refresh cache every 24 hours
+    if not _league_season_cache or (now - _league_season_ts) > 86400:
+        if FOOTBALL_DATA_KEY:
+            try:
+                import requests
+                for code in league_codes.values():
+                    resp = requests.get(
+                        f"https://api.football-data.org/v4/competitions/{code}",
+                        headers={"X-Auth-Token": FOOTBALL_DATA_KEY},
+                        timeout=10,
+                    )
+                    if resp.status_code == 200:
+                        season = resp.json().get("currentSeason", {})
+                        _league_season_cache[code] = {
+                            "end_date": season.get("endDate", ""),
+                            "start_date": season.get("startDate", ""),
+                            "matchday": season.get("currentMatchday", 0),
+                        }
+                    time.sleep(0.3)  # rate limit
+                _league_season_ts = now
+                logger.info("League season cache refreshed: %d leagues", len(_league_season_cache))
+            except Exception as e:
+                logger.warning("League season cache refresh failed: %s", e)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    leagues = []
+    for key, code in league_codes.items():
+        info = _league_season_cache.get(code, {})
+        end_date = info.get("end_date", "")
+        start_date = info.get("start_date", "")
+        is_active = bool(end_date and start_date and start_date <= today <= end_date)
+        leagues.append({
+            "id": key,
+            "name": key.replace("_", " ").title(),
+            "active": is_active,
+            "end_date": end_date,
+        })
+
+    # Sort: active first (sorted by name), then finished (sorted by end_date desc)
+    active = sorted([l for l in leagues if l["active"]], key=lambda x: x["name"])
+    finished = sorted([l for l in leagues if not l["active"]], key=lambda x: x["end_date"], reverse=True)
+    return active + finished
+
+
+# ------------------------------------------------------------------ #
 #  Data freshness helper                                               #
 # ------------------------------------------------------------------ #
 def get_data_freshness(*sources):
@@ -1090,7 +1151,7 @@ def players_explorer():
     # Costruiamo i query params per la paginazione
     q_params = f"search={search}&league={league}&role={role}&sort={sort}&age_group={age_group}&min_assists={min_assists}&min_dribbles={min_dribbles}&min_interceptions={min_interceptions}&min_recoveries={min_recoveries}"
     
-    leagues_list = [{"id": k, "name": k.replace("_", " ").title()} for k in LEAGUE_CODES.keys()]
+    leagues_list = _get_sorted_leagues(LEAGUE_CODES)
     
     freshness = get_data_freshness(
         ("Giocatori", "db:player_info", "Sportmonks DB / Nightly Sync"),
@@ -1202,7 +1263,7 @@ def teams_explorer():
     filters = {"league": db_league} if db_league else {}
     teams = list_team_stats(filters=filters, sort=sort)
 
-    leagues_list = [{"id": k, "name": k.replace("_", " ").title()} for k in LEAGUE_CODES.keys()]
+    leagues_list = _get_sorted_leagues(LEAGUE_CODES)
 
     return render_template("teams_explorer.html",
                            teams=teams,

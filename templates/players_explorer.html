@@ -475,7 +475,7 @@
                 <select name="league" class="custom-select">
                     <option value="">Tutte le Leghe</option>
                     {% for l in leagues %}
-                    <option value="{{ l.id }}" {% if filters.league == l.id %}selected{% endif %}>{{ l.name }}</option>
+                    <option value="{{ l.id }}" {% if filters.league == l.id %}selected{% endif %}>{{ "🟢 " if l.active else "⚫ " }}{{ l.name }}</option>
                     {% endfor %}
                 </select>
             </div>
