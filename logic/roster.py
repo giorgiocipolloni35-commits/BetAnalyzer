@@ -773,20 +773,133 @@ class RosterManager:
         league_key = mapping.get(league_key, league_key)
         
         league_code = LEAGUE_CODES.get(league_key)
-        if not league_code: 
+        if not league_code:
             logger.error(f"League code non trovato per: {league_key}")
             return None
-        
+
+        # ═══════════════════════════════════════════════════════════════
+        # FAST PATH: Giocatori Sofascore (ID >= 90M) → carica diretto dal DB
+        # Evita chiamate API Football-Data inutili (team_id 900xxx non esiste in FD)
+        # ═══════════════════════════════════════════════════════════════
+        if player_id >= 90_000_000:
+            logger.info(f"Sofascore player {player_id} - caricamento diretto dal DB")
+            import sqlite3
+            try:
+                conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Recupera info base
+                cursor.execute("""
+                    SELECT pi.player_id, pi.name, pi.team_id, pi.team_name, pi.league_id, pi.position_id,
+                           psc.stats_json, psc.rating
+                    FROM player_info pi
+                    LEFT JOIN player_stats_cache psc ON pi.player_id = psc.player_id
+                    WHERE pi.player_id = ?
+                    ORDER BY psc.season_id DESC LIMIT 1
+                """, (player_id,))
+                db_row = cursor.fetchone()
+                conn.close()
+
+                if db_row:
+                    s_json = json.loads(db_row['stats_json']) if db_row['stats_json'] else {}
+                    pos_map = {1: "Goalkeeper", 2: "Defender", 3: "Midfielder", 4: "Forward"}
+                    pos_id = db_row['position_id'] or s_json.get('position_id')
+
+                    player_data = {
+                        "id": db_row['player_id'],
+                        "name": db_row['name'] or "N/A",
+                        "position": pos_map.get(pos_id, "N/A"),
+                        "nationality": s_json.get("nationality", "N/A"),
+                        "goals": s_json.get("goals", 0),
+                        "assists": s_json.get("assists", 0),
+                        "appearances": s_json.get("appearances", 0),
+                        "minutes": s_json.get("minutes_played", 0),
+                        "yellow_cards": s_json.get("yellowCards", s_json.get("yellow_cards", 0)),
+                        "red_cards": s_json.get("redCards", s_json.get("red_cards", 0)),
+                        "rating": round(db_row['rating'] / 10, 1) if db_row['rating'] and db_row['rating'] > 10 else db_row['rating'],
+                        "number": s_json.get("shirt_number", "-"),
+                        "dateOfBirth": s_json.get("date_of_birth", ""),
+                        "source": "sofascore",
+                        # Campi richiesti dal template player_detail.html
+                        "impact": 0, "impact_drop": 0,
+                        "played": s_json.get("appearances", 0),
+                        "starts": s_json.get("appearances", 0),
+                        "subs": 0,
+                        "goals_1h": 0, "goals_2h": 0,
+                        "last_matchday": 0,
+                        "status": None, "status_detail": None,
+                        "arrival_team_matches": 0, "arrival_team_wins": 0,
+                    }
+
+                    # Team info dal DB (no API call per team Sofascore)
+                    team_info = {
+                        "id": db_row['team_id'],
+                        "name": db_row['team_name'] or "N/A",
+                        "crest": "",
+                    }
+
+                    # Stats avanzate direttamente dal JSON
+                    advanced_stats = self._map_sm_stats(s_json)
+                    player_data["advanced_stats"] = advanced_stats
+                    if advanced_stats:
+                        player_data["goals"] = advanced_stats["goals"]
+                        player_data["assists"] = advanced_stats["assists"]
+                        player_data["appearances"] = advanced_stats["appearances"]
+
+                    # Prova bio e infortuni
+                    from scraper.injuries import get_injured_by_team
+                    injuries = get_injured_by_team(league_key)
+                    team_name_norm = (team_info["name"] or "").lower()
+                    team_injuries = injuries.get(team_name_norm, [])
+                    for inj in team_injuries:
+                        if inj["player"].lower() in player_data["name"].lower() or player_data["name"].lower() in inj["player"].lower():
+                            player_data["injury_details"] = inj
+                            break
+
+                    # Market value
+                    try:
+                        conn2 = sqlite3.connect('data/betanalyzer.db', timeout=30)
+                        conn2.row_factory = sqlite3.Row
+                        cur2 = conn2.cursor()
+                        cur2.execute("""
+                            SELECT market_value_eur FROM player_market_values
+                            WHERE player_id = ?
+                               OR player_id IN (SELECT player_id FROM player_info WHERE name LIKE ?)
+                            LIMIT 1
+                        """, (player_id, f"%{player_data['name']}%"))
+                        mv_row = cur2.fetchone()
+                        conn2.close()
+                        if mv_row and mv_row['market_value_eur'] and mv_row['market_value_eur'] > 0:
+                            val = mv_row['market_value_eur']
+                            if val >= 1_000_000:
+                                player_data["market_value"] = f"€{val / 1_000_000:.1f}M"
+                            elif val >= 1_000:
+                                player_data["market_value"] = f"€{val / 1_000:.0f}K"
+                            else:
+                                player_data["market_value"] = f"€{val}"
+                    except Exception as e:
+                        logger.error(f"Errore market value Sofascore player {player_id}: {e}")
+
+                    return {"player": player_data, "team": team_info}
+            except Exception as e:
+                logger.error(f"Errore fallback Sofascore per {player_id}: {e}")
+            # Se il fast path Sofascore fallisce, ritorna None
+            logger.warning(f"Sofascore player {player_id} non trovato nel DB")
+            return None
+
+        # ═══════════════════════════════════════════════════════════════
+        # FLUSSO STANDARD: Giocatori Football-Data / Sportmonks (ID < 90M)
+        # ═══════════════════════════════════════════════════════════════
         # 1. Recupera i dati base dalla rosa locale
         players, team_stats, leaders = self.get_roster_with_stats(team_id, league_code, league_key)
         team_info = self.get_team_details(team_id)
-        
+
         # Prova per ID (Football-Data)
         player_data = next((p for p in players if p["id"] == player_id), None)
-        
+
         # FALLBACK: Prova per Nome (se l'ID arriva da Sportmonks/Scouting)
         if not player_data:
-            # Cerchiamo nel DB Sportmonks il nome associato a questo ID per essere precisi
             import sqlite3
             conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
             conn.row_factory = sqlite3.Row
@@ -794,27 +907,24 @@ class RosterManager:
             cursor.execute("SELECT name FROM player_info WHERE player_id = ?", (player_id,))
             row = cursor.fetchone()
             conn.close()
-            
+
             search_name = row['name'] if row else None
             if search_name:
-                # Cerchiamo un match più stretto: il nome deve essere quasi identico
                 player_data = next((p for p in players if p["name"].lower() == search_name.lower()), None)
-                
-                # Se non c'è match esatto, proviamo contenimento ma con cautela
                 if not player_data:
                     player_data = next((p for p in players if search_name.lower() in p["name"].lower() or p["name"].lower() in search_name.lower()), None)
-            
-        if not player_data: 
+
+        if not player_data:
             logger.warning(f"Giocatore non trovato nella rosa: ID {player_id}")
             return None
-            
+
         # IMPORTANTE: Usiamo l'ID trovato nella rosa per le chiamate successive (Bio, Infortuni, ecc.)
         player_id = player_data["id"]
-        
+
         # 2. Get injuries/bio
         bio = self.pa._get_player_info(player_id)
         if bio: player_data["bio"] = bio
-        
+
         from scraper.injuries import get_injured_by_team
         injuries = get_injured_by_team(league_key)
         team_name_norm = team_info["name"].lower() if team_info else ""
@@ -831,42 +941,35 @@ class RosterManager:
             conn = sqlite3.connect('data/betanalyzer.db', timeout=30)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            # Normalizziamo la ricerca: se l'ID è di Football-Data, cerchiamo per nome nel DB Sportmonks
+            # Normalizziamo la ricerca: prima per ID, poi per nome esatto, poi LIKE
             cursor.execute("""
-                SELECT stats_json 
-                FROM player_stats_cache 
-                WHERE (player_id = ? 
-                   OR player_id IN (SELECT player_id FROM player_info WHERE name LIKE ?))
+                SELECT stats_json
+                FROM player_stats_cache
+                WHERE player_id = ?
                 ORDER BY season_id DESC LIMIT 1
-            """, (player_id, f"%{player_data['name']}%"))
+            """, (player_id,))
             row = cursor.fetchone()
+            if not row:
+                # Cerca per nome nel DB (Sportmonks/Sofascore)
+                cursor.execute("""
+                    SELECT psc.stats_json
+                    FROM player_stats_cache psc
+                    JOIN player_info pi ON psc.player_id = pi.player_id
+                    WHERE pi.name = ? OR pi.name LIKE ?
+                    ORDER BY psc.season_id DESC LIMIT 1
+                """, (player_data['name'], f"%{player_data['name']}%"))
+                row = cursor.fetchone()
             conn.close()
-            
+
             if row:
                 s_json = json.loads(row['stats_json'])
                 advanced_stats = self._map_sm_stats(s_json)
-            
-            # --- FALLBACK LIVE (Il "paracadute") ---
+
+            # --- FALLBACK LIVE DISABILITATO (troppo lento, causa timeout 10min+) ---
+            # Se non troviamo stats nel DB, mostriamo il giocatore senza stats avanzate
+            # piuttosto che bloccare la pagina con chiamate API Sportmonks lente
             if not advanced_stats:
-                from scraper.sportmonks import SportmonksClient
-                sm_client = SportmonksClient(os.getenv("SPORTMONKS_API_KEY"))
-                # Cerchiamo il giocatore live
-                search_results = sm_client.search_player(player_data["name"])
-                if search_results:
-                    sm_p = search_results[0]
-                    # Recuperiamo le stats dell'ultima stagione
-                    url_stats = f"https://api.sportmonks.com/v3/football/players/{sm_p['id']}?include=statistics"
-                    # Usiamo il client per gestire i limiti
-                    raw_data = sm_client._make_request(f"players/{sm_p['id']}", {"include": "statistics"})
-                    if raw_data:
-                        stats_list = raw_data.get("data", {}).get("statistics", [])
-                        if stats_list:
-                            # Prendiamo l'ultima stagione disponibile
-                            last_stat = sorted(stats_list, key=lambda x: x.get("season_id", 0), reverse=True)[0]
-                            # Recuperiamo il dettaglio completo
-                            detailed = sm_client.get_player_stats(sm_p['id'], last_stat['season_id'], team_id=team_id)
-                            if detailed:
-                                advanced_stats = self._map_sm_stats(detailed)
+                logger.info(f"Nessuna stat avanzata nel DB per {player_data['name']} (ID {player_id})")
             # --------------------------------------
 
         except Exception as e:
