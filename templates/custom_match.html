@@ -498,10 +498,45 @@ function renderVenue(venue, referee) {
         if (venue.city) html += ' <span style="color:#94a3b8;">(' + venue.city + ')</span>';
         html += '</p>';
     }
-    if (referee) {
-        html += '<p style="margin:0;"><i class="fas fa-gavel" style="color:#fbbf24;"></i> ' + (referee.name||'Arbitro non designato');
-        if (referee.yellows_avg) html += ' <span style="color:#fbbf24; font-size:0.85rem;">(' + referee.yellows_avg + ' gialli/gara)</span>';
+    if (referee && referee.name) {
+        html += '<div style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid #1e293b;">';
+        html += '<p style="margin:0 0 0.5rem;"><i class="fas fa-gavel" style="color:#fbbf24;"></i> <strong>' + referee.name + '</strong>';
+        if (referee.country) html += ' <span style="color:#64748b; font-size:0.8rem;">(' + referee.country + ')</span>';
         html += '</p>';
+
+        // Career stats
+        html += '<div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.5rem;">';
+        html += '<div style="text-align:center; padding:6px 12px; background:#1e293b; border-radius:6px;">';
+        html += '<div style="font-size:1.1rem; font-weight:700; color:#e2e8f0;">' + (referee.games||0) + '</div>';
+        html += '<div style="font-size:0.7rem; color:#64748b;">Partite</div></div>';
+        html += '<div style="text-align:center; padding:6px 12px; background:#1e293b; border-radius:6px;">';
+        html += '<div style="font-size:1.1rem; font-weight:700; color:#fbbf24;">' + (referee.yellows_per_match||0) + '</div>';
+        html += '<div style="font-size:0.7rem; color:#64748b;">Gialli/Gara</div></div>';
+        html += '<div style="text-align:center; padding:6px 12px; background:#1e293b; border-radius:6px;">';
+        html += '<div style="font-size:1.1rem; font-weight:700; color:#ef4444;">' + (referee.reds_per_match||0) + '</div>';
+        html += '<div style="font-size:0.7rem; color:#64748b;">Rossi/Gara</div></div>';
+        html += '<div style="text-align:center; padding:6px 12px; background:#1e293b; border-radius:6px;">';
+        html += '<div style="font-size:1.1rem; font-weight:700; color:#fbbf24;">' + (referee.yellow_cards||0) + '</div>';
+        html += '<div style="font-size:0.7rem; color:#64748b;">Gialli Tot.</div></div>';
+        html += '<div style="text-align:center; padding:6px 12px; background:#1e293b; border-radius:6px;">';
+        html += '<div style="font-size:1.1rem; font-weight:700; color:#ef4444;">' + ((referee.red_cards||0) + (referee.yellow_red_cards||0)) + '</div>';
+        html += '<div style="font-size:0.7rem; color:#64748b;">Rossi Tot.</div></div>';
+        html += '</div>';
+
+        // Tournament-specific stats
+        var ts = referee.tournament_stats;
+        if (ts) {
+            html += '<div style="margin-top:0.5rem; padding:8px 10px; background:#0f172a; border-radius:6px; border:1px solid #1e293b;">';
+            html += '<div style="font-size:0.75rem; color:#94a3b8; margin-bottom:4px;">📊 In questo torneo (' + (ts.tournament||'') + ')</div>';
+            html += '<div style="display:flex; gap:1rem; flex-wrap:wrap; font-size:0.85rem;">';
+            html += '<span style="color:#e2e8f0;"><strong>' + (ts.games||0) + '</strong> gare</span>';
+            html += '<span style="color:#fbbf24;">🟨 <strong>' + (ts.yellows_per_match||0) + '</strong>/gara (' + (ts.yellow_cards||0) + ' tot.)</span>';
+            html += '<span style="color:#ef4444;">🟥 <strong>' + (ts.reds_per_match||0) + '</strong>/gara (' + (ts.red_cards||0) + ' tot.)</span>';
+            if (ts.penalties) html += '<span style="color:#a78bfa;">⚽ <strong>' + ts.penalties + '</strong> rigori</span>';
+            html += '</div></div>';
+        }
+
+        html += '</div>';
     }
     if (!html) html = '<p style="color:#64748b;">Info non disponibili</p>';
     el.innerHTML = html;

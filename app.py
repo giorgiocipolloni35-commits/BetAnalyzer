@@ -2313,8 +2313,41 @@ def api_custom_match_info():
             "name": venue.get("stadium", {}).get("name") or venue.get("name", ""),
             "city": venue.get("city", {}).get("name", ""),
         } if venue else None,
-        "referee": {"name": referee.get("name", "")} if referee else None,
+        "referee": None,
     }
+
+    # Referee stats
+    if referee:
+        ref_games = referee.get("games", 0) or 1
+        ref_info = {
+            "name": referee.get("name", ""),
+            "country": referee.get("country", {}).get("name", ""),
+            "games": referee.get("games", 0),
+            "yellow_cards": referee.get("yellowCards", 0),
+            "red_cards": referee.get("redCards", 0),
+            "yellow_red_cards": referee.get("yellowRedCards", 0),
+            "yellows_per_match": round(referee.get("yellowCards", 0) / ref_games, 2),
+            "reds_per_match": round((referee.get("redCards", 0) + referee.get("yellowRedCards", 0)) / ref_games, 2),
+        }
+        # Get tournament-specific stats if possible
+        ref_id = referee.get("id")
+        if ref_id:
+            ref_stats = _ss_get(f"/referee/{ref_id}/statistics")
+            tourn_id = tournament.get("id")
+            for ts in ref_stats.get("statistics", []):
+                if ts.get("uniqueTournament", {}).get("id") == tourn_id:
+                    t_games = ts.get("appearances", 1) or 1
+                    ref_info["tournament_stats"] = {
+                        "tournament": ts.get("uniqueTournament", {}).get("name", ""),
+                        "games": ts.get("appearances", 0),
+                        "yellow_cards": ts.get("yellowCards", 0),
+                        "red_cards": ts.get("redCards", 0),
+                        "yellows_per_match": round(ts.get("yellowCards", 0) / t_games, 2),
+                        "reds_per_match": round((ts.get("redCards", 0) + ts.get("yellowRedCards", 0)) / t_games, 2),
+                        "penalties": ts.get("penalty", 0),
+                    }
+                    break
+        result["referee"] = ref_info
 
     # 2. Odds
     odds_data = _ss_get(f"/event/{event_id}/odds/1/all")
