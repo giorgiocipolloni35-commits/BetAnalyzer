@@ -48,6 +48,20 @@ HEADERS = {
     "Cache-Control": "no-cache",
 }
 
+# ── Proxy residenziale (DataImpulse) ────────────────────────────
+# Se configurato, tutte le request passano da IP residenziali
+# → Sofascore non blocca (niente 403 da datacenter)
+_PROXY_LOGIN = os.environ.get("DATAIMPULSE_LOGIN", "")
+_PROXY_PASS = os.environ.get("DATAIMPULSE_PASSWORD", "")
+_PROXY_HOST = os.environ.get("DATAIMPULSE_HOST", "gw.dataimpulse.com")
+_PROXY_PORT = os.environ.get("DATAIMPULSE_PORT", "823")
+
+PROXIES = None
+if _PROXY_LOGIN and _PROXY_PASS:
+    _proxy_url = f"http://{_PROXY_LOGIN}:{_PROXY_PASS}@{_PROXY_HOST}:{_PROXY_PORT}"
+    PROXIES = {"http": _proxy_url, "https": _proxy_url}
+    logger.info("Proxy residenziale attivo: %s:%s", _PROXY_HOST, _PROXY_PORT)
+
 # ── League configuration ─────────────────────────────────────────
 # (tournament_id, season_id, db_league_id, db_season_id)
 # season_id must be updated yearly when new season starts
@@ -132,10 +146,10 @@ POS_MAP = {
 
 # ── HTTP helper ──────────────────────────────────────────────────
 def _get(url: str, retries: int = 3) -> dict | None:
-    """GET with retries and polite delay."""
+    """GET with retries and polite delay. Uses residential proxy if configured."""
     for attempt in range(retries):
         try:
-            r = requests.get(url, headers=HEADERS, timeout=15)
+            r = requests.get(url, headers=HEADERS, proxies=PROXIES, timeout=30)
             if r.status_code == 200:
                 return r.json()
             if r.status_code == 429:
