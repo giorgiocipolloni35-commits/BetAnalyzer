@@ -2555,6 +2555,21 @@ def api_custom_match_info():
             })
     result["lineups"] = lineups
 
+    # 7. Missing players (injuries + suspensions)
+    missing_data = _ss_get(f"/event/{event_id}/missing-players")
+    missing = {"home": [], "away": []}
+    for side in ["home", "away"]:
+        for p in missing_data.get(side, {}).get("missingPlayers", []):
+            pl = p.get("player", {})
+            ptype = p.get("type", "")          # "injury" or "suspension"
+            reason = p.get("reason", "")        # e.g. "Coscia", "ACL", "Cartellini gialli accumulati"
+            missing[side].append({
+                "name": pl.get("name", ""),
+                "type": ptype,                   # "injury" | "suspension"
+                "reason": reason,
+            })
+    result["missing"] = missing
+
     return jsonify({"success": True, "data": result})
 
 

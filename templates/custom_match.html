@@ -213,10 +213,10 @@ function renderMatch(data) {
     renderH2H(d.h2h);
 
     // Scorers
-    renderScorers(d.home_players, d.away_players, d.home_team, d.away_team, d.lineups);
+    renderScorers(d.home_players, d.away_players, d.home_team, d.away_team, d.lineups, d.missing);
 
     // Cards
-    renderCards(d.home_players, d.away_players, d.home_team, d.away_team, d.lineups);
+    renderCards(d.home_players, d.away_players, d.home_team, d.away_team, d.lineups, d.missing);
 
     // Venue & Referee
     renderVenue(d.venue, d.referee);
@@ -329,7 +329,6 @@ function renderStandings(standings, homeId, awayId, elId) {
 }
 
 function _buildLineupLookup(lineups, side) {
-    // Returns map: playerName (lowercase) → "T" (titolare) or "P" (panchina)
     var map = {};
     if (!lineups || !lineups[side]) return map;
     lineups[side].forEach(function(p) {
@@ -338,32 +337,56 @@ function _buildLineupLookup(lineups, side) {
     return map;
 }
 
-function _lineupBadge(status) {
-    if (!status) return '';
-    var bg = status === 'T' ? '#4ade80' : '#fbbf24';
-    var label = status === 'T' ? 'T' : 'P';
-    return ' <span style="font-size:0.65rem;padding:1px 4px;border-radius:3px;background:'+bg+'22;color:'+bg+';border:1px solid '+bg+'44;font-weight:700;">'+label+'</span>';
+function _buildMissingLookup(missing, side) {
+    // Returns map: playerName (lowercase) → {type: "injury"|"suspension", reason: "..."}
+    var map = {};
+    if (!missing || !missing[side]) return map;
+    missing[side].forEach(function(p) {
+        map[p.name.toLowerCase()] = {type: p.type, reason: p.reason || ''};
+    });
+    return map;
 }
 
-function renderScorers(homePlayers, awayPlayers, homeName, awayName, lineups) {
+function _statusBadges(name, luMap, missMap) {
+    var html = '';
+    var key = name.toLowerCase();
+    // Lineup status
+    var lu = luMap[key];
+    if (lu) {
+        var bg = lu === 'T' ? '#4ade80' : '#fbbf24';
+        html += ' <span style="font-size:0.65rem;padding:1px 4px;border-radius:3px;background:'+bg+'22;color:'+bg+';border:1px solid '+bg+'44;font-weight:700;">'+lu+'</span>';
+    }
+    // Missing status
+    var miss = missMap[key];
+    if (miss) {
+        if (miss.type === 'injury') {
+            var tip = miss.reason ? 'Infortunato: ' + miss.reason : 'Infortunato';
+            html += ' <span title="'+tip+'" style="font-size:0.7rem;color:#ef4444;">✚</span>';
+        } else {
+            var tip = miss.reason || 'Squalificato';
+            html += ' <span title="'+tip+'" style="font-size:0.7rem;padding:1px 3px;border-radius:2px;background:#ef4444;color:#fff;">SQ</span>';
+        }
+    }
+    return html;
+}
+
+function renderScorers(homePlayers, awayPlayers, homeName, awayName, lineups, missing) {
     var el = document.getElementById('scorers-section');
     if ((!homePlayers || !homePlayers.scorers.length) && (!awayPlayers || !awayPlayers.scorers.length)) {
         el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>';
         return;
     }
 
-    var hasLineups = lineups && (lineups.home.length > 0 || lineups.away.length > 0);
-
     function _teamScorers(players, teamName, side) {
         if (!players || !players.scorers.length) return '';
-        var luMap = hasLineups ? _buildLineupLookup(lineups, side) : {};
+        var luMap = _buildLineupLookup(lineups, side);
+        var missMap = _buildMissingLookup(missing, side);
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
         h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Pos</th><th>Gol</th><th>PG</th><th>G/P</th><th>xG</th><th>Tiri</th></tr>';
         players.scorers.forEach(function(p) {
-            var status = luMap[p.name.toLowerCase()] || '';
             h += '<tr style="border-top:1px solid #1e293b;">';
-            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _lineupBadge(status) + '</td>';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _statusBadges(p.name, luMap, missMap) + '</td>';
             h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;">' + p.position + '</td>';
             h += '<td style="text-align:center; color:#4ade80; font-weight:600;">' + p.goals + '</td>';
             h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
@@ -381,26 +404,24 @@ function renderScorers(homePlayers, awayPlayers, homeName, awayName, lineups) {
     el.innerHTML = _teamScorers(homePlayers, homeName, 'home') + _teamScorers(awayPlayers, awayName, 'away');
 }
 
-function renderCards(homePlayers, awayPlayers, homeName, awayName, lineups) {
+function renderCards(homePlayers, awayPlayers, homeName, awayName, lineups, missing) {
     var el = document.getElementById('cards-section');
     if ((!homePlayers || !homePlayers.cards.length) && (!awayPlayers || !awayPlayers.cards.length)) {
         el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>';
         return;
     }
 
-    var hasLineups = lineups && (lineups.home.length > 0 || lineups.away.length > 0);
-
     function _teamCards(players, teamName, side) {
         if (!players || !players.cards.length) return '';
-        var luMap = hasLineups ? _buildLineupLookup(lineups, side) : {};
+        var luMap = _buildLineupLookup(lineups, side);
+        var missMap = _buildMissingLookup(missing, side);
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
         h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Ruolo</th><th style="color:#fbbf24;">Gialli</th><th>PG</th><th style="color:#fbbf24;">G/P</th><th>Tackle</th></tr>';
         players.cards.forEach(function(p) {
             var ypmColor = p.yellows_per_match >= 0.3 ? '#f87171' : (p.yellows_per_match >= 0.2 ? '#fbbf24' : '#94a3b8');
-            var status = luMap[p.name.toLowerCase()] || '';
             h += '<tr style="border-top:1px solid #1e293b;">';
-            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _lineupBadge(status) + '</td>';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _statusBadges(p.name, luMap, missMap) + '</td>';
             h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;" title="' + (p.position_full||'') + '">' + p.position + '</td>';
             h += '<td style="text-align:center; color:#fbbf24; font-weight:600;">' + p.yellows + '</td>';
             h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
