@@ -1065,10 +1065,11 @@ def players_explorer():
         "spain_la_liga": "la_liga",
         "germany_bundesliga": "bundesliga",
         "france_ligue_1": "ligue_1",
-        "netherlands_eredivisie": "eredivisie"
+        "netherlands_eredivisie": "eredivisie",
+        "brazil_serie_a": "brasileirao",
     }
     db_league = league_map.get(league, league)
-    
+
     filters = {
         "search": search,
         "league": db_league,
@@ -1193,7 +1194,8 @@ def teams_explorer():
         "spain_la_liga": "la_liga",
         "germany_bundesliga": "bundesliga",
         "france_ligue_1": "ligue_1",
-        "netherlands_eredivisie": "eredivisie"
+        "netherlands_eredivisie": "eredivisie",
+        "brazil_serie_a": "brasileirao",
     }
     db_league = league_map.get(league, league)
 
