@@ -342,7 +342,7 @@ function _buildMissingList(missing, side) {
     if (!missing || !missing[side]) return [];
     return missing[side].map(function(p) {
         var n = p.name.toLowerCase();
-        return {name: p.name, nameLower: n, parts: n.split(/\s+/), type: p.type, reason: p.reason || ''};
+        return {name: p.name, nameLower: n, parts: n.split(/\s+/), type: p.type, reason: p.reason || '', status: p.status || ''};
     });
 }
 
@@ -388,14 +388,18 @@ function _statusBadges(name, luMap, missList) {
         html += ' <span style="font-size:0.65rem;padding:1px 4px;border-radius:3px;background:'+bg+'22;color:'+bg+';border:1px solid '+bg+'44;font-weight:700;">'+lu+'</span>';
     }
     // Missing status (fuzzy match)
+    // If player is in official lineup (T or P), skip dayToDay injuries (coach decided to play him)
     var miss = _findMissing(name, missList);
     if (miss) {
-        if (miss.type === 'injury') {
-            var tip = miss.reason ? 'Infortunato: ' + miss.reason : 'Infortunato';
-            html += ' <span title="'+tip+'" style="font-size:0.7rem;color:#ef4444;">✚</span>';
-        } else {
-            var tip = miss.reason || 'Squalificato';
-            html += ' <span title="'+tip+'" style="font-size:0.7rem;padding:1px 3px;border-radius:2px;background:#ef4444;color:#fff;">SQ</span>';
+        var skipInjury = (miss.type === 'injury' && miss.status === 'dayToDay' && lu);
+        if (!skipInjury) {
+            if (miss.type === 'injury') {
+                var tip = miss.reason ? 'Infortunato: ' + miss.reason : 'Infortunato';
+                html += ' <span title="'+tip+'" style="font-size:0.7rem;color:#ef4444;">✚</span>';
+            } else {
+                var tip = miss.reason || 'Squalificato';
+                html += ' <span title="'+tip+'" style="font-size:0.7rem;padding:1px 3px;border-radius:2px;background:#ef4444;color:#fff;">SQ</span>';
+            }
         }
     }
     return html;
