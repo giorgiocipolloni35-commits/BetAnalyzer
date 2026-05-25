@@ -59,7 +59,7 @@ class BetAnalyzerWorker:
         from logic.notifications import EmailService
 
         self.pa = PenaltyAnalyzer(os.getenv("FOOTBALL_DATA_API_KEY"))
-        self.sm = SportmonksClient(os.getenv("SPORTMONKS_API_KEY"))
+        self.sm = SportmonksClient()  # Usa FD internamente
         self.mail = EmailService()
         self.db_path = "data/betanalyzer.db"
 
@@ -194,17 +194,17 @@ class BetAnalyzerWorker:
 
         raw_matches = []
 
-        # 1. Prova Sportmonks (sorgente primaria)
-        sm_key = os.getenv("SPORTMONKS_API_KEY")
-        if sm_key:
+        # 1. Fixture da Football-Data.org (via SportmonksClient drop-in)
+        fd_key = os.getenv("FOOTBALL_DATA_API_KEY")
+        if fd_key:
             try:
                 from scraper.sportmonks import SportmonksClient
-                sm_client = SportmonksClient(sm_key)
+                sm_client = SportmonksClient()
                 raw_matches = sm_client.get_all_matches(league_keys=active_leagues)
                 if raw_matches:
-                    logger.info(f"✅ Sportmonks: {len(raw_matches)} match recuperati")
+                    logger.info(f"✅ FD Fixtures: {len(raw_matches)} match recuperati")
             except Exception as e:
-                logger.warning(f"⚠️ Sportmonks fallito: {e}")
+                logger.warning(f"⚠️ FD Fixtures fallito: {e}")
 
         # 2. Fallback/arricchimento con Odds API (rotazione chiavi)
         #    SMART RATE LIMIT: per risparmiare quota (500/mese), fetch solo ogni N ore
@@ -324,13 +324,12 @@ class BetAnalyzerWorker:
             except Exception as e:
                 logger.warning(f"⚠️ API-Football fallback error: {e}")
 
-        # 4. Football-Data.org fallback per campionati non coperti da Sportmonks/OddsAPI
-        #    (es. Brasileirão — TIER_ONE su FD ma non in Sportmonks/OddsAPI)
+        # 4. Football-Data.org fallback per campionati non coperti da OddsAPI
         fd_key = os.getenv("FOOTBALL_DATA_API_KEY", "")
         if fd_key:
             from scraper.sportmonks import SportmonksClient as _SM
             from scraper.odds_api import LEAGUES as _OL
-            sm_map = _SM("dummy").league_map if True else {}
+            sm_map = _SM().league_map
             covered_leagues = set(sm_map.keys()) | set(_OL.keys())
             uncovered = [lk for lk in active_leagues if lk not in covered_leagues]
 

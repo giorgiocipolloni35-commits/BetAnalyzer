@@ -141,7 +141,7 @@ _state = {
     "matches": [],
     "loading": False,
     "error": None,
-    "source": "sportmonks", # Sorgente predefinita
+    "source": "odds_api", # Sorgente predefinita (Sportmonks eliminato)
     "selected_leagues": [], # Tutti disabilitati all'avvio
     "last_update": None,
     "quota_usage":        {"remaining": "?", "used": "?"},
@@ -206,31 +206,10 @@ def load_data(force: bool = False, source: str = "odds_api"):
                 logger.info("Cache svuotata")
 
             if source == "sportmonks":
-                if not SPORTMONKS_KEY:
-                    raise ValueError("SPORTMONKS_API_KEY non configurata nel file .env")
-                from scraper.sportmonks import SportmonksClient
-                client = SportmonksClient(SPORTMONKS_KEY, cache_minutes=CACHE_MINUTES)
-                matches = client.get_all_matches(league_keys=selected_leagues)
+                # Legacy: redirect a odds_api (Sportmonks eliminato)
+                source = "odds_api"
 
-                # Modalità ibrida: arricchisci con quote multi-bookmaker da Odds API
-                if ODDS_API_KEY:
-                    try:
-                        from scraper.odds_api import OddsAPIClient
-                        from scraper.hybrid import merge_odds_into_matches
-                        odds_client = OddsAPIClient(ODDS_API_KEY, cache_minutes=CACHE_MINUTES)
-                        odds_matches = odds_client.get_all_matches(league_keys=selected_leagues)
-                        if odds_matches:
-                            merge_odds_into_matches(matches, odds_matches)
-                            logger.info(f"Modalità ibrida: {len(odds_matches)} partite Odds API merged")
-                        else:
-                            logger.warning("Odds API non ha restituito partite (quota esaurita?) — uso solo Sportmonks")
-                        _state["quota_usage"] = odds_client.get_quota_usage()
-                    except Exception as e:
-                        logger.warning(f"Odds API fallita ({e}) — uso solo dati Sportmonks")
-                else:
-                    logger.info("Odds API key non configurata — uso solo quote Sportmonks")
-
-            else:  # odds_api (default)
+            if True:  # odds_api (default — unica source attiva)
                 from scraper.odds_api import OddsAPIClient
                 matches = []
                 if ODDS_API_KEY:
@@ -340,9 +319,9 @@ def load_data(force: bool = False, source: str = "odds_api"):
             # Passa client per classifica e forma recente
             sm_client = None
             fd_client = None
-            if SPORTMONKS_KEY:
+            if FOOTBALL_DATA_KEY:
                 from scraper.sportmonks import SportmonksClient
-                sm_client = SportmonksClient(SPORTMONKS_KEY, cache_minutes=CACHE_MINUTES)
+                sm_client = SportmonksClient(cache_minutes=CACHE_MINUTES)
             if FOOTBALL_DATA_KEY:
                 from scraper.football_data import FootballDataClient
                 fd_client = FootballDataClient(FOOTBALL_DATA_KEY)
@@ -491,9 +470,9 @@ def match_detail(match_id: str):
     # Recupera dati extra da Sportmonks (se ha IDs)
     h2h_results = []
     h2h_stats = {}
-    if SPORTMONKS_KEY and (match.home_id or match.away_id):
+    if FOOTBALL_DATA_KEY and (match.home_id or match.away_id):
         from scraper.sportmonks import SportmonksClient
-        client = SportmonksClient(SPORTMONKS_KEY)
+        client = SportmonksClient(cache_minutes=CACHE_MINUTES)
         if match.home_id:
             history_home = client.get_last_results(match.home_id)
         if match.away_id:
@@ -733,9 +712,9 @@ def api_deep_analysis(match_id):
     history_away = []
     standings = []
     h2h_results = []
-    if SPORTMONKS_KEY and (m.home_id or m.away_id):
+    if FOOTBALL_DATA_KEY and (m.home_id or m.away_id):
         from scraper.sportmonks import SportmonksClient
-        sm = SportmonksClient(SPORTMONKS_KEY)
+        sm = SportmonksClient(cache_minutes=CACHE_MINUTES)
         if m.home_id:
             history_home = sm.get_last_results(m.home_id, limit=5)
         if m.away_id:
@@ -937,10 +916,10 @@ def api_deep_analysis(match_id):
                             match_dt = datetime.fromisoformat(ct_clean)
                     except Exception:
                         pass
-                    if SPORTMONKS_KEY and m.home_id:
+                    if FOOTBALL_DATA_KEY and m.home_id:
                         from scraper.sportmonks import SportmonksClient
-                        sm_weather = SportmonksClient(SPORTMONKS_KEY)
-                        venue = get_venue_coords(sm_weather, str(m.home_id).replace("sm_", ""))
+                        sm_weather = SportmonksClient(cache_minutes=CACHE_MINUTES)
+                        venue = get_venue_coords(sm_weather, str(m.home_id).replace("sm_", "").replace("fd_", ""))
                         if venue:
                             weather_raw = get_weather_forecast(venue["lat"], venue["lon"], match_dt)
                             if weather_raw:
@@ -956,14 +935,14 @@ def api_deep_analysis(match_id):
                     # Recupera info coach da Sportmonks
                     h_coach = None
                     a_coach = None
-                    if SPORTMONKS_KEY:
+                    if FOOTBALL_DATA_KEY:
                         try:
                             from scraper.sportmonks import SportmonksClient
-                            sm_coach = SportmonksClient(SPORTMONKS_KEY)
+                            sm_coach = SportmonksClient(cache_minutes=CACHE_MINUTES)
                             if m.home_id:
-                                h_coach = sm_coach.get_coach_info(str(m.home_id).replace("sm_", ""))
+                                h_coach = sm_coach.get_coach_info(str(m.home_id).replace("sm_", "").replace("fd_", ""))
                             if m.away_id:
-                                a_coach = sm_coach.get_coach_info(str(m.away_id).replace("sm_", ""))
+                                a_coach = sm_coach.get_coach_info(str(m.away_id).replace("sm_", "").replace("fd_", ""))
                         except Exception as e:
                             logger.warning(f"Coach info error: {e}")
 
@@ -1309,10 +1288,10 @@ def api_settle():
     from scraper.sportmonks import SportmonksClient
     import json as _json
 
-    if not SPORTMONKS_KEY:
-        return jsonify({"success": False, "error": "SPORTMONKS_API_KEY necessaria per il settling"})
+    if not FOOTBALL_DATA_KEY:
+        return jsonify({"success": False, "error": "FOOTBALL_DATA_API_KEY necessaria per il settling"})
 
-    sm = SportmonksClient(SPORTMONKS_KEY)
+    sm = SportmonksClient(cache_minutes=CACHE_MINUTES)
     unsettled = get_unsettled_predictions()
     settled_count = 0
 
@@ -2614,15 +2593,15 @@ def worker_page():
         rome_tz = pytz.timezone("Europe/Rome")
         raw_matches = []
 
-        # 1. Prova Sportmonks (sorgente primaria)
-        if SPORTMONKS_KEY:
+        # 1. Prova Football-Data.org (sorgente primaria fixture)
+        if FOOTBALL_DATA_KEY:
             try:
                 from scraper.sportmonks import SportmonksClient
-                sm_client = SportmonksClient(SPORTMONKS_KEY)
+                sm_client = SportmonksClient(cache_minutes=CACHE_MINUTES)
                 raw_matches = sm_client.get_all_matches(league_keys=active_leagues)
-                logger.info(f"Worker preview: Sportmonks {len(raw_matches)} match")
+                logger.info(f"Worker preview: FD {len(raw_matches)} match")
             except Exception as e:
-                logger.warning(f"Worker preview: Sportmonks fallito: {e}")
+                logger.warning(f"Worker preview: FD fallito: {e}")
 
         # 2. Fallback/arricchimento Odds API
         if ODDS_API_KEY:

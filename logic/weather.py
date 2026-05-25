@@ -48,7 +48,7 @@ WMO_CODES = {
 
 def get_venue_coords(sm_client, team_id: str) -> dict | None:
     """
-    Recupera coordinate stadio e info venue da Sportmonks.
+    Recupera coordinate stadio via SportmonksClient (ora usa dict statico + Nominatim).
 
     Returns:
         {"lat": float, "lon": float, "name": str, "city": str, "surface": str}
@@ -57,29 +57,8 @@ def get_venue_coords(sm_client, team_id: str) -> dict | None:
     if not sm_client or not team_id:
         return None
     try:
-        clean_id = str(team_id).replace("sm_", "")
-        url = f"{sm_client.base_url}/teams/{clean_id}"
-        params = {"api_token": sm_client.api_key, "include": "venue"}
-        r = requests.get(url, params=params, timeout=10)
-        r.raise_for_status()
-        data = r.json().get("data", {})
-        venue = data.get("venue", {})
-        if not venue:
-            return None
-
-        lat = venue.get("latitude")
-        lon = venue.get("longitude")
-        if not lat or not lon:
-            return None
-
-        return {
-            "lat": float(lat),
-            "lon": float(lon),
-            "name": venue.get("name", ""),
-            "city": venue.get("city_name", ""),
-            "surface": venue.get("surface", "grass"),
-            "capacity": venue.get("capacity", 0),
-        }
+        # Il nuovo SportmonksClient ha get_venue_coords integrato
+        return sm_client.get_venue_coords(team_id)
     except Exception as e:
         logger.warning(f"Errore recupero venue team {team_id}: {e}")
         return None
