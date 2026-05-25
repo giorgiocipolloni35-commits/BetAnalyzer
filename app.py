@@ -2507,17 +2507,30 @@ def api_custom_match_info():
         "last_matches": [],
     }
 
-    # 6. Lineups
+    # 6. Lineups (with formation + TM detailed positions)
     lu_data = _ss_get(f"/event/{event_id}/lineups")
-    lineups = {"home": [], "away": [], "confirmed": lu_data.get("confirmed", False),
-               "home_label": home.get("name", "Casa"), "away_label": away.get("name", "Ospite")}
+    lineups = {
+        "home": [], "away": [], "confirmed": lu_data.get("confirmed", False),
+        "home_label": home.get("name", "Casa"), "away_label": away.get("name", "Ospite"),
+        "home_formation": lu_data.get("home", {}).get("formation", ""),
+        "away_formation": lu_data.get("away", {}).get("formation", ""),
+    }
+    # Sofascore position mapping
+    _pos_map = {"G": "POR", "D": "DIF", "M": "CEN", "F": "ATT"}
     for side in ["home", "away"]:
         for p in lu_data.get(side, {}).get("players", []):
             pl = p.get("player", {})
+            pname = pl.get("name", "")
+            ss_pos = p.get("position", "")
+            # Try TM detailed position first (CB, LB, DM, AM, LW, etc.)
+            tm_info = tm_positions.get(_normalize_name(pname), {})
+            detail_pos = tm_info.get("position_short", "")
+            # Fallback: Sofascore generic → Italian abbreviation
+            display_pos = detail_pos or _pos_map.get(ss_pos, ss_pos)
             lineups[side].append({
-                "name": pl.get("name", ""),
+                "name": pname,
                 "shirt": pl.get("shirtNumber"),
-                "position": p.get("position", ""),
+                "position": display_pos,
                 "substitute": p.get("substitute", False),
             })
     result["lineups"] = lineups

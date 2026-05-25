@@ -434,23 +434,63 @@ function renderLineups(lineups) {
         return;
     }
 
-    function _team(players, label) {
-        var h = '<div style="margin-bottom:0.8rem;"><strong style="color:#e2e8f0;">' + label + '</strong>';
-        if (lineups.confirmed) h += ' <span style="color:#4ade80; font-size:0.75rem;">UFFICIALE</span>';
-        h += '<div style="margin-top:4px; font-size:0.85rem;">';
-        players.forEach(function(p) {
-            var posColor = p.substitute ? '#64748b' : '#94a3b8';
-            h += '<div style="padding:2px 0;' + (p.substitute ? ' opacity:0.5;' : '') + '">';
-            h += '<span style="color:#fbbf24; width:24px; display:inline-block; text-align:right; margin-right:6px;">' + (p.shirt||'') + '</span>';
+    // Position badge colors
+    var posColors = {
+        'POR': '#3b82f6', 'GK': '#3b82f6',
+        'CB': '#ef4444', 'LB': '#f97316', 'RB': '#f97316', 'DIF': '#ef4444',
+        'DM': '#a855f7', 'CM': '#8b5cf6', 'AM': '#c084fc', 'LM': '#8b5cf6', 'RM': '#8b5cf6', 'CEN': '#8b5cf6',
+        'LW': '#22c55e', 'RW': '#22c55e', 'CF': '#4ade80', 'SS': '#4ade80', 'ST': '#4ade80', 'ATT': '#22c55e',
+    };
+
+    function _posBadge(pos) {
+        if (!pos) return '';
+        var bg = posColors[pos] || '#475569';
+        return '<span style="display:inline-block; font-size:0.7rem; padding:1px 5px; border-radius:3px; background:' + bg + '22; color:' + bg + '; border:1px solid ' + bg + '44; margin-left:6px; font-weight:600;">' + pos + '</span>';
+    }
+
+    function _team(players, label, formation) {
+        var starters = players.filter(function(p) { return !p.substitute; });
+        var subs = players.filter(function(p) { return p.substitute; });
+
+        var h = '<div style="margin-bottom:1rem;">';
+        h += '<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">';
+        h += '<strong style="color:#e2e8f0; font-size:1.05rem;">' + label + '</strong>';
+        if (formation) h += '<span style="background:#fbbf2422; color:#fbbf24; border:1px solid #fbbf2444; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:700;">' + formation + '</span>';
+        if (lineups.confirmed) h += '<span style="background:#4ade8022; color:#4ade80; border:1px solid #4ade8044; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600;">UFFICIALE</span>';
+        h += '</div>';
+
+        // Starters
+        h += '<div style="font-size:0.85rem;">';
+        starters.forEach(function(p) {
+            h += '<div style="padding:2px 0; display:flex; align-items:center;">';
+            h += '<span style="color:#fbbf24; width:24px; display:inline-block; text-align:right; margin-right:6px; font-size:0.8rem;">' + (p.shirt||'') + '</span>';
             h += '<span style="color:#e2e8f0;">' + p.name + '</span>';
-            if (p.position) h += ' <span style="color:' + posColor + '; font-size:0.75rem;">(' + p.position + ')</span>';
+            h += _posBadge(p.position);
             h += '</div>';
         });
-        h += '</div></div>';
+        h += '</div>';
+
+        // Subs
+        if (subs.length) {
+            h += '<div style="margin-top:6px; padding-top:6px; border-top:1px solid #1e293b;">';
+            h += '<div style="color:#64748b; font-size:0.75rem; margin-bottom:3px;">Panchina</div>';
+            h += '<div style="font-size:0.82rem;">';
+            subs.forEach(function(p) {
+                h += '<div style="padding:1px 0; display:flex; align-items:center; opacity:0.6;">';
+                h += '<span style="color:#fbbf24; width:24px; display:inline-block; text-align:right; margin-right:6px; font-size:0.75rem;">' + (p.shirt||'') + '</span>';
+                h += '<span style="color:#94a3b8;">' + p.name + '</span>';
+                h += _posBadge(p.position);
+                h += '</div>';
+            });
+            h += '</div></div>';
+        }
+
+        h += '</div>';
         return h;
     }
 
-    el.innerHTML = _team(lineups.home, lineups.home_label || 'Casa') + _team(lineups.away, lineups.away_label || 'Ospite');
+    el.innerHTML = _team(lineups.home, lineups.home_label || 'Casa', lineups.home_formation)
+                 + _team(lineups.away, lineups.away_label || 'Ospite', lineups.away_formation);
 }
 
 function runAIAnalysis() {
