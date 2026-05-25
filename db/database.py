@@ -948,7 +948,7 @@ def list_players_with_stats(filters: dict, page: int = 1, per_page: int = 40):
             "clean_sheets": "COALESCE(CAST(json_extract(psc.stats_json, '$.clean_sheets') AS INTEGER), 0)",
             "goals_conceded": "COALESCE(CAST(json_extract(psc.stats_json, '$.goals_conceded') AS INTEGER), 0)",
             "clearances": "COALESCE(CAST(json_extract(psc.stats_json, '$.clearances') AS INTEGER), 0)",
-            "rating": "COALESCE(psc.rating, 0)"
+            "rating": "COALESCE((SELECT MAX(psc2.rating) FROM player_stats_cache psc2 JOIN player_info pi2 ON psc2.player_id = pi2.player_id WHERE pi2.name = pi.name AND pi2.league_id = pi.league_id), psc.rating, 0)"
         }
         order_by_sql = valid_sorts.get(sort_field, valid_sorts["goals"])
         
