@@ -833,10 +833,14 @@ class RosterManager:
                     }
 
                     # Team info dal DB (no API call per team Sofascore)
+                    league_label = (db_row['league_id'] or league_key).replace("_", " ").title()
                     team_info = {
                         "id": db_row['team_id'],
                         "name": db_row['team_name'] or "N/A",
                         "crest": "",
+                        "league": league_label,
+                        "league_key": league_key,
+                        "league_code": league_code,
                     }
 
                     # Stats avanzate direttamente dal JSON
@@ -865,6 +869,17 @@ class RosterManager:
                         "minutes_played": s_json.get("minutes_played", 0),
                         "matches_started": s_json.get("matches_started", 0),
                     }
+
+                    # Bio sintetica dai dati Sofascore
+                    if s_json.get("nationality") or s_json.get("date_of_birth"):
+                        player_data["bio"] = {
+                            "name": db_row['name'] or "N/A",
+                            "dateOfBirth": s_json.get("date_of_birth", "N/A"),
+                            "nationality": s_json.get("nationality", "N/A"),
+                            "position": player_data["position"],
+                            "shirtNumber": s_json.get("shirt_number"),
+                            "section": None,
+                        }
 
                     # Prova bio e infortuni
                     from scraper.injuries import get_injured_by_team
