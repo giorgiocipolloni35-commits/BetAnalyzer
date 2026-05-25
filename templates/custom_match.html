@@ -337,17 +337,40 @@ function _buildLineupLookup(lineups, side) {
     return map;
 }
 
-function _buildMissingLookup(missing, side) {
-    // Returns map: playerName (lowercase) → {type: "injury"|"suspension", reason: "..."}
-    var map = {};
-    if (!missing || !missing[side]) return map;
-    missing[side].forEach(function(p) {
-        map[p.name.toLowerCase()] = {type: p.type, reason: p.reason || ''};
+function _buildMissingList(missing, side) {
+    // Returns array of {name, nameLower, parts, type, reason}
+    if (!missing || !missing[side]) return [];
+    return missing[side].map(function(p) {
+        var n = p.name.toLowerCase();
+        return {name: p.name, nameLower: n, parts: n.split(/\s+/), type: p.type, reason: p.reason || ''};
     });
-    return map;
 }
 
-function _statusBadges(name, luMap, missMap) {
+function _findMissing(playerName, missList) {
+    // Exact match first
+    var key = playerName.toLowerCase();
+    for (var i = 0; i < missList.length; i++) {
+        if (missList[i].nameLower === key) return missList[i];
+    }
+    // Partial: missing "Erick" matches player "Erick Pulga", or "Luciano Juba" matches "Juba"
+    var playerParts = key.split(/\s+/);
+    for (var i = 0; i < missList.length; i++) {
+        var m = missList[i];
+        // Check if any missing name part matches any player name part (surname match)
+        for (var j = 0; j < m.parts.length; j++) {
+            if (m.parts[j].length < 3) continue; // skip short parts like "de", "da"
+            for (var k = 0; k < playerParts.length; k++) {
+                if (playerParts[k].length < 3) continue;
+                if (m.parts[j] === playerParts[k]) return m;
+            }
+        }
+        // Check if one contains the other
+        if (key.indexOf(m.nameLower) >= 0 || m.nameLower.indexOf(key) >= 0) return m;
+    }
+    return null;
+}
+
+function _statusBadges(name, luMap, missList) {
     var html = '';
     var key = name.toLowerCase();
     // Lineup status
@@ -356,8 +379,8 @@ function _statusBadges(name, luMap, missMap) {
         var bg = lu === 'T' ? '#4ade80' : '#fbbf24';
         html += ' <span style="font-size:0.65rem;padding:1px 4px;border-radius:3px;background:'+bg+'22;color:'+bg+';border:1px solid '+bg+'44;font-weight:700;">'+lu+'</span>';
     }
-    // Missing status
-    var miss = missMap[key];
+    // Missing status (fuzzy match)
+    var miss = _findMissing(name, missList);
     if (miss) {
         if (miss.type === 'injury') {
             var tip = miss.reason ? 'Infortunato: ' + miss.reason : 'Infortunato';
@@ -380,13 +403,13 @@ function renderScorers(homePlayers, awayPlayers, homeName, awayName, lineups, mi
     function _teamScorers(players, teamName, side) {
         if (!players || !players.scorers.length) return '';
         var luMap = _buildLineupLookup(lineups, side);
-        var missMap = _buildMissingLookup(missing, side);
+        var missList = _buildMissingList(missing, side);
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
         h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Pos</th><th>Gol</th><th>PG</th><th>G/P</th><th>xG</th><th>Tiri</th></tr>';
         players.scorers.forEach(function(p) {
             h += '<tr style="border-top:1px solid #1e293b;">';
-            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _statusBadges(p.name, luMap, missMap) + '</td>';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _statusBadges(p.name, luMap, missList) + '</td>';
             h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;">' + p.position + '</td>';
             h += '<td style="text-align:center; color:#4ade80; font-weight:600;">' + p.goals + '</td>';
             h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
@@ -414,14 +437,14 @@ function renderCards(homePlayers, awayPlayers, homeName, awayName, lineups, miss
     function _teamCards(players, teamName, side) {
         if (!players || !players.cards.length) return '';
         var luMap = _buildLineupLookup(lineups, side);
-        var missMap = _buildMissingLookup(missing, side);
+        var missList = _buildMissingList(missing, side);
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
         h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Ruolo</th><th style="color:#fbbf24;">Gialli</th><th>PG</th><th style="color:#fbbf24;">G/P</th><th>Tackle</th></tr>';
         players.cards.forEach(function(p) {
             var ypmColor = p.yellows_per_match >= 0.3 ? '#f87171' : (p.yellows_per_match >= 0.2 ? '#fbbf24' : '#94a3b8');
             h += '<tr style="border-top:1px solid #1e293b;">';
-            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _statusBadges(p.name, luMap, missMap) + '</td>';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _statusBadges(p.name, luMap, missList) + '</td>';
             h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;" title="' + (p.position_full||'') + '">' + p.position + '</td>';
             h += '<td style="text-align:center; color:#fbbf24; font-weight:600;">' + p.yellows + '</td>';
             h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
