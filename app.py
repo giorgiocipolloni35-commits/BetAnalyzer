@@ -2421,7 +2421,7 @@ def api_custom_match_info():
 
 @app.route("/api/custom-match/analyze")
 def api_custom_match_analyze():
-    """Run AI analysis on a custom match from Sofascore."""
+    """Run AI analysis on a custom match from Sofascore — rich context."""
     event_id = request.args.get("event_id", "").strip()
     if not event_id:
         return jsonify({"success": False, "error": "Event ID mancante"})
@@ -2429,12 +2429,13 @@ def api_custom_match_analyze():
     if not OPENROUTER_KEY:
         return jsonify({"success": False, "error": "OPENROUTER_API_KEY non configurata"})
 
-    # First fetch match info
     import requests as _req
     from scraper.sportmonks import SportmonksClient
+    from scraper.cards import _load_tm_positions, _normalize_name
     ss = SportmonksClient()
     headers = {"User-Agent": "Mozilla/5.0"}
     proxies = ss._ss_proxies
+    tm_positions = _load_tm_positions()
 
     def _ss_get(path):
         try:
@@ -2442,6 +2443,15 @@ def api_custom_match_analyze():
             return r.json() if r.status_code == 200 else {}
         except Exception:
             return {}
+
+    def _frac_to_dec(frac):
+        if "/" in str(frac):
+            try:
+                n, d = frac.split("/")
+                return round(int(n) / int(d) + 1, 2)
+            except Exception:
+                pass
+        return frac
 
     ev = _ss_get(f"/event/{event_id}").get("event", {})
     if not ev:
@@ -2454,50 +2464,86 @@ def api_custom_match_analyze():
     tournament_name = ev.get("tournament", {}).get("uniqueTournament", {}).get("name", "")
     venue = ev.get("venue", {})
     referee = ev.get("referee", {})
-    tid = ev.get("tournament", {}).get("uniqueTournament", {}).get("id")
-    sid = ev.get("season", {}).get("id")
+    event_tid = ev.get("tournament", {}).get("uniqueTournament", {}).get("id")
+    event_sid = ev.get("season", {}).get("id")
 
-    # Build context for AI
+    # ── Build rich context ──
     context = f"PARTITA: {home_name} vs {away_name}\n"
-    context += f"CAMPIONATO: {tournament_name}\n"
+    context += f"COMPETIZIONE: {tournament_name}\n"
     if venue:
         context += f"STADIO: {venue.get('stadium', {}).get('name', venue.get('name', ''))}\n"
     if referee:
         context += f"ARBITRO: {referee.get('name', 'N/D')}\n"
 
-    # Odds
+    # ── Quote ──
     odds_data = _ss_get(f"/event/{event_id}/odds/1/all")
     odds_lines = []
     for mkt in odds_data.get("markets", []):
         mn = mkt.get("marketName", "")
         choices = mkt.get("choices", [])
-        if choices and mn in ("Full time", "Both teams to score", "Total", "Match goals", "Double chance"):
-            parts = []
-            for c in choices:
-                frac = c.get("fractionalValue", "")
-                if "/" in str(frac):
-                    try:
-                        num, den = frac.split("/")
-                        dec = round(int(num) / int(den) + 1, 2)
-                        parts.append(f"{c.get('name','')}: {dec}")
-                    except Exception:
-                        parts.append(f"{c.get('name','')}: {frac}")
-                else:
-                    parts.append(f"{c.get('name','')}: {frac}")
+        if choices and mn in ("Full time", "Both teams to score", "Total", "Match goals", "Double chance", "Draw no bet"):
+            parts = [f"{c.get('name','')}: {_frac_to_dec(c.get('fractionalValue',''))}" for c in choices]
             odds_lines.append(f"  {mn}: {' | '.join(parts)}")
     if odds_lines:
         context += "QUOTE:\n" + "\n".join(odds_lines) + "\n"
 
-    # Standings
-    if tid and sid:
-        st_data = _ss_get(f"/unique-tournament/{tid}/season/{sid}/standings/total")
+    # ── Classifica DOMESTICA (non della competizione corrente se è CL/EL) ──
+    def _get_domestic_standings(team_id, team_name):
+        """Find team's domestic league standings via near-events."""
+        ne = _ss_get(f"/team/{team_id}/near-events")
+        domestic_tid, domestic_sid = None, None
+        # Look for a league tournament (not the current one if it's CL/cups)
+        for side in ["previousEvent", "nextEvent"]:
+            e = ne.get(side, {})
+            if not e:
+                continue
+            ut = e.get("tournament", {}).get("uniqueTournament", {})
+            utid = ut.get("id")
+            # Skip CL (7), EL (679), Conference (17015), cups
+            if utid and utid not in (7, 679, 17015) and utid != event_tid:
+                domestic_tid = utid
+                domestic_sid = e.get("season", {}).get("id")
+                domestic_name = ut.get("name", "")
+                break
+        # If event itself is domestic, use it
+        if not domestic_tid:
+            domestic_tid = event_tid
+            domestic_sid = event_sid
+            domestic_name = tournament_name
+
+        if domestic_tid and domestic_sid:
+            st = _ss_get(f"/unique-tournament/{domestic_tid}/season/{domestic_sid}/standings/total")
+            for group in st.get("standings", []):
+                for row in group.get("rows", []):
+                    t = row.get("team", {})
+                    if t.get("id") == team_id:
+                        return (
+                            f"CLASSIFICA DOMESTICA {team_name} ({domestic_name}): "
+                            f"{row.get('position')}° ({row.get('points')}pt, "
+                            f"{row.get('wins')}V-{row.get('draws')}P-{row.get('losses')}S, "
+                            f"GF:{row.get('scoresFor', 0)} GS:{row.get('scoresAgainst', 0)})"
+                        )
+        return None
+
+    for tid_team, tname in [(home_id, home_name), (away_id, away_name)]:
+        st_line = _get_domestic_standings(tid_team, tname)
+        if st_line:
+            context += st_line + "\n"
+
+    # Also add event standings if different (e.g., CL group)
+    if event_tid and event_sid:
+        st_data = _ss_get(f"/unique-tournament/{event_tid}/season/{event_sid}/standings/total")
         for group in st_data.get("standings", []):
             for row in group.get("rows", []):
                 t = row.get("team", {})
                 if t.get("id") in (home_id, away_id):
-                    context += f"CLASSIFICA {t.get('name','')}: {row.get('position')}° ({row.get('points')}pt, {row.get('wins')}V-{row.get('draws')}P-{row.get('losses')}S, GF:{row.get('scoresFor',0)} GS:{row.get('scoresAgainst',0)})\n"
+                    context += (
+                        f"CLASSIFICA {tournament_name} {t.get('name','')}: "
+                        f"{row.get('position')}° ({row.get('points')}pt, "
+                        f"{row.get('wins')}V-{row.get('draws')}P-{row.get('losses')}S)\n"
+                    )
 
-    # Form
+    # ── Forma recente ──
     for team_id, team_name in [(home_id, home_name), (away_id, away_name)]:
         form_data = _ss_get(f"/team/{team_id}/events/last/0")
         results = []
@@ -2513,27 +2559,102 @@ def api_custom_match_analyze():
         if results:
             context += f"FORMA {team_name}: {', '.join(results)}\n"
 
-    # H2H
+    # ── H2H ──
     h2h_data = _ss_get(f"/event/{event_id}/h2h")
     td = h2h_data.get("teamDuel", {})
     if td:
         context += f"H2H: {home_name} {td.get('homeWins',0)}V - {td.get('draws',0)}P - {td.get('awayWins',0)}V {away_name}\n"
 
-    # Call AI
+    # ── Stats giocatori (top players per squadra nel campionato domestico) ──
+    def _get_team_player_stats(team_id, team_name):
+        """Get top scorers and most-carded players from domestic league."""
+        ne = _ss_get(f"/team/{team_id}/near-events")
+        dom_tid, dom_sid = event_tid, event_sid
+        for side in ["previousEvent", "nextEvent"]:
+            e = ne.get(side, {})
+            if not e:
+                continue
+            ut = e.get("tournament", {}).get("uniqueTournament", {})
+            utid = ut.get("id")
+            if utid and utid not in (7, 679, 17015):
+                dom_tid = utid
+                dom_sid = e.get("season", {}).get("id")
+                break
+
+        tp = _ss_get(f"/team/{team_id}/unique-tournament/{dom_tid}/season/{dom_sid}/top-players/overall")
+        top_players = tp.get("topPlayers", {})
+        if not top_players:
+            return "", ""
+
+        # ── Marcatori ──
+        scorers_lines = []
+        for p in top_players.get("goals", [])[:6]:
+            pl = p.get("player", {})
+            s = p.get("statistics", {})
+            name = pl.get("name", "")
+            goals = s.get("goals", 0)
+            apps = s.get("appearances", 1) or 1
+            xg = s.get("expectedGoals", 0)
+            shots = s.get("totalShots", 0)
+            sot = s.get("shotsOnTarget", 0)
+            gpm = round(goals / apps, 2)
+            # TM position
+            tm = tm_positions.get(_normalize_name(name), {})
+            pos = tm.get("position_short", pl.get("position", "?"))
+            scorers_lines.append(
+                f"    {name} ({pos}): {goals}gol in {apps}pg (gol/g={gpm}, xG={round(xg, 1)}, tiri={shots}, inPorta={sot})"
+            )
+
+        # ── Cartellini ──
+        cards_lines = []
+        for p in top_players.get("yellowCards", [])[:8]:
+            pl = p.get("player", {})
+            s = p.get("statistics", {})
+            name = pl.get("name", "")
+            yellows = s.get("yellowCards", 0)
+            apps = s.get("appearances", 1) or 1
+            tackles = s.get("tackles", 0)
+            ypm = round(yellows / apps, 2)
+            # TM position
+            tm = tm_positions.get(_normalize_name(name), {})
+            pos = tm.get("position", pl.get("position", "?"))
+            pos_short = tm.get("position_short", "?")
+            cards_lines.append(
+                f"    {name} ({pos_short}/{pos}): {yellows}gialli in {apps}pg (gialli/g={ypm}, tackle={tackles})"
+            )
+
+        scorers_ctx = f"  MARCATORI {team_name}:\n" + "\n".join(scorers_lines) + "\n" if scorers_lines else ""
+        cards_ctx = f"  CARTELLINI {team_name}:\n" + "\n".join(cards_lines) + "\n" if cards_lines else ""
+        return scorers_ctx, cards_ctx
+
+    context += "\n--- STATISTICHE GIOCATORI ---\n"
+    for tid_team, tname in [(home_id, home_name), (away_id, away_name)]:
+        scorers_ctx, cards_ctx = _get_team_player_stats(tid_team, tname)
+        context += scorers_ctx + cards_ctx
+
+    # ── Call AI ──
     try:
         import requests as ai_req
-        prompt = f"""Sei un analista sportivo esperto. Analizza questa partita e fornisci:
+        prompt = f"""Sei un analista sportivo professionista con accesso a dati dettagliati. Analizza questa partita basandoti ESCLUSIVAMENTE sui dati forniti (classifiche domestiche, forma, quote, statistiche giocatori).
 
-1. PRONOSTICO: Chi vincerà e perché (1X2)
-2. OVER/UNDER: Aspettativa gol (O/U 2.5)
-3. BTTS (GOL/NOGOL): Entrambe segnano?
-4. RISULTATO ESATTO più probabile
-5. SCOMMESSA CONSIGLIATA: La scommessa con più valore considerando le quote
+Fornisci:
 
-Usa i dati forniti per un'analisi dettagliata e professionale.
+1. PRONOSTICO 1X2: Chi vincerà e perché. Basa il ragionamento su classifica domestica, forma e quote.
+
+2. OVER/UNDER 2.5: Analizza le medie gol, i gol fatti/subiti dalle classifiche e le quote O/U.
+
+3. BTTS (GOL/NOGOL): Entrambe segnano? Valuta i gol subiti di entrambe e la qualità offensiva.
+
+4. CARTELLINI: Analizza i giocatori con più cartellini per partita, la loro posizione (terzini e mediani difensivi ricevono più gialli), e indica i 2-3 giocatori con più probabilità di ammonizione.
+
+5. MARCATORI: Analizza i top marcatori di entrambe le squadre (gol/partita, xG, tiri in porta) e indica i 2-3 giocatori più probabili a segnare.
+
+6. SCOMMESSA CONSIGLIATA: La scommessa con più VALORE considerando le quote offerte.
+
+Sii specifico e cita i dati numerici nella tua analisi. Non inventare statistiche.
 Rispondi in italiano.
 
---- DATI ---
+--- DATI COMPLETI ---
 {context}
 """
 
@@ -2546,9 +2667,9 @@ Rispondi in italiano.
             json={
                 "model": AI_MODEL,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 1500,
+                "max_tokens": 2500,
             },
-            timeout=90,
+            timeout=120,
         )
         ai_data = response.json()
         analysis = ai_data.get("choices", [{}])[0].get("message", {}).get("content", "Nessuna risposta dall'AI")
