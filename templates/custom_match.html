@@ -213,10 +213,10 @@ function renderMatch(data) {
     renderH2H(d.h2h);
 
     // Scorers
-    renderScorers(d.home_players, d.away_players, d.home_team, d.away_team);
+    renderScorers(d.home_players, d.away_players, d.home_team, d.away_team, d.lineups);
 
     // Cards
-    renderCards(d.home_players, d.away_players, d.home_team, d.away_team);
+    renderCards(d.home_players, d.away_players, d.home_team, d.away_team, d.lineups);
 
     // Venue & Referee
     renderVenue(d.venue, d.referee);
@@ -328,53 +328,80 @@ function renderStandings(standings, homeId, awayId, elId) {
     el.innerHTML = html;
 }
 
-function renderScorers(homePlayers, awayPlayers, homeName, awayName) {
+function _buildLineupLookup(lineups, side) {
+    // Returns map: playerName (lowercase) → "T" (titolare) or "P" (panchina)
+    var map = {};
+    if (!lineups || !lineups[side]) return map;
+    lineups[side].forEach(function(p) {
+        map[p.name.toLowerCase()] = p.substitute ? 'P' : 'T';
+    });
+    return map;
+}
+
+function _lineupBadge(status) {
+    if (!status) return '';
+    var bg = status === 'T' ? '#4ade80' : '#fbbf24';
+    var label = status === 'T' ? 'T' : 'P';
+    return ' <span style="font-size:0.65rem;padding:1px 4px;border-radius:3px;background:'+bg+'22;color:'+bg+';border:1px solid '+bg+'44;font-weight:700;">'+label+'</span>';
+}
+
+function renderScorers(homePlayers, awayPlayers, homeName, awayName, lineups) {
     var el = document.getElementById('scorers-section');
     if ((!homePlayers || !homePlayers.scorers.length) && (!awayPlayers || !awayPlayers.scorers.length)) {
         el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>';
         return;
     }
 
-    function _teamScorers(players, teamName) {
+    var hasLineups = lineups && (lineups.home.length > 0 || lineups.away.length > 0);
+
+    function _teamScorers(players, teamName, side) {
         if (!players || !players.scorers.length) return '';
+        var luMap = hasLineups ? _buildLineupLookup(lineups, side) : {};
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
         h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Pos</th><th>Gol</th><th>PG</th><th>G/P</th><th>xG</th><th>Tiri</th></tr>';
         players.scorers.forEach(function(p) {
+            var status = luMap[p.name.toLowerCase()] || '';
             h += '<tr style="border-top:1px solid #1e293b;">';
-            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + '</td>';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _lineupBadge(status) + '</td>';
             h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;">' + p.position + '</td>';
             h += '<td style="text-align:center; color:#4ade80; font-weight:600;">' + p.goals + '</td>';
             h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
             h += '<td style="text-align:center; color:#fbbf24; font-weight:600;">' + p.goals_per_match + '</td>';
-            h += '<td style="text-align:center; color:#94a3b8;">' + p.xg + '</td>';
-            h += '<td style="text-align:center; color:#94a3b8;">' + p.shots_on_target + '/' + p.shots + '</td>';
+            var xgColor = p.xg > 0 ? '#e2e8f0' : '#64748b';
+            h += '<td style="text-align:center; color:' + xgColor + ';">' + (p.xg || '-') + '</td>';
+            var shotsStr = p.shots > 0 ? (p.shots_on_target + '/' + p.shots) : '-';
+            h += '<td style="text-align:center; color:#94a3b8;">' + shotsStr + '</td>';
             h += '</tr>';
         });
         h += '</table></div>';
         return h;
     }
 
-    el.innerHTML = _teamScorers(homePlayers, homeName) + _teamScorers(awayPlayers, awayName);
+    el.innerHTML = _teamScorers(homePlayers, homeName, 'home') + _teamScorers(awayPlayers, awayName, 'away');
 }
 
-function renderCards(homePlayers, awayPlayers, homeName, awayName) {
+function renderCards(homePlayers, awayPlayers, homeName, awayName, lineups) {
     var el = document.getElementById('cards-section');
     if ((!homePlayers || !homePlayers.cards.length) && (!awayPlayers || !awayPlayers.cards.length)) {
         el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>';
         return;
     }
 
-    function _teamCards(players, teamName) {
+    var hasLineups = lineups && (lineups.home.length > 0 || lineups.away.length > 0);
+
+    function _teamCards(players, teamName, side) {
         if (!players || !players.cards.length) return '';
+        var luMap = hasLineups ? _buildLineupLookup(lineups, side) : {};
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
         h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Ruolo</th><th style="color:#fbbf24;">Gialli</th><th>PG</th><th style="color:#fbbf24;">G/P</th><th>Tackle</th></tr>';
         players.cards.forEach(function(p) {
             var ypmColor = p.yellows_per_match >= 0.3 ? '#f87171' : (p.yellows_per_match >= 0.2 ? '#fbbf24' : '#94a3b8');
+            var status = luMap[p.name.toLowerCase()] || '';
             h += '<tr style="border-top:1px solid #1e293b;">';
-            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + '</td>';
-            h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;" title="' + p.position_full + '">' + p.position + '</td>';
+            h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _lineupBadge(status) + '</td>';
+            h += '<td style="text-align:center; color:#94a3b8; font-size:0.75rem;" title="' + (p.position_full||'') + '">' + p.position + '</td>';
             h += '<td style="text-align:center; color:#fbbf24; font-weight:600;">' + p.yellows + '</td>';
             h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
             h += '<td style="text-align:center; color:' + ypmColor + '; font-weight:600;">' + p.yellows_per_match + '</td>';
@@ -385,7 +412,7 @@ function renderCards(homePlayers, awayPlayers, homeName, awayName) {
         return h;
     }
 
-    el.innerHTML = _teamCards(homePlayers, homeName) + _teamCards(awayPlayers, awayName);
+    el.innerHTML = _teamCards(homePlayers, homeName, 'home') + _teamCards(awayPlayers, awayName, 'away');
 }
 
 function renderH2H(h2h) {

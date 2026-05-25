@@ -2426,32 +2426,42 @@ def api_custom_match_info():
     def _get_top_players(team_id, dom_tid, dom_sid):
         tp = _ss_get(f"/team/{team_id}/unique-tournament/{dom_tid}/season/{dom_sid}/top-players/overall")
         top = tp.get("topPlayers", {})
+
+        # Cross-reference maps: Sofascore siloes stats per category
+        def _build_map(category, stat_key):
+            m = {}
+            for p in top.get(category, []):
+                pid = p.get("player", {}).get("id")
+                if pid:
+                    m[pid] = p.get("statistics", {}).get(stat_key, 0)
+            return m
+
+        xg_map = _build_map("expectedGoals", "expectedGoals")
+        shots_map = _build_map("totalShots", "totalShots")
+        sot_map = _build_map("shotsOnTarget", "shotsOnTarget")
+        tackles_map = _build_map("tackles", "tackles")
+
         scorers = []
         for p in top.get("goals", [])[:5]:
             pl = p.get("player", {})
             s = p.get("statistics", {})
+            pid = pl.get("id")
             apps = s.get("appearances", 1) or 1
             tm = tm_positions.get(_normalize_name(pl.get("name", "")), {})
             scorers.append({
                 "name": pl.get("name", ""),
+                "id": pid,
                 "position": tm.get("position_short", pl.get("position", "?")),
                 "goals": s.get("goals", 0),
                 "appearances": apps,
                 "goals_per_match": round(s.get("goals", 0) / apps, 2),
-                "xg": round(s.get("expectedGoals", 0), 1),
-                "shots": s.get("totalShots", 0),
-                "shots_on_target": s.get("shotsOnTarget", 0),
+                "xg": round(xg_map.get(pid, 0), 1),
+                "shots": shots_map.get(pid, 0),
+                "shots_on_target": sot_map.get(pid, 0),
             })
-        # Build tackles map from separate category (Sofascore siloes stats per category)
-        tackles_map = {}
-        for p in top.get("tackles", []):
-            pl = p.get("player", {})
-            pid = pl.get("id")
-            if pid:
-                tackles_map[pid] = p.get("statistics", {}).get("tackles", 0)
 
         cards = []
-        for p in top.get("yellowCards", [])[:6]:
+        for p in top.get("yellowCards", [])[:8]:
             pl = p.get("player", {})
             s = p.get("statistics", {})
             apps = s.get("appearances", 1) or 1
@@ -2459,6 +2469,7 @@ def api_custom_match_info():
             pid = pl.get("id")
             cards.append({
                 "name": pl.get("name", ""),
+                "id": pid,
                 "position": tm.get("position_short", pl.get("position", "?")),
                 "position_full": tm.get("position", pl.get("position", "?")),
                 "yellows": s.get("yellowCards", 0),
@@ -2466,7 +2477,9 @@ def api_custom_match_info():
                 "yellows_per_match": round(s.get("yellowCards", 0) / apps, 2),
                 "tackles": tackles_map.get(pid, 0),
             })
-        return {"scorers": scorers, "cards": cards}
+        # Sort cards: by yellows desc, then by yellows_per_match desc
+        cards.sort(key=lambda c: (c["yellows"], c["yellows_per_match"]), reverse=True)
+        return {"scorers": scorers, "cards": cards[:6]}
 
     result["home_players"] = _get_top_players(home.get("id"), home_dom_tid, home_dom_sid)
     result["away_players"] = _get_top_players(away.get("id"), away_dom_tid, away_dom_sid)
