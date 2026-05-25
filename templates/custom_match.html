@@ -614,14 +614,20 @@ function renderLineups(lineups) {
 
     var html = '';
 
-    // Football pitch
-    html += _buildPitch(lineups.home, lineups.away, lineups.home_formation, lineups.away_formation, lineups.home_label, lineups.away_label);
+    // Layout: Home list | Pitch | Away list (desktop) — stacked on mobile
+    html += '<div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;">';
 
-    // Side-by-side lists below pitch
-    html += '<div style="display:flex;gap:1.5rem;margin-top:1rem;flex-wrap:wrap;">';
+    // Home team list (left)
     html += _teamList(lineups.home, lineups.home_label || 'Casa', lineups.home_formation);
-    html += '<div style="width:1px;background:#1e293b;align-self:stretch;"></div>';
+
+    // Football pitch (center)
+    html += '<div style="flex:1.5;min-width:300px;">';
+    html += _buildPitch(lineups.home, lineups.away, lineups.home_formation, lineups.away_formation, lineups.home_label, lineups.away_label);
+    html += '</div>';
+
+    // Away team list (right)
     html += _teamList(lineups.away, lineups.away_label || 'Ospite', lineups.away_formation);
+
     html += '</div>';
 
     el.innerHTML = html;
