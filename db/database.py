@@ -921,8 +921,12 @@ def list_players_with_stats(filters: dict, page: int = 1, per_page: int = 40):
             where_clauses.append("(CAST(json_extract(psc.stats_json, '$.interceptions') AS INTEGER) + CAST(json_extract(psc.stats_json, '$.tackles') AS INTEGER)) >= ?")
             params.append(int(filters["min_recoveries"]))
             
+        # Minimum appearances filter: exclude players with < 5 appearances
+        # to avoid inflated ratings from tiny samples (e.g. backup GK with 1 app = 97 rating)
+        where_clauses.append("COALESCE(CAST(json_extract(psc.stats_json, '$.appearances') AS INTEGER), 0) >= 5")
+
         where_sql = " AND ".join(where_clauses)
-        
+
         # Ordinamento SQL
         sort_field = filters.get("sort", "goals")
         valid_sorts = {
