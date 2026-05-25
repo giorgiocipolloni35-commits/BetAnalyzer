@@ -847,6 +847,25 @@ class RosterManager:
                         player_data["assists"] = advanced_stats["assists"]
                         player_data["appearances"] = advanced_stats["appearances"]
 
+                    # Dati Sofascore esclusivi per il template (xG, xA, duelli, ecc.)
+                    player_data["sofascore_stats"] = {
+                        "expected_goals": round(s_json.get("expected_goals", 0), 2),
+                        "expected_assists": round(s_json.get("expected_assists", 0), 2),
+                        "big_chances_created": s_json.get("big_chances_created", 0),
+                        "big_chances_missed": s_json.get("big_chances_missed", 0),
+                        "aerial_duels_won": s_json.get("aerial_duels_won", s_json.get("aerials_won", 0)),
+                        "ground_duels_won": s_json.get("ground_duels_won", 0),
+                        "ball_recovery": s_json.get("ball_recovery", 0),
+                        "possession_lost": s_json.get("possession_lost", 0),
+                        "penalty_goals": s_json.get("penalty_goals", 0),
+                        "penalties_taken": s_json.get("penalties_taken", 0),
+                        "penalty_won": s_json.get("penalty_won", 0),
+                        "dribbles_attempts": s_json.get("dribbles_attempts", 0),
+                        "dribbles_success": s_json.get("dribbles_success", 0),
+                        "minutes_played": s_json.get("minutes_played", 0),
+                        "matches_started": s_json.get("matches_started", 0),
+                    }
+
                     # Prova bio e infortuni
                     from scraper.injuries import get_injured_by_team
                     injuries = get_injured_by_team(league_key)

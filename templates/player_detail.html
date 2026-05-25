@@ -415,6 +415,7 @@
     </div>
     {% endif %}
 
+    {% if player.source != 'sofascore' %}
     <div class="impact-section">
         <div class="impact-box" style="border-color: {{ 'rgba(16, 185, 129, 0.2)' if player.impact_drop >= 0 else 'rgba(239, 68, 68, 0.2)' }}; background: {{ 'rgba(16, 185, 129, 0.05)' if player.impact_drop >= 0 else 'rgba(239, 68, 68, 0.05)' }};">
             {% if player.impact_drop >= 0 %}
@@ -427,7 +428,7 @@
                 <div class="impact-desc">La squadra vince il <strong style="color: #fff;">{{ player.impact_drop|abs }}% in PIÙ</strong> senza di lui.</div>
             {% endif %}
         </div>
-        
+
         <div class="info-block">
             <div class="info-title">📊 Analisi Avanzata Rendimento</div>
             <div class="info-row">
@@ -448,6 +449,59 @@
             </div>
         </div>
     </div>
+    {% endif %}
+
+    {% if player.sofascore_stats %}
+    <div class="impact-section">
+        <div class="info-block" style="flex: 1;">
+            <div class="info-title">🎯 Expected Stats (xG / xA)</div>
+            <div class="info-row">
+                <span class="info-label">Expected Goals (xG)</span>
+                <span class="info-val" style="color: #10b981;">{{ player.sofascore_stats.expected_goals }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Gol Reali vs xG</span>
+                <span class="info-val" style="color: {{ '#10b981' if player.goals > player.sofascore_stats.expected_goals else '#ef4444' }};">{{ player.goals }} ({{ '%+.1f'|format(player.goals - player.sofascore_stats.expected_goals) }})</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Expected Assists (xA)</span>
+                <span class="info-val" style="color: #60a5fa;">{{ player.sofascore_stats.expected_assists }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Big Chances Create / Mancate</span>
+                <span class="info-val">{{ player.sofascore_stats.big_chances_created }} / {{ player.sofascore_stats.big_chances_missed }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Media Gol per Partita</span>
+                <span class="info-val">{{ (player.goals / player.appearances)|round(2) if player.appearances > 0 else 0 }}</span>
+            </div>
+        </div>
+
+        <div class="info-block" style="flex: 1;">
+            <div class="info-title">⚔️ Duelli & Possesso</div>
+            <div class="info-row">
+                <span class="info-label">Duelli Aerei Vinti</span>
+                <span class="info-val">{{ player.sofascore_stats.aerial_duels_won }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Duelli a Terra Vinti</span>
+                <span class="info-val">{{ player.sofascore_stats.ground_duels_won }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Recuperi Palla</span>
+                <span class="info-val">{{ player.sofascore_stats.ball_recovery }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Possessi Persi</span>
+                <span class="info-val">{{ player.sofascore_stats.possession_lost }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Rigori: Segnati / Tentati</span>
+                <span class="info-val">{{ player.sofascore_stats.penalty_goals }} / {{ player.sofascore_stats.penalties_taken }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="info-grid">
         <div class="info-block">
@@ -490,10 +544,22 @@
                 <span class="info-val">{{ player.bio.section }}</span>
             </div>
             {% endif %}
+            {% if player.last_matchday %}
             <div class="info-row">
                 <span class="info-label">Ultima Presenza</span>
                 <span class="info-val">Giornata {{ player.last_matchday }}</span>
             </div>
+            {% endif %}
+            {% if player.sofascore_stats %}
+            <div class="info-row">
+                <span class="info-label">Minuti Giocati</span>
+                <span class="info-val">{{ player.sofascore_stats.minutes_played }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Titolare / Presenze</span>
+                <span class="info-val">{{ player.sofascore_stats.matches_started }} / {{ player.appearances }}</span>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
