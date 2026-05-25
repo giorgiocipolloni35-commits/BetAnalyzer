@@ -208,6 +208,17 @@ class SportmonksClient:
         self.base_url = "https://api.sportmonks.com/v3/football"
         self.api_key = api_key or ""
 
+        # ── Proxy residenziale DataImpulse per Sofascore ──
+        _proxy_login = os.environ.get("DATAIMPULSE_LOGIN", "")
+        _proxy_pass = os.environ.get("DATAIMPULSE_PASSWORD", "")
+        _proxy_host = os.environ.get("DATAIMPULSE_HOST", "gw.dataimpulse.com")
+        _proxy_port = os.environ.get("DATAIMPULSE_PORT", "823")
+        self._ss_proxies = None
+        if _proxy_login and _proxy_pass:
+            _proxy_url = f"http://{_proxy_login}:{_proxy_pass}@{_proxy_host}:{_proxy_port}"
+            self._ss_proxies = {"http": _proxy_url, "https": _proxy_url}
+            logger.info("Sofascore proxy attivo: %s:%s", _proxy_host, _proxy_port)
+
         # SM league_map — kept for caller compatibility
         self.league_map = {
             "italy_serie_a": "384",
@@ -266,11 +277,11 @@ class SportmonksClient:
     # Sofascore HTTP helper
     # ─────────────────────────────────────────────
     def _ss_get(self, endpoint, retries=2):
-        """GET Sofascore API with retries."""
+        """GET Sofascore API with retries. Uses residential proxy if configured."""
         url = f"{SS_BASE}{endpoint}"
         for attempt in range(retries):
             try:
-                r = requests.get(url, headers=SS_HEADERS, timeout=15)
+                r = requests.get(url, headers=SS_HEADERS, proxies=self._ss_proxies, timeout=15)
                 if r.status_code == 200:
                     return r.json()
                 if r.status_code == 429:
