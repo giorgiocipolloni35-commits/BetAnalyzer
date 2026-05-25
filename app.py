@@ -2247,6 +2247,319 @@ def api_marcatori(league_key):
         return jsonify({"success": False, "error": str(e)})
 
 
+# ------------------------------------------------------------------ #
+#  Custom Match — Analisi partita da link Sofascore                     #
+# ------------------------------------------------------------------ #
+
+@app.route("/custom-match")
+def custom_match_page():
+    return render_template("custom_match.html", state=_state)
+
+
+@app.route("/api/custom-match/info")
+def api_custom_match_info():
+    """Fetch match info from Sofascore event ID."""
+    import re as _re
+    event_id = request.args.get("event_id", "").strip()
+    if not event_id:
+        return jsonify({"success": False, "error": "Event ID mancante"})
+
+    # Handle customId lookup (not numeric)
+    if event_id.startswith("custom:"):
+        return jsonify({"success": False, "error": "Serve un Event ID numerico. Apri il link Sofascore e copia l'ID dopo #id:"})
+
+    try:
+        event_id = int(event_id)
+    except ValueError:
+        return jsonify({"success": False, "error": "Event ID deve essere numerico"})
+
+    import requests as _req
+    from scraper.sportmonks import SportmonksClient
+    ss = SportmonksClient()
+    headers = {"User-Agent": "Mozilla/5.0"}
+    proxies = ss._ss_proxies
+
+    def _ss_get(path):
+        try:
+            r = _req.get(f"https://www.sofascore.com/api/v1{path}", headers=headers, proxies=proxies, timeout=15)
+            return r.json() if r.status_code == 200 else {}
+        except Exception:
+            return {}
+
+    # 1. Event details
+    ev_data = _ss_get(f"/event/{event_id}")
+    ev = ev_data.get("event", {})
+    if not ev:
+        return jsonify({"success": False, "error": f"Evento {event_id} non trovato su Sofascore"})
+
+    home = ev.get("homeTeam", {})
+    away = ev.get("awayTeam", {})
+    venue = ev.get("venue", {})
+    referee = ev.get("referee", {})
+    tournament = ev.get("tournament", {}).get("uniqueTournament", {})
+    season = ev.get("season", {})
+    round_info = ev.get("roundInfo", {})
+
+    result = {
+        "event_id": event_id,
+        "home_team": home.get("name", "?"),
+        "away_team": away.get("name", "?"),
+        "home_team_id": home.get("id"),
+        "away_team_id": away.get("id"),
+        "tournament": tournament.get("name", ""),
+        "round": f"Giornata {round_info.get('round', '')}" if round_info.get("round") else "",
+        "start_time": ev.get("startTimestamp"),
+        "venue": {
+            "name": venue.get("stadium", {}).get("name") or venue.get("name", ""),
+            "city": venue.get("city", {}).get("name", ""),
+        } if venue else None,
+        "referee": {"name": referee.get("name", "")} if referee else None,
+    }
+
+    # 2. Odds
+    odds_data = _ss_get(f"/event/{event_id}/odds/1/all")
+    odds_out = []
+    for mkt in odds_data.get("markets", []):
+        market_name = mkt.get("marketName", "")
+        if market_name not in ("Full time", "Draw no bet", "Double chance", "Both teams to score",
+                               "Total", "Match goals"):
+            continue
+        # Get first source's choices
+        choices = mkt.get("choices", [])
+        if choices:
+            odds_out.append({
+                "name": market_name,
+                "choices": [{"name": c.get("name", ""), "odds": c.get("fractionalValue", "")} for c in choices],
+            })
+    # Convert fractional odds to decimal
+    for mkt in odds_out:
+        for c in mkt["choices"]:
+            frac = c.get("odds", "")
+            if "/" in str(frac):
+                try:
+                    num, den = frac.split("/")
+                    c["odds"] = round(int(num) / int(den) + 1, 2)
+                except Exception:
+                    pass
+    result["odds"] = odds_out
+
+    # 3. Standings
+    tid = tournament.get("id")
+    sid = season.get("id")
+    standings_out = []
+    if tid and sid:
+        st_data = _ss_get(f"/unique-tournament/{tid}/season/{sid}/standings/total")
+        for group in st_data.get("standings", []):
+            for row in group.get("rows", []):
+                t = row.get("team", {})
+                standings_out.append({
+                    "position": row.get("position"),
+                    "team": t.get("name", ""),
+                    "team_id": t.get("id"),
+                    "points": row.get("points", 0),
+                    "wins": row.get("wins", 0),
+                    "draws": row.get("draws", 0),
+                    "losses": row.get("losses", 0),
+                    "goals_for": row.get("scoresFor", 0),
+                    "goals_against": row.get("scoresAgainst", 0),
+                })
+    result["standings"] = standings_out
+
+    # 4. Form (last 5 matches per team)
+    def _get_form(team_id, team_name):
+        form_data = _ss_get(f"/team/{team_id}/events/last/0")
+        form = []
+        for e in form_data.get("events", [])[:5]:
+            ht = e.get("homeTeam", {})
+            at = e.get("awayTeam", {})
+            hs = e.get("homeScore", {}).get("current")
+            as_ = e.get("awayScore", {}).get("current")
+            if hs is None or as_ is None:
+                continue
+            is_home = ht.get("id") == team_id
+            if is_home:
+                res = "W" if hs > as_ else ("D" if hs == as_ else "L")
+            else:
+                res = "W" if as_ > hs else ("D" if hs == as_ else "L")
+            form.append({
+                "result": res,
+                "score": f"{hs}-{as_}",
+                "opponent": at.get("name") if is_home else ht.get("name"),
+            })
+        return form
+
+    result["home_form"] = _get_form(home.get("id"), home.get("name", ""))
+    result["away_form"] = _get_form(away.get("id"), away.get("name", ""))
+
+    # 5. H2H
+    h2h_data = _ss_get(f"/event/{event_id}/h2h")
+    td = h2h_data.get("teamDuel", {})
+    result["h2h"] = {
+        "home_wins": td.get("homeWins", 0),
+        "draws": td.get("draws", 0),
+        "away_wins": td.get("awayWins", 0),
+        "last_matches": [],
+    }
+
+    # 6. Lineups
+    lu_data = _ss_get(f"/event/{event_id}/lineups")
+    lineups = {"home": [], "away": [], "confirmed": lu_data.get("confirmed", False),
+               "home_label": home.get("name", "Casa"), "away_label": away.get("name", "Ospite")}
+    for side in ["home", "away"]:
+        for p in lu_data.get(side, {}).get("players", []):
+            pl = p.get("player", {})
+            lineups[side].append({
+                "name": pl.get("name", ""),
+                "shirt": pl.get("shirtNumber"),
+                "position": p.get("position", ""),
+                "substitute": p.get("substitute", False),
+            })
+    result["lineups"] = lineups
+
+    return jsonify({"success": True, "data": result})
+
+
+@app.route("/api/custom-match/analyze")
+def api_custom_match_analyze():
+    """Run AI analysis on a custom match from Sofascore."""
+    event_id = request.args.get("event_id", "").strip()
+    if not event_id:
+        return jsonify({"success": False, "error": "Event ID mancante"})
+
+    if not OPENROUTER_KEY:
+        return jsonify({"success": False, "error": "OPENROUTER_API_KEY non configurata"})
+
+    # First fetch match info
+    import requests as _req
+    from scraper.sportmonks import SportmonksClient
+    ss = SportmonksClient()
+    headers = {"User-Agent": "Mozilla/5.0"}
+    proxies = ss._ss_proxies
+
+    def _ss_get(path):
+        try:
+            r = _req.get(f"https://www.sofascore.com/api/v1{path}", headers=headers, proxies=proxies, timeout=15)
+            return r.json() if r.status_code == 200 else {}
+        except Exception:
+            return {}
+
+    ev = _ss_get(f"/event/{event_id}").get("event", {})
+    if not ev:
+        return jsonify({"success": False, "error": "Evento non trovato"})
+
+    home_name = ev.get("homeTeam", {}).get("name", "?")
+    away_name = ev.get("awayTeam", {}).get("name", "?")
+    home_id = ev.get("homeTeam", {}).get("id")
+    away_id = ev.get("awayTeam", {}).get("id")
+    tournament_name = ev.get("tournament", {}).get("uniqueTournament", {}).get("name", "")
+    venue = ev.get("venue", {})
+    referee = ev.get("referee", {})
+    tid = ev.get("tournament", {}).get("uniqueTournament", {}).get("id")
+    sid = ev.get("season", {}).get("id")
+
+    # Build context for AI
+    context = f"PARTITA: {home_name} vs {away_name}\n"
+    context += f"CAMPIONATO: {tournament_name}\n"
+    if venue:
+        context += f"STADIO: {venue.get('stadium', {}).get('name', venue.get('name', ''))}\n"
+    if referee:
+        context += f"ARBITRO: {referee.get('name', 'N/D')}\n"
+
+    # Odds
+    odds_data = _ss_get(f"/event/{event_id}/odds/1/all")
+    odds_lines = []
+    for mkt in odds_data.get("markets", []):
+        mn = mkt.get("marketName", "")
+        choices = mkt.get("choices", [])
+        if choices and mn in ("Full time", "Both teams to score", "Total", "Match goals", "Double chance"):
+            parts = []
+            for c in choices:
+                frac = c.get("fractionalValue", "")
+                if "/" in str(frac):
+                    try:
+                        num, den = frac.split("/")
+                        dec = round(int(num) / int(den) + 1, 2)
+                        parts.append(f"{c.get('name','')}: {dec}")
+                    except Exception:
+                        parts.append(f"{c.get('name','')}: {frac}")
+                else:
+                    parts.append(f"{c.get('name','')}: {frac}")
+            odds_lines.append(f"  {mn}: {' | '.join(parts)}")
+    if odds_lines:
+        context += "QUOTE:\n" + "\n".join(odds_lines) + "\n"
+
+    # Standings
+    if tid and sid:
+        st_data = _ss_get(f"/unique-tournament/{tid}/season/{sid}/standings/total")
+        for group in st_data.get("standings", []):
+            for row in group.get("rows", []):
+                t = row.get("team", {})
+                if t.get("id") in (home_id, away_id):
+                    context += f"CLASSIFICA {t.get('name','')}: {row.get('position')}° ({row.get('points')}pt, {row.get('wins')}V-{row.get('draws')}P-{row.get('losses')}S, GF:{row.get('scoresFor',0)} GS:{row.get('scoresAgainst',0)})\n"
+
+    # Form
+    for team_id, team_name in [(home_id, home_name), (away_id, away_name)]:
+        form_data = _ss_get(f"/team/{team_id}/events/last/0")
+        results = []
+        for e in form_data.get("events", [])[:5]:
+            hs = e.get("homeScore", {}).get("current")
+            as_ = e.get("awayScore", {}).get("current")
+            if hs is None:
+                continue
+            is_h = e.get("homeTeam", {}).get("id") == team_id
+            res = "V" if (is_h and hs > as_) or (not is_h and as_ > hs) else ("P" if hs == as_ else "S")
+            opp = e.get("awayTeam", {}).get("name") if is_h else e.get("homeTeam", {}).get("name")
+            results.append(f"{res} {hs}-{as_} vs {opp}")
+        if results:
+            context += f"FORMA {team_name}: {', '.join(results)}\n"
+
+    # H2H
+    h2h_data = _ss_get(f"/event/{event_id}/h2h")
+    td = h2h_data.get("teamDuel", {})
+    if td:
+        context += f"H2H: {home_name} {td.get('homeWins',0)}V - {td.get('draws',0)}P - {td.get('awayWins',0)}V {away_name}\n"
+
+    # Call AI
+    try:
+        import requests as ai_req
+        prompt = f"""Sei un analista sportivo esperto. Analizza questa partita e fornisci:
+
+1. PRONOSTICO: Chi vincerà e perché (1X2)
+2. OVER/UNDER: Aspettativa gol (O/U 2.5)
+3. BTTS (GOL/NOGOL): Entrambe segnano?
+4. RISULTATO ESATTO più probabile
+5. SCOMMESSA CONSIGLIATA: La scommessa con più valore considerando le quote
+
+Usa i dati forniti per un'analisi dettagliata e professionale.
+Rispondi in italiano.
+
+--- DATI ---
+{context}
+"""
+
+        response = ai_req.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": AI_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 1500,
+            },
+            timeout=90,
+        )
+        ai_data = response.json()
+        analysis = ai_data.get("choices", [{}])[0].get("message", {}).get("content", "Nessuna risposta dall'AI")
+
+        return jsonify({"success": True, "analysis": analysis})
+
+    except Exception as e:
+        logger.error(f"Custom match AI error: {e}")
+        return jsonify({"success": False, "error": f"Errore AI: {str(e)}"})
+
+
 @app.route("/cartellini")
 def cartellini_page():
     freshness = get_data_freshness(

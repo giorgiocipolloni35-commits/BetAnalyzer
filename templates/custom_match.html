@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}BetAnalyzer — Partita Custom{% endblock %}
+
+{% block content %}
+<section class="rigori-page">
+    <div class="rigori-header">
+        <h1 class="rigori-title">🔍 Analisi Partita Custom</h1>
+        <p class="rigori-desc">Incolla un link Sofascore o un Event ID per analizzare qualsiasi partita, anche di campionati non coperti.</p>
+    </div>
+
+    <!-- Input -->
+    <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
+        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="ss-url" placeholder="Link Sofascore o Event ID (es. https://www.sofascore.com/...#id:12345678)"
+                   style="flex: 1; min-width: 300px; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #374151;
+                          background: #1e1e2e; color: #e2e8f0; font-size: 1rem;">
+            <button id="btn-load" onclick="loadMatch()" class="btn-analyze"
+                    style="padding: 0.75rem 1.5rem; white-space: nowrap;">
+                <i class="fas fa-search" id="load-icon"></i> Cerca Partita
+            </button>
+        </div>
+        <div id="error-msg" style="color: #f87171; margin-top: 0.5rem; display: none;"></div>
+    </div>
+
+    <!-- Results container -->
+    <div id="match-result" style="display: none;">
+
+        <!-- Match header -->
+        <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 id="match-title" style="margin: 0; font-size: 1.4rem;"></h2>
+                    <div id="match-meta" style="color: #94a3b8; margin-top: 0.3rem; font-size: 0.9rem;"></div>
+                </div>
+                <button id="btn-ai" onclick="runAIAnalysis()" class="btn-analyze"
+                        style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #8b5cf6, #6366f1);">
+                    <i class="fas fa-robot" id="ai-icon"></i> Analisi AI Completa
+                </button>
+            </div>
+        </div>
+
+        <!-- Grid: 2 columns on desktop -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+
+            <!-- Odds -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #fbbf24;"><i class="fas fa-chart-line"></i> Quote</h3>
+                <div id="odds-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+
+            <!-- Standings snippet -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #38bdf8;"><i class="fas fa-list-ol"></i> Classifica</h3>
+                <div id="standings-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #4ade80;"><i class="fas fa-chart-bar"></i> Forma Recente</h3>
+                <div id="form-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+
+            <!-- H2H -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #f472b6;"><i class="fas fa-exchange-alt"></i> Testa a Testa</h3>
+                <div id="h2h-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+
+            <!-- Venue & Referee -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #a78bfa;"><i class="fas fa-map-marker-alt"></i> Stadio & Arbitro</h3>
+                <div id="venue-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+
+            <!-- Lineups -->
+            <div class="card" style="padding: 1.2rem;">
+                <h3 style="margin: 0 0 0.8rem; color: #fb923c;"><i class="fas fa-users"></i> Formazioni</h3>
+                <div id="lineups-section">
+                    <p style="color: #64748b;">Caricamento...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Analysis result (hidden until requested) -->
+        <div id="ai-result" style="display: none;">
+            <div class="card" style="padding: 1.5rem; border: 1px solid #6366f1;">
+                <h3 style="margin: 0 0 1rem; color: #a78bfa;"><i class="fas fa-robot"></i> Analisi AI</h3>
+                <div id="ai-content" style="white-space: pre-wrap; line-height: 1.6; color: #cbd5e1;"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+function extractEventId(input) {
+    input = input.trim();
+    // Pure number
+    if (/^\d+$/.test(input)) return input;
+    // #id:12345
+    var m = input.match(/#id:(\d+)/);
+    if (m) return m[1];
+    // /event/12345 or similar
+    m = input.match(/event\/(\d+)/);
+    if (m) return m[1];
+    // Try customId from URL (last path segment before #)
+    m = input.match(/\/([A-Za-z0-9]{4,12})(?:#|$)/);
+    if (m) return 'custom:' + m[1];
+    return null;
+}
+
+function loadMatch() {
+    var input = document.getElementById('ss-url').value;
+    var eventId = extractEventId(input);
+    if (!eventId) {
+        showError('Formato non riconosciuto. Usa un link Sofascore (con #id:...) o un Event ID numerico.');
+        return;
+    }
+
+    showError(null);
+    var btn = document.getElementById('btn-load');
+    var icon = document.getElementById('load-icon');
+    btn.disabled = true;
+    icon.className = 'fas fa-spinner fa-spin';
+
+    fetch('/api/custom-match/info?event_id=' + encodeURIComponent(eventId))
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            icon.className = 'fas fa-search';
+            if (!data.success) {
+                showError(data.error || 'Errore sconosciuto');
+                return;
+            }
+            renderMatch(data);
+        })
+        .catch(err => {
+            btn.disabled = false;
+            icon.className = 'fas fa-search';
+            showError('Errore di rete: ' + err.message);
+        });
+}
+
+function showError(msg) {
+    var el = document.getElementById('error-msg');
+    if (msg) { el.textContent = msg; el.style.display = 'block'; }
+    else { el.style.display = 'none'; }
+}
+
+function renderMatch(data) {
+    var d = data.data;
+    document.getElementById('match-result').style.display = 'block';
+    document.getElementById('match-result').dataset.eventId = d.event_id;
+
+    // Header
+    document.getElementById('match-title').textContent = d.home_team + ' vs ' + d.away_team;
+    var dateStr = d.start_time ? new Date(d.start_time * 1000).toLocaleString('it-IT', {dateStyle: 'medium', timeStyle: 'short'}) : '';
+    document.getElementById('match-meta').innerHTML =
+        '<span style="color:#fbbf24;">' + (d.tournament || '') + '</span>' +
+        (d.round ? ' &middot; ' + d.round : '') +
+        (dateStr ? ' &middot; <i class="fas fa-clock"></i> ' + dateStr : '');
+
+    // Odds
+    renderOdds(d.odds);
+
+    // Standings
+    renderStandings(d.standings, d.home_team_id, d.away_team_id);
+
+    // Form
+    renderForm(d.home_form, d.away_form, d.home_team, d.away_team);
+
+    // H2H
+    renderH2H(d.h2h);
+
+    // Venue & Referee
+    renderVenue(d.venue, d.referee);
+
+    // Lineups
+    renderLineups(d.lineups);
+}
+
+function renderOdds(odds) {
+    var el = document.getElementById('odds-section');
+    if (!odds || !odds.length) { el.innerHTML = '<p style="color:#64748b;">Nessuna quota disponibile</p>'; return; }
+
+    var html = '<table style="width:100%; border-collapse: collapse;">';
+    html += '<tr style="color:#94a3b8; font-size:0.8rem;"><th style="text-align:left; padding:4px 0;">Mercato</th><th>1</th><th>X</th><th>2</th></tr>';
+
+    odds.forEach(function(mkt) {
+        html += '<tr style="border-top:1px solid #1e293b;">';
+        html += '<td style="padding:6px 0; color:#e2e8f0; font-size:0.9rem;">' + mkt.name + '</td>';
+        (mkt.choices || []).forEach(function(c) {
+            var color = '#4ade80';
+            html += '<td style="text-align:center; padding:6px; color:' + color + '; font-weight:600;">' + (c.odds || '-') + '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</table>';
+    el.innerHTML = html;
+}
+
+function _formBadge(result) {
+    var colors = {W: '#4ade80', D: '#fbbf24', L: '#f87171'};
+    var labels = {W: 'V', D: 'P', L: 'S'};
+    return '<span style="display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:4px; font-size:0.75rem; font-weight:700; background:' + (colors[result]||'#475569') + '; color:#000; margin:0 2px;">' + (labels[result]||result) + '</span>';
+}
+
+function renderForm(homeForm, awayForm, homeName, awayName) {
+    var el = document.getElementById('form-section');
+    if ((!homeForm || !homeForm.length) && (!awayForm || !awayForm.length)) {
+        el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>';
+        return;
+    }
+
+    var html = '';
+    if (homeForm && homeForm.length) {
+        html += '<div style="margin-bottom:0.8rem;"><strong style="color:#e2e8f0;">' + homeName + '</strong><div style="margin-top:4px;">';
+        homeForm.slice(0, 5).forEach(function(r) { html += _formBadge(r.result); });
+        html += '</div></div>';
+    }
+    if (awayForm && awayForm.length) {
+        html += '<div><strong style="color:#e2e8f0;">' + awayName + '</strong><div style="margin-top:4px;">';
+        awayForm.slice(0, 5).forEach(function(r) { html += _formBadge(r.result); });
+        html += '</div></div>';
+    }
+    el.innerHTML = html;
+}
+
+function renderStandings(standings, homeId, awayId) {
+    var el = document.getElementById('standings-section');
+    if (!standings || !standings.length) { el.innerHTML = '<p style="color:#64748b;">Classifica non disponibile</p>'; return; }
+
+    var html = '<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">';
+    html += '<tr style="color:#94a3b8;"><th style="width:30px;">#</th><th style="text-align:left;">Squadra</th><th>Pt</th><th>V</th><th>P</th><th>S</th><th>GF</th><th>GS</th></tr>';
+
+    standings.forEach(function(row) {
+        var isHighlight = (row.team_id == homeId || row.team_id == awayId);
+        var style = isHighlight ? 'background:#1e3a5f; font-weight:600;' : '';
+        html += '<tr style="border-top:1px solid #1e293b;' + style + '">';
+        html += '<td style="text-align:center; padding:4px; color:#94a3b8;">' + row.position + '</td>';
+        html += '<td style="padding:4px; color:#e2e8f0;">' + row.team + '</td>';
+        html += '<td style="text-align:center; color:#fbbf24; font-weight:600;">' + row.points + '</td>';
+        html += '<td style="text-align:center; color:#4ade80;">' + row.wins + '</td>';
+        html += '<td style="text-align:center; color:#94a3b8;">' + row.draws + '</td>';
+        html += '<td style="text-align:center; color:#f87171;">' + row.losses + '</td>';
+        html += '<td style="text-align:center;">' + row.goals_for + '</td>';
+        html += '<td style="text-align:center;">' + row.goals_against + '</td>';
+        html += '</tr>';
+    });
+    html += '</table>';
+    el.innerHTML = html;
+}
+
+function renderH2H(h2h) {
+    var el = document.getElementById('h2h-section');
+    if (!h2h) { el.innerHTML = '<p style="color:#64748b;">Dati non disponibili</p>'; return; }
+
+    var html = '<div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:0.8rem;">';
+    html += '<div><div style="font-size:1.5rem; font-weight:700; color:#4ade80;">' + (h2h.home_wins||0) + '</div><div style="color:#94a3b8; font-size:0.8rem;">Vittorie Casa</div></div>';
+    html += '<div><div style="font-size:1.5rem; font-weight:700; color:#fbbf24;">' + (h2h.draws||0) + '</div><div style="color:#94a3b8; font-size:0.8rem;">Pareggi</div></div>';
+    html += '<div><div style="font-size:1.5rem; font-weight:700; color:#f87171;">' + (h2h.away_wins||0) + '</div><div style="color:#94a3b8; font-size:0.8rem;">Vittorie Ospite</div></div>';
+    html += '</div>';
+
+    if (h2h.last_matches && h2h.last_matches.length) {
+        html += '<div style="font-size:0.85rem;">';
+        h2h.last_matches.slice(0, 5).forEach(function(m) {
+            html += '<div style="padding:3px 0; border-top:1px solid #1e293b; display:flex; justify-content:space-between;">';
+            html += '<span style="color:#94a3b8;">' + (m.date||'') + '</span>';
+            html += '<span style="color:#e2e8f0;">' + m.home + ' <strong>' + m.home_score + ' - ' + m.away_score + '</strong> ' + m.away + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+    el.innerHTML = html;
+}
+
+function renderVenue(venue, referee) {
+    var el = document.getElementById('venue-section');
+    var html = '';
+    if (venue) {
+        html += '<p style="margin:0 0 0.5rem;"><i class="fas fa-map-marker-alt" style="color:#a78bfa;"></i> <strong>' + (venue.name||'') + '</strong>';
+        if (venue.city) html += ' <span style="color:#94a3b8;">(' + venue.city + ')</span>';
+        html += '</p>';
+    }
+    if (referee) {
+        html += '<p style="margin:0;"><i class="fas fa-gavel" style="color:#fbbf24;"></i> ' + (referee.name||'Arbitro non designato');
+        if (referee.yellows_avg) html += ' <span style="color:#fbbf24; font-size:0.85rem;">(' + referee.yellows_avg + ' gialli/gara)</span>';
+        html += '</p>';
+    }
+    if (!html) html = '<p style="color:#64748b;">Info non disponibili</p>';
+    el.innerHTML = html;
+}
+
+function renderLineups(lineups) {
+    var el = document.getElementById('lineups-section');
+    if (!lineups || (!lineups.home.length && !lineups.away.length)) {
+        el.innerHTML = '<p style="color:#64748b;">Formazioni non ancora disponibili (di solito ~45 min prima)</p>';
+        return;
+    }
+
+    function _team(players, label) {
+        var h = '<div style="margin-bottom:0.8rem;"><strong style="color:#e2e8f0;">' + label + '</strong>';
+        if (lineups.confirmed) h += ' <span style="color:#4ade80; font-size:0.75rem;">UFFICIALE</span>';
+        h += '<div style="margin-top:4px; font-size:0.85rem;">';
+        players.forEach(function(p) {
+            var posColor = p.substitute ? '#64748b' : '#94a3b8';
+            h += '<div style="padding:2px 0;' + (p.substitute ? ' opacity:0.5;' : '') + '">';
+            h += '<span style="color:#fbbf24; width:24px; display:inline-block; text-align:right; margin-right:6px;">' + (p.shirt||'') + '</span>';
+            h += '<span style="color:#e2e8f0;">' + p.name + '</span>';
+            if (p.position) h += ' <span style="color:' + posColor + '; font-size:0.75rem;">(' + p.position + ')</span>';
+            h += '</div>';
+        });
+        h += '</div></div>';
+        return h;
+    }
+
+    el.innerHTML = _team(lineups.home, lineups.home_label || 'Casa') + _team(lineups.away, lineups.away_label || 'Ospite');
+}
+
+function runAIAnalysis() {
+    var eventId = document.getElementById('match-result').dataset.eventId;
+    if (!eventId) return;
+
+    var btn = document.getElementById('btn-ai');
+    var icon = document.getElementById('ai-icon');
+    btn.disabled = true;
+    icon.className = 'fas fa-spinner fa-spin';
+    btn.querySelector('i').nextSibling.textContent = ' Analisi in corso...';
+
+    document.getElementById('ai-result').style.display = 'block';
+    document.getElementById('ai-content').innerHTML = '<p style="color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> L\'AI sta analizzando la partita... (30-60 secondi)</p>';
+
+    fetch('/api/custom-match/analyze?event_id=' + eventId)
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            icon.className = 'fas fa-robot';
+            btn.querySelector('i').nextSibling.textContent = ' Analisi AI Completa';
+            if (!data.success) {
+                document.getElementById('ai-content').innerHTML = '<p style="color:#f87171;">' + (data.error||'Errore') + '</p>';
+                return;
+            }
+            document.getElementById('ai-content').innerHTML = data.analysis.replace(/\n/g, '<br>');
+        })
+        .catch(err => {
+            btn.disabled = false;
+            icon.className = 'fas fa-robot';
+            btn.querySelector('i').nextSibling.textContent = ' Analisi AI Completa';
+            document.getElementById('ai-content').innerHTML = '<p style="color:#f87171;">Errore: ' + err.message + '</p>';
+        });
+}
+
+// Allow Enter key to trigger search
+document.getElementById('ss-url').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') loadMatch();
+});
+</script>
+{% endblock %}
