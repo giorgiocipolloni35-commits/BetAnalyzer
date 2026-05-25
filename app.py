@@ -2432,12 +2432,21 @@ def api_custom_match_info():
                 "shots": s.get("totalShots", 0),
                 "shots_on_target": s.get("shotsOnTarget", 0),
             })
+        # Build tackles map from separate category (Sofascore siloes stats per category)
+        tackles_map = {}
+        for p in top.get("tackles", []):
+            pl = p.get("player", {})
+            pid = pl.get("id")
+            if pid:
+                tackles_map[pid] = p.get("statistics", {}).get("tackles", 0)
+
         cards = []
         for p in top.get("yellowCards", [])[:6]:
             pl = p.get("player", {})
             s = p.get("statistics", {})
             apps = s.get("appearances", 1) or 1
             tm = tm_positions.get(_normalize_name(pl.get("name", "")), {})
+            pid = pl.get("id")
             cards.append({
                 "name": pl.get("name", ""),
                 "position": tm.get("position_short", pl.get("position", "?")),
@@ -2445,7 +2454,7 @@ def api_custom_match_info():
                 "yellows": s.get("yellowCards", 0),
                 "appearances": apps,
                 "yellows_per_match": round(s.get("yellowCards", 0) / apps, 2),
-                "tackles": s.get("tackles", 0),
+                "tackles": tackles_map.get(pid, 0),
             })
         return {"scorers": scorers, "cards": cards}
 
