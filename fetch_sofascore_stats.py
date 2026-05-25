@@ -305,9 +305,9 @@ def _save_to_db(team: dict, players_with_stats: list[tuple],
 
         # Build stats_json in Sportmonks format
         if stats:
-            stats_json = json.dumps(_to_sportmonks_format(stats), ensure_ascii=False)
+            sj = _to_sportmonks_format(stats)
         else:
-            stats_json = json.dumps({
+            sj = {
                 "goals": 0, "assists": 0, "appearances": 0,
                 "shots_total": 0, "shots_on_target": 0,
                 "fouls_committed": 0, "fouls_drawn": 0,
@@ -316,7 +316,21 @@ def _save_to_db(team: dict, players_with_stats: list[tuple],
                 "dribbles_attempts": 0, "aerials_won": 0,
                 "clearances": 0, "blocks": 0,
                 "accurate_passes_pct": 0, "big_chances_created": 0,
-            })
+            }
+
+        # Enrich with player bio data (already fetched from team/players endpoint)
+        sj["nationality"] = player.get("country", "")
+        sj["shirt_number"] = player.get("shirt")
+        sj["height"] = player.get("height")
+        sj["preferred_foot"] = player.get("preferred_foot", "")
+        dob_ts = player.get("date_of_birth")
+        if dob_ts and isinstance(dob_ts, (int, float)):
+            from datetime import datetime as _dt
+            sj["date_of_birth"] = _dt.utcfromtimestamp(dob_ts).strftime("%Y-%m-%d")
+        else:
+            sj["date_of_birth"] = None
+
+        stats_json = json.dumps(sj, ensure_ascii=False)
 
         # Upsert player_stats_cache
         cursor.execute("""
