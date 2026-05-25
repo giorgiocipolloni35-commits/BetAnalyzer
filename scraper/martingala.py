@@ -438,15 +438,49 @@ def _analyze_all_leagues() -> dict:
 
 
 def _load_upcoming_matches() -> list:
-    """Load upcoming matches from Sportmonks cache."""
+    """Load upcoming matches from Sportmonks cache + Football-Data fallback."""
+    matches = []
+
+    # 1. Sportmonks cache (covers European leagues)
     try:
         path = "cache/sportmonks_matches.json"
-        if not os.path.exists(path):
-            return []
-        with open(path) as f:
-            return json.load(f)
+        if os.path.exists(path):
+            with open(path) as f:
+                matches = json.load(f)
     except Exception:
-        return []
+        pass
+
+    # 2. Football-Data fallback for uncovered leagues (e.g. BSA)
+    try:
+        from datetime import datetime, timedelta
+        api_key = os.environ.get("FOOTBALL_DATA_API_KEY")
+        if not api_key:
+            return matches
+
+        # Only fetch FD matches for leagues not in Sportmonks
+        fd_only_codes = ["BSA"]  # Add more as needed
+        import requests
+        for code in fd_only_codes:
+            date_from = datetime.now().strftime("%Y-%m-%d")
+            date_to = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+            resp = requests.get(
+                f"https://api.football-data.org/v4/competitions/{code}/matches",
+                headers={"X-Auth-Token": api_key},
+                params={"status": "SCHEDULED,TIMED", "dateFrom": date_from, "dateTo": date_to},
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                continue
+            for m in resp.json().get("matches", []):
+                matches.append({
+                    "home_team": m.get("homeTeam", {}).get("name", ""),
+                    "away_team": m.get("awayTeam", {}).get("name", ""),
+                    "commence_time": m.get("utcDate", ""),
+                })
+    except Exception as e:
+        logger.warning("FD upcoming matches fallback error: %s", e)
+
+    return matches
 
 
 def _fuzzy_match_name(sm_name: str, fd_name: str) -> bool:
