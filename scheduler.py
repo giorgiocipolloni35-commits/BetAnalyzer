@@ -86,6 +86,26 @@ def run_nightly():
     except Exception as e:
         logger.error(f"Nightly sync error: {e}")
 
+    # 4. Sofascore player stats (3 leagues per night, rotates through all 9)
+    logger.info("[STEP 4] Sofascore player stats (3-league rotation)...")
+    try:
+        result = subprocess.run(
+            [sys.executable, "fetch_sofascore_stats.py", "--rotate", "3"],
+            capture_output=True, text=True, timeout=3600,
+        )
+        if result.stdout:
+            lines = result.stdout.strip().split("\n")
+            for line in lines[-8:]:
+                logger.info(f"  {line}")
+        if result.returncode != 0:
+            logger.error(f"Sofascore stats failed (exit {result.returncode}): {result.stderr[-200:]}")
+        else:
+            logger.info("  ✅ Sofascore stats OK")
+    except subprocess.TimeoutExpired:
+        logger.error("Sofascore stats timeout (60 min)")
+    except Exception as e:
+        logger.error(f"Sofascore stats error: {e}")
+
     logger.info("✅ Nightly update DONE")
     logger.info("=" * 50)
 
@@ -102,7 +122,6 @@ def run_weekly():
         ("fetch_var_stats.py", "VAR Stats (Sportmonks)", 600),
         ("fetch_referee_stats.py", "Referee Stats (TM)", 600),
         ("fetch_brazil_stats.py", "Brazil Player Stats (TM)", 900),
-        ("fetch_sofascore_stats.py", "Brazil Player Stats (Sofascore)", 1800),
     ]
 
     for script, label, timeout_s in scripts:

@@ -638,6 +638,7 @@ class CardAnalyzer:
                        JSON_EXTRACT(psc.stats_json, '$.minutes_played')
                 FROM player_stats_cache psc
                 JOIN player_info pi ON psc.player_id = pi.player_id
+                ORDER BY psc.season_id ASC
             """)
             for row in cursor.fetchall():
                 name, current_tid, pos_id, apps, fouls_c, tack, inter, fouls_d, drib_att, aerials, mins = row
