@@ -36,7 +36,6 @@ ODDS_API_KEY      = os.getenv("ODDS_API_KEY", "")
 OPENROUTER_KEY    = os.getenv("OPENROUTER_API_KEY", "")
 AI_MODEL          = os.getenv("AI_MODEL", "openai/gpt-4o-mini")
 CACHE_MINUTES     = int(os.getenv("CACHE_MINUTES", 30))
-SPORTMONKS_KEY    = os.getenv("SPORTMONKS_API_KEY", "")
 FOOTBALL_DATA_KEY = os.getenv("FOOTBALL_DATA_API_KEY", "")
 
 
@@ -141,7 +140,7 @@ _state = {
     "matches": [],
     "loading": False,
     "error": None,
-    "source": "odds_api", # Sorgente predefinita (Sportmonks eliminato)
+    "source": "sofascore", # Sorgente predefinita (Sofascore fixtures + odds)
     "selected_leagues": [], # Tutti disabilitati all'avvio
     "last_update": None,
     "quota_usage":        {"remaining": "?", "used": "?"},
@@ -156,7 +155,7 @@ _lock = threading.Lock()
 #  Data loading                                                        #
 # ------------------------------------------------------------------ #
 
-def load_data(force: bool = False, source: str = "odds_api"):
+def load_data(force: bool = False, source: str = "sofascore"):
     """Carica le quote e lancia l'analisi AI in background."""
     from ai.analyzer import analyze_all, get_openrouter_balance
 
@@ -205,63 +204,20 @@ def load_data(force: bool = False, source: str = "odds_api"):
                     f.unlink(missing_ok=True)
                 logger.info("Cache svuotata")
 
-            # Sportmonks eliminato — tutto passa da odds_api + FD
-            if True:
-                from scraper.odds_api import OddsAPIClient
-                matches = []
-                if ODDS_API_KEY:
-                    try:
-                        client = OddsAPIClient(ODDS_API_KEY, cache_minutes=CACHE_MINUTES)
-                        matches = client.get_all_matches(league_keys=selected_leagues)
-                        _state["quota_usage"] = client.get_quota_usage()
-                    except Exception as e:
-                        logger.warning(f"Odds API fallita ({e}) — provo API-Football")
+            # Source primaria: Sofascore (via SportmonksClient drop-in)
+            from scraper.sportmonks import SportmonksClient
+            ss_client = SportmonksClient(cache_minutes=CACHE_MINUTES)
+            matches = ss_client.get_all_matches(league_keys=selected_leagues)
+            logger.info(f"⚽ Sofascore: {len(matches)} partite caricate")
 
-                # Se Odds API non ha dato nulla, usa API-Football come source primaria
-                if not matches:
-                    apifb_key_primary = os.getenv("API_FOOTBALL_KEY", "")
-                    if apifb_key_primary:
-                        try:
-                            from scraper.api_football import APIFootballClient
-                            from datetime import datetime as dt_p
-                            afb = APIFootballClient(apifb_key_primary)
-                            today_str = dt_p.now().strftime("%Y-%m-%d")
-
-                            # 1) Get odds by fixture_id
-                            fixtures_odds = afb.get_fixtures_with_odds(today_str)
-                            # 2) Get fixture details (team names, times)
-                            fixture_mapping = afb.get_fixture_mapping(today_str)
-                            # Invert mapping: fixture_id → (home, away)
-                            fid_to_teams = {}
-                            for (h, a), fid in fixture_mapping.items():
-                                fid_to_teams[fid] = (h, a)
-
-                            if fixtures_odds:
-                                from models.match import Match
-                                for fx in fixtures_odds:
-                                    fid = fx["fixture_id"]
-                                    teams = fid_to_teams.get(fid)
-                                    if not teams:
-                                        continue
-                                    m = Match(
-                                        id=str(fid),
-                                        home_team=teams[0].title(),
-                                        away_team=teams[1].title(),
-                                        league=fx.get("league_name", "?"),
-                                        commence_time=today_str + "T15:00:00Z",
-                                        odds=fx.get("odds", []),
-                                    )
-                                    matches.append(m)
-                                logger.info(f"🏈 API-Football come source primaria: {len(matches)} partite con quote")
-                        except Exception as e:
-                            logger.warning(f"API-Football primary fallback error: {e}")
-                    if not matches and not ODDS_API_KEY:
-                        raise ValueError("Nessuna API quote configurata (ODDS_API_KEY o API_FOOTBALL_KEY)")
-
-            if hasattr(client, 'get_quota_usage'):
-                sm_quota = client.get_quota_usage()
-                if "quota_usage" not in _state or _state["quota_usage"].get("remaining") == "?":
-                    _state["quota_usage"] = sm_quota
+            # Enrichment opzionale: OddsAPI (se configurata)
+            if ODDS_API_KEY:
+                try:
+                    from scraper.odds_api import OddsAPIClient
+                    client = OddsAPIClient(ODDS_API_KEY, cache_minutes=CACHE_MINUTES)
+                    _state["quota_usage"] = client.get_quota_usage()
+                except Exception as e:
+                    logger.warning(f"OddsAPI quota check fallita: {e}")
 
             # === FALLBACK API-FOOTBALL: arricchisci match senza odds ===
             apifb_key = os.getenv("API_FOOTBALL_KEY", "")
@@ -298,11 +254,7 @@ def load_data(force: bool = False, source: str = "odds_api"):
             logger.info(f"Totale partite recuperate: {len(matches)}")
 
             if not matches:
-                msg = "Nessuna partita trovata per i criteri selezionati."
-                if source == "sportmonks":
-                    msg += " Verifica che i campionati siano inclusi nel tuo piano Sportmonks (es. Serie A non è nel Free Plan)."
-                else:
-                    msg += " Prova a selezionare altri campionati o a svuotare la cache."
+                msg = "Nessuna partita trovata per i criteri selezionati. Prova a selezionare altri campionati o a svuotare la cache."
                 with _lock:
                     _state["error"] = msg
                 return
@@ -314,11 +266,9 @@ def load_data(force: bool = False, source: str = "odds_api"):
                 _state["progress"] = {"current": current, "total": total, "match": match_name}
 
             # Passa client per classifica e forma recente
-            sm_client = None
+            # Riusa ss_client già creato sopra per standings/form/H2H
+            sm_client = ss_client
             fd_client = None
-            if FOOTBALL_DATA_KEY:
-                from scraper.sportmonks import SportmonksClient
-                sm_client = SportmonksClient(cache_minutes=CACHE_MINUTES)
             if FOOTBALL_DATA_KEY:
                 from scraper.football_data import FootballDataClient
                 fd_client = FootballDataClient(FOOTBALL_DATA_KEY)
@@ -436,9 +386,9 @@ def index():
     last_sync = _get_last_sync_info()
 
     freshness = get_data_freshness(
-        ("Quote", "cache/sportmonks_matches.json", "Sportmonks API / Worker"),
+        ("Quote", "cache/sportmonks_matches.json", "Sofascore / Worker"),
         ("Partite", "data/penalties/SA_matches.json", "Football-Data API / Precache"),
-        ("Giocatori", "db:player_stats_cache", "Sportmonks DB / Nightly Sync"),
+        ("Giocatori", "db:player_stats_cache", "Sofascore Stats / Nightly Sync"),
     )
     return render_template(
         "index.html",
@@ -612,7 +562,7 @@ def _find_league_key(league_name: str) -> str | None:
 
 @app.route("/refresh", methods=["POST"])
 def refresh():
-    source = request.form.get("source", "odds_api")
+    source = request.form.get("source", "sofascore")
     leagues = request.form.getlist("leagues") # Prende tutti i checkbox selezionati
     force = request.form.get("force", "0") == "1"
     
