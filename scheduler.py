@@ -102,6 +102,7 @@ def run_weekly():
         ("fetch_var_stats.py", "VAR Stats (Sportmonks)", 600),
         ("fetch_referee_stats.py", "Referee Stats (TM)", 600),
         ("fetch_brazil_stats.py", "Brazil Player Stats (TM)", 900),
+        ("fetch_sofascore_stats.py", "Brazil Player Stats (Sofascore)", 1800),
     ]
 
     for script, label, timeout_s in scripts:
