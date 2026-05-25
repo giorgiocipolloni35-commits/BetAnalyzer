@@ -45,7 +45,7 @@ SM_LEAGUE_TO_FD = {
     "501": "SPL",
 }
 
-# ── Sofascore tournament IDs (per lineups) ──
+# ── Sofascore tournament IDs ──
 SOFASCORE_TOURNAMENTS = {
     "italy_serie_a": 23,
     "england_premier_league": 17,
@@ -56,7 +56,23 @@ SOFASCORE_TOURNAMENTS = {
     "champions_league": 7,
     "england_championship": 18,
     "portugal_primeira_liga": 238,
+    "brazil_serie_a": 325,
+    "denmark_superliga": 75,
+    "scotland_premiership": 36,
 }
+
+# Reverse lookup: Sofascore tournament_id → league_key
+SS_TOURNAMENT_TO_KEY = {v: k for k, v in SOFASCORE_TOURNAMENTS.items()}
+
+# ── Sofascore HTTP config ──
+SS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.sofascore.com/",
+    "Origin": "https://www.sofascore.com",
+}
+SS_BASE = "https://www.sofascore.com/api/v1"
 
 # ── Coordinate stadi (lat, lon) — gli stadi non si spostano ──
 VENUE_COORDS = {
@@ -247,14 +263,120 @@ class SportmonksClient:
         return FD_LEAGUE_CODES.get(league_key)
 
     # ─────────────────────────────────────────────
-    # get_all_matches — FD scheduled/timed fixtures
+    # Sofascore HTTP helper
+    # ─────────────────────────────────────────────
+    def _ss_get(self, endpoint, retries=2):
+        """GET Sofascore API with retries."""
+        url = f"{SS_BASE}{endpoint}"
+        for attempt in range(retries):
+            try:
+                r = requests.get(url, headers=SS_HEADERS, timeout=15)
+                if r.status_code == 200:
+                    return r.json()
+                if r.status_code == 429:
+                    time.sleep(10 * (attempt + 1))
+                    continue
+                if r.status_code == 404:
+                    return None
+                logger.warning(f"SS HTTP {r.status_code} for {endpoint}")
+            except Exception as e:
+                logger.warning(f"SS request error: {e}")
+                time.sleep(3)
+        return None
+
+    @staticmethod
+    def _frac_to_decimal(frac_str):
+        """Convert fractional odds '9/10' to decimal 1.90."""
+        try:
+            if '/' in str(frac_str):
+                n, d = str(frac_str).split('/')
+                return round(1 + int(n) / int(d), 2)
+            return round(float(frac_str), 2)
+        except (ValueError, ZeroDivisionError):
+            return None
+
+    def _fetch_sofascore_odds(self, event_id: int) -> BookmakerOdds | None:
+        """Fetch odds from Sofascore for a single event."""
+        data = self._ss_get(f"/event/{event_id}/odds/1/all")
+        if not data:
+            return None
+
+        markets = data.get("markets", [])
+        if not markets:
+            return None
+
+        home, draw, away = None, None, None
+        over25, under25 = None, None
+        over15, under15 = None, None
+        over35, under35 = None, None
+        gg, ng = None, None
+
+        # "Match goals" appare N volte, ordinato per linea: 0.5, 1.5, 2.5, 3.5...
+        # Linee standard: indice 0=0.5, 1=1.5, 2=2.5, 3=3.5, 4=4.5, 5=5.5, 6=6.5
+        goals_market_idx = 0
+
+        for m in markets:
+            mname = (m.get("marketName") or "").lower()
+            choices = m.get("choices", [])
+
+            if mname == "full time":
+                for c in choices:
+                    val = self._frac_to_decimal(c.get("fractionalValue", ""))
+                    if c.get("name") == "1":
+                        home = val
+                    elif c.get("name") == "X":
+                        draw = val
+                    elif c.get("name") == "2":
+                        away = val
+
+            elif mname == "both teams to score":
+                for c in choices:
+                    val = self._frac_to_decimal(c.get("fractionalValue", ""))
+                    if c.get("name") == "Yes":
+                        gg = val
+                    elif c.get("name") == "No":
+                        ng = val
+
+            elif mname == "match goals":
+                over_val, under_val = None, None
+                for c in choices:
+                    val = self._frac_to_decimal(c.get("fractionalValue", ""))
+                    if c.get("name") == "Over":
+                        over_val = val
+                    elif c.get("name") == "Under":
+                        under_val = val
+
+                # Assegna in base all'indice (ordine crescente delle linee)
+                if goals_market_idx == 1:  # 1.5
+                    over15, under15 = over_val, under_val
+                elif goals_market_idx == 2:  # 2.5
+                    over25, under25 = over_val, under_val
+                elif goals_market_idx == 3:  # 3.5
+                    over35, under35 = over_val, under_val
+
+                goals_market_idx += 1
+
+        if not home and not draw:
+            return None
+
+        return BookmakerOdds(
+            bookmaker="Sofascore",
+            home=home, draw=draw, away=away,
+            over25=over25, under25=under25,
+            over15=over15, under15=under15,
+            over35=over35, under35=under35,
+            gg=gg, ng=ng,
+        )
+
+    # ─────────────────────────────────────────────
+    # get_all_matches — Sofascore scheduled events + odds
     # ─────────────────────────────────────────────
     def get_all_matches(self, league_keys: list[str] = None) -> list[Match]:
-        """Recupera fixture prossimi 7 giorni da Football-Data.org."""
+        """Recupera fixture prossimi 7 giorni da Sofascore + quote."""
         cache_file = self.cache_dir / "sportmonks_matches.json"
 
         # Check cache
-        if cache_file.exists() and not league_keys:
+        if cache_file.exists():
             mtime = datetime.fromtimestamp(cache_file.stat().st_mtime)
             if datetime.now() - mtime < timedelta(minutes=self.cache_minutes):
                 logger.info("Caricamento fixture da cache")
@@ -266,50 +388,99 @@ class SportmonksClient:
             logger.warning("Nessuna lega selezionata")
             return []
 
-        logger.info(f"Recupero fixture da Football-Data.org per {len(league_keys)} leghe...")
-
-        matches = []
+        # Build set of target tournament IDs
+        target_tournaments = set()
         for lk in league_keys:
-            fd_code = self._league_key_to_fd(lk)
-            if not fd_code:
-                logger.warning(f"Nessun codice FD per {lk}")
-                continue
+            tid = SOFASCORE_TOURNAMENTS.get(lk)
+            if tid:
+                target_tournaments.add(tid)
 
-            data = self._fd_get(f"/competitions/{fd_code}/matches",
-                                params={"status": "SCHEDULED,TIMED"})
+        if not target_tournaments:
+            logger.warning("Nessun tournament Sofascore per le leghe selezionate")
+            return []
+
+        logger.info(f"Recupero fixture da Sofascore per {len(target_tournaments)} tornei (7 giorni)...")
+
+        # Fetch scheduled events per day (7 days)
+        matches = []
+        seen_ids = set()
+
+        for day_offset in range(7):
+            day = (datetime.now() + timedelta(days=day_offset)).strftime("%Y-%m-%d")
+            data = self._ss_get(f"/sport/football/scheduled-events/{day}")
             if not data:
                 continue
 
-            for m in data.get("matches", []):
+            for e in data.get("events", []):
+                ut = e.get("tournament", {}).get("uniqueTournament", {})
+                tid = ut.get("id")
+                if tid not in target_tournaments:
+                    continue
+
+                eid = e.get("id")
+                if eid in seen_ids:
+                    continue
+                seen_ids.add(eid)
+
+                status = e.get("status", {}).get("type", "")
+                if status not in ("notstarted", "inprogress"):
+                    continue
+
+                home_team = e.get("homeTeam", {})
+                away_team = e.get("awayTeam", {})
+                tournament = e.get("tournament", {})
+                season = e.get("season", {})
+                ts = e.get("startTimestamp", 0)
+
+                # Convert timestamp to ISO format
                 try:
-                    home = m.get("homeTeam", {})
-                    away = m.get("awayTeam", {})
-                    comp = m.get("competition", {})
-                    season = m.get("season", {})
+                    commence = datetime.utcfromtimestamp(ts).strftime("%Y-%m-%dT%H:%M:%SZ")
+                except (OSError, ValueError):
+                    commence = ""
 
-                    match = Match(
-                        id=f"fd_{m['id']}",
-                        league=comp.get("name", lk),
-                        league_id=str(comp.get("id", "")),
-                        season_id=str(season.get("id", "")),
-                        home_team=home.get("name", "?"),
-                        away_team=away.get("name", "?"),
-                        commence_time=m.get("utcDate", ""),
-                        home_id=str(home.get("id", "")),
-                        away_id=str(away.get("id", "")),
-                    )
-                    matches.append(match)
-                except Exception as e:
-                    logger.error(f"Errore parsing match FD: {e}")
+                # Map tournament_id back to league_key for league_id
+                league_key = SS_TOURNAMENT_TO_KEY.get(tid, "")
 
-            # Rate limit: 10 req/min su free tier
-            time.sleep(6)
+                match = Match(
+                    id=f"ss_{eid}",
+                    league=tournament.get("name", ""),
+                    league_id=str(tid),
+                    season_id=str(season.get("id", "")),
+                    home_team=home_team.get("name", "?"),
+                    away_team=away_team.get("name", "?"),
+                    commence_time=commence,
+                    home_id=str(home_team.get("id", "")),
+                    away_id=str(away_team.get("id", "")),
+                    matchday=e.get("roundInfo", {}).get("round"),
+                )
+                matches.append(match)
+
+            time.sleep(1)  # Polite delay tra giorni
+
+        logger.info(f"Trovati {len(matches)} fixture da Sofascore, recupero quote...")
+
+        # Fetch odds for each match
+        odds_count = 0
+        for i, match in enumerate(matches):
+            try:
+                eid = int(match.id.replace("ss_", ""))
+                odds = self._fetch_sofascore_odds(eid)
+                if odds:
+                    match.odds = [odds]
+                    odds_count += 1
+            except Exception as e:
+                logger.warning(f"Odds error event {match.id}: {e}")
+
+            # Rate limit: ~1 req/sec
+            if i < len(matches) - 1:
+                time.sleep(1)
+
+        logger.info(f"Quote recuperate per {odds_count}/{len(matches)} partite")
 
         # Save cache
         with open(cache_file, "w") as f:
             json.dump([m.to_dict() for m in matches], f, indent=2)
 
-        logger.info(f"Recuperati {len(matches)} fixture da FD")
         return matches
 
     # ─────────────────────────────────────────────
