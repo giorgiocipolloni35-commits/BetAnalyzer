@@ -209,7 +209,9 @@ def _save_to_db(team: dict, players_with_stats: list[tuple]):
     for player, stats in players_with_stats:
         db_player_id = player["ss_id"] + SS_PLAYER_OFFSET
         pos_id = POS_MAP.get(player["position"])
-        rating = stats.get("rating", 0) if stats else 0
+        # Sofascore ratings are 0-10, Sportmonks are 0-100 → multiply by 10
+        raw_rating = stats.get("rating", 0) if stats else 0
+        rating = round(raw_rating * 10, 1)
 
         # Upsert player_info
         cursor.execute("""
