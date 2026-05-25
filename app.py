@@ -2555,19 +2555,37 @@ def api_custom_match_info():
             })
     result["lineups"] = lineups
 
-    # 7. Missing players (injuries + suspensions)
-    missing_data = _ss_get(f"/event/{event_id}/missing-players")
+    # 7. Missing players (injuries + suspensions) via /team/{id}/players
     missing = {"home": [], "away": []}
-    for side in ["home", "away"]:
-        for p in missing_data.get(side, {}).get("missingPlayers", []):
+    for side, team_id in [("home", home.get("id")), ("away", away.get("id"))]:
+        tp_data = _ss_get(f"/team/{team_id}/players")
+        for p in tp_data.get("players", []):
             pl = p.get("player", {})
-            ptype = p.get("type", "")          # "injury" or "suspension"
-            reason = p.get("reason", "")        # e.g. "Coscia", "ACL", "Cartellini gialli accumulati"
-            missing[side].append({
-                "name": pl.get("name", ""),
-                "type": ptype,                   # "injury" | "suspension"
-                "reason": reason,
-            })
+            pname = pl.get("name", "")
+            # Injuries
+            inj = pl.get("injury")
+            if inj and inj.get("status") in ("out", "dayToDay", "questionable"):
+                reason = inj.get("reason", "")
+                missing[side].append({
+                    "name": pname,
+                    "type": "injury",
+                    "reason": reason,
+                    "status": inj.get("status", ""),
+                })
+            # Suspensions (yellow card accumulation, red card, etc.)
+            suspensions = pl.get("activeSeasonSuspensions", [])
+            if suspensions:
+                reason = suspensions[0].get("reason", "suspended")
+                # Translate reason
+                if "yellow_card" in reason:
+                    reason = "Cartellini gialli accumulati"
+                elif "red_card" in reason:
+                    reason = "Espulsione"
+                missing[side].append({
+                    "name": pname,
+                    "type": "suspension",
+                    "reason": reason,
+                })
     result["missing"] = missing
 
     return jsonify({"success": True, "data": result})
