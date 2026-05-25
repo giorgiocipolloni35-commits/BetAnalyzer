@@ -228,19 +228,50 @@ function renderOdds(odds) {
     var el = document.getElementById('odds-section');
     if (!odds || !odds.length) { el.innerHTML = '<p style="color:#64748b;">Nessuna quota disponibile</p>'; return; }
 
-    var html = '<table style="width:100%; border-collapse: collapse;">';
-    html += '<tr style="color:#94a3b8; font-size:0.8rem;"><th style="text-align:left; padding:4px 0;">Mercato</th><th>1</th><th>X</th><th>2</th></tr>';
+    // Split into 3-way markets (1X2) and 2-way markets (O/U, BTTS)
+    var three = odds.filter(function(m) { return m.type === '3way'; });
+    var two = odds.filter(function(m) { return m.type !== '3way'; });
 
-    odds.forEach(function(mkt) {
-        html += '<tr style="border-top:1px solid #1e293b;">';
-        html += '<td style="padding:6px 0; color:#e2e8f0; font-size:0.9rem;">' + mkt.name + '</td>';
-        (mkt.choices || []).forEach(function(c) {
-            var color = '#4ade80';
-            html += '<td style="text-align:center; padding:6px; color:' + color + '; font-weight:600;">' + (c.odds || '-') + '</td>';
+    var html = '';
+
+    // 3-way markets (1X2)
+    if (three.length) {
+        html += '<table style="width:100%; border-collapse:collapse; margin-bottom:1rem;">';
+        html += '<tr style="color:#94a3b8; font-size:0.8rem;"><th style="text-align:left; padding:4px 0;">Mercato</th><th>1</th><th>X</th><th>2</th></tr>';
+        three.forEach(function(mkt) {
+            html += '<tr style="border-top:1px solid #1e293b;">';
+            html += '<td style="padding:6px 0; color:#e2e8f0; font-size:0.9rem;">' + mkt.name + '</td>';
+            (mkt.choices || []).forEach(function(c) {
+                html += '<td style="text-align:center; padding:6px; color:#4ade80; font-weight:600;">' + (c.odds || '-') + '</td>';
+            });
+            html += '</tr>';
         });
-        html += '</tr>';
-    });
-    html += '</table>';
+        html += '</table>';
+    }
+
+    // 2-way markets (Over/Under, BTTS, Draw no bet)
+    if (two.length) {
+        html += '<table style="width:100%; border-collapse:collapse;">';
+        two.forEach(function(mkt, i) {
+            var choices = mkt.choices || [];
+            var c1 = choices[0] || {};
+            var c2 = choices[1] || {};
+            // Header row: use choice names as column headers (e.g. "Over", "Under" or "Yes", "No")
+            if (i === 0) {
+                html += '<tr style="color:#94a3b8; font-size:0.8rem;"><th style="text-align:left; padding:4px 0;">Mercato</th>';
+                html += '<th style="text-align:center;">' + (c1.name || '-').split(' ')[0] + '</th>';
+                html += '<th style="text-align:center;">' + (c2.name || '-').split(' ')[0] + '</th>';
+                html += '</tr>';
+            }
+            html += '<tr style="border-top:1px solid #1e293b;">';
+            html += '<td style="padding:6px 0; color:#e2e8f0; font-size:0.9rem;">' + mkt.name + '</td>';
+            html += '<td style="text-align:center; padding:6px; color:#4ade80; font-weight:600;">' + (c1.odds || '-') + '</td>';
+            html += '<td style="text-align:center; padding:6px; color:#4ade80; font-weight:600;">' + (c2.odds || '-') + '</td>';
+            html += '</tr>';
+        });
+        html += '</table>';
+    }
+
     el.innerHTML = html;
 }
 

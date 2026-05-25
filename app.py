@@ -2327,9 +2327,19 @@ def api_custom_match_info():
         # Get first source's choices
         choices = mkt.get("choices", [])
         if choices:
+            # For Match goals / Total, include the line (e.g. "Over 2.5" / "Under 2.5")
+            choice_names = [c.get("name", "") for c in choices]
+            display_name = market_name
+            if market_name in ("Match goals", "Total") and choice_names:
+                # Extract the line from choice name, e.g. "Over 2.5" → "2.5"
+                first = choice_names[0]
+                line = first.split()[-1] if " " in first else ""
+                if line:
+                    display_name = f"Goals O/U {line}"
             odds_out.append({
-                "name": market_name,
+                "name": display_name,
                 "choices": [{"name": c.get("name", ""), "odds": c.get("fractionalValue", "")} for c in choices],
+                "type": "3way" if len(choices) == 3 else "2way",
             })
     # Convert fractional odds to decimal
     for mkt in odds_out:
