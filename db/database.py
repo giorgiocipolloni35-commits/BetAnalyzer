@@ -948,28 +948,45 @@ def list_players_with_stats(filters: dict, page: int = 1, per_page: int = 40):
         }
         order_by_sql = valid_sorts.get(sort_field, valid_sorts["goals"])
         
+        # Deduplicate: when both Sportmonks and Sofascore records exist for
+        # the same player (same name + league), prefer Sofascore (player_id >= 90M)
+        # which has richer stats (xG, xA, cards, minutes, etc.)
         query = f"""
-            SELECT pi.*, psc.stats_json, psc.rating 
+            SELECT pi.*, psc.stats_json, psc.rating
             FROM player_info pi
             LEFT JOIN player_stats_cache psc ON pi.player_id = psc.player_id AND pi.team_id = psc.team_id
             AND psc.season_id = (
-                SELECT MAX(season_id) FROM player_stats_cache 
+                SELECT MAX(season_id) FROM player_stats_cache
                 WHERE player_id = psc.player_id AND team_id = psc.team_id
             )
             WHERE {where_sql}
+            AND NOT EXISTS (
+                SELECT 1 FROM player_info pi2
+                WHERE pi2.name = pi.name
+                AND pi2.league_id = pi.league_id
+                AND pi2.player_id >= 90000000
+                AND pi.player_id < 90000000
+            )
             ORDER BY {order_by_sql} DESC
             LIMIT ? OFFSET ?
         """
-        
+
         # Esegui query principale
         rows = conn.execute(query, params + [per_page, offset]).fetchall()
-        
-        # Conteggio totale con STESSI filtri
+
+        # Conteggio totale con STESSI filtri (deduplicated)
         count_query = f"""
-            SELECT COUNT(*) 
-            FROM player_info pi 
+            SELECT COUNT(*)
+            FROM player_info pi
             LEFT JOIN player_stats_cache psc ON pi.player_id = psc.player_id AND pi.team_id = psc.team_id
             WHERE {where_sql}
+            AND NOT EXISTS (
+                SELECT 1 FROM player_info pi2
+                WHERE pi2.name = pi.name
+                AND pi2.league_id = pi.league_id
+                AND pi2.player_id >= 90000000
+                AND pi.player_id < 90000000
+            )
         """
         total_players = conn.execute(count_query, params).fetchone()[0]
         
