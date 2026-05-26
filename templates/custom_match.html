@@ -416,9 +416,13 @@ function renderScorers(homePlayers, awayPlayers, homeName, awayName, lineups, mi
         if (!players || !players.scorers.length) return '';
         var luMap = _buildLineupLookup(lineups, side);
         var missList = _buildMissingList(missing, side);
+        var hasRating = players.scorers.some(function(p) { return p.rating > 0; });
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
+        if (players.avg_rating > 0) h += ' <span style="color:#38bdf8; font-size:0.8rem; font-weight:600;" title="Rating medio squadra (Sofascore)">⭐ ' + players.avg_rating + '</span>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
-        h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Pos</th><th>Gol</th><th>PG</th><th>G/P</th><th>xG</th><th>Tiri</th></tr>';
+        h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Pos</th><th>Gol</th><th>PG</th><th>G/P</th><th>xG</th><th>Tiri</th>';
+        if (hasRating) h += '<th>⭐</th>';
+        h += '</tr>';
         players.scorers.forEach(function(p) {
             h += '<tr style="border-top:1px solid #1e293b;">';
             h += '<td style="padding:4px; color:#e2e8f0;">' + p.name + _statusBadges(p.name, luMap, missList) + '</td>';
@@ -430,6 +434,10 @@ function renderScorers(homePlayers, awayPlayers, homeName, awayName, lineups, mi
             h += '<td style="text-align:center; color:' + xgColor + ';">' + (p.xg || '-') + '</td>';
             var shotsStr = p.shots > 0 ? (p.shots_on_target + '/' + p.shots) : '-';
             h += '<td style="text-align:center; color:#94a3b8;">' + shotsStr + '</td>';
+            if (hasRating) {
+                var rc = p.rating >= 7.0 ? '#4ade80' : (p.rating >= 6.5 ? '#fbbf24' : (p.rating > 0 ? '#94a3b8' : '#475569'));
+                h += '<td style="text-align:center; color:' + rc + '; font-weight:600;">' + (p.rating > 0 ? p.rating : '-') + '</td>';
+            }
             h += '</tr>';
         });
         h += '</table></div>';
@@ -450,9 +458,13 @@ function renderCards(homePlayers, awayPlayers, homeName, awayName, lineups, miss
         if (!players || !players.cards.length) return '';
         var luMap = _buildLineupLookup(lineups, side);
         var missList = _buildMissingList(missing, side);
+        var hasRating = players.cards.some(function(p) { return p.rating > 0; });
         var h = '<div style="margin-bottom:1rem;"><strong style="color:#e2e8f0;">' + teamName + '</strong>';
+        if (players.avg_rating > 0) h += ' <span style="color:#38bdf8; font-size:0.8rem; font-weight:600;" title="Rating medio squadra (Sofascore)">⭐ ' + players.avg_rating + '</span>';
         h += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:4px;">';
-        h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Ruolo</th><th style="color:#fbbf24;">Gialli</th><th>PG</th><th style="color:#fbbf24;">G/P</th><th>Tackle</th></tr>';
+        h += '<tr style="color:#94a3b8;"><th style="text-align:left;">Giocatore</th><th>Ruolo</th><th style="color:#fbbf24;">Gialli</th><th>PG</th><th style="color:#fbbf24;">G/P</th><th>Tackle</th>';
+        if (hasRating) h += '<th>⭐</th>';
+        h += '</tr>';
         players.cards.forEach(function(p) {
             var ypmColor = p.yellows_per_match >= 0.3 ? '#f87171' : (p.yellows_per_match >= 0.2 ? '#fbbf24' : '#94a3b8');
             h += '<tr style="border-top:1px solid #1e293b;">';
@@ -462,6 +474,10 @@ function renderCards(homePlayers, awayPlayers, homeName, awayName, lineups, miss
             h += '<td style="text-align:center; color:#94a3b8;">' + p.appearances + '</td>';
             h += '<td style="text-align:center; color:' + ypmColor + '; font-weight:600;">' + p.yellows_per_match + '</td>';
             h += '<td style="text-align:center; color:#94a3b8;">' + p.tackles + '</td>';
+            if (hasRating) {
+                var rc = p.rating >= 7.0 ? '#4ade80' : (p.rating >= 6.5 ? '#fbbf24' : (p.rating > 0 ? '#94a3b8' : '#475569'));
+                h += '<td style="text-align:center; color:' + rc + '; font-weight:600;">' + (p.rating > 0 ? p.rating : '-') + '</td>';
+            }
             h += '</tr>';
         });
         h += '</table></div>';

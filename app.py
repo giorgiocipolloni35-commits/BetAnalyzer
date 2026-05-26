@@ -2473,6 +2473,7 @@ def api_custom_match_info():
         shots_map = _build_map("totalShots", "totalShots")
         sot_map = _build_map("shotsOnTarget", "shotsOnTarget")
         tackles_map = _build_map("tackles", "tackles")
+        rating_map = _build_map("rating", "rating")
 
         scorers = []
         for p in top.get("goals", [])[:5]:
@@ -2491,6 +2492,7 @@ def api_custom_match_info():
                 "xg": round(xg_map.get(pid, 0), 1),
                 "shots": shots_map.get(pid, 0),
                 "shots_on_target": sot_map.get(pid, 0),
+                "rating": round(rating_map.get(pid, 0), 2),
             })
 
         cards = []
@@ -2509,10 +2511,19 @@ def api_custom_match_info():
                 "appearances": apps,
                 "yellows_per_match": round(s.get("yellowCards", 0) / apps, 2),
                 "tackles": tackles_map.get(pid, 0),
+                "rating": round(rating_map.get(pid, 0), 2),
             })
         # Sort cards: by yellows desc, then by yellows_per_match desc
         cards.sort(key=lambda c: (c["yellows"], c["yellows_per_match"]), reverse=True)
-        return {"scorers": scorers, "cards": cards[:6]}
+
+        # Team average rating from top-rated players
+        ratings = top.get("rating", [])
+        avg_rating = 0
+        if ratings:
+            all_ratings = [p.get("statistics", {}).get("rating", 0) for p in ratings if p.get("statistics", {}).get("rating")]
+            avg_rating = round(sum(all_ratings) / len(all_ratings), 2) if all_ratings else 0
+
+        return {"scorers": scorers, "cards": cards[:6], "avg_rating": avg_rating}
 
     result["home_players"] = _get_top_players(home.get("id"), home_dom_tid, home_dom_sid)
     result["away_players"] = _get_top_players(away.get("id"), away_dom_tid, away_dom_sid)
@@ -2791,11 +2802,23 @@ def api_custom_match_analyze():
         if not top_players:
             return "", ""
 
+        # Build cross-reference maps
+        rating_map = {}
+        for p in top_players.get("rating", []):
+            pid = p.get("player", {}).get("id")
+            if pid:
+                rating_map[pid] = p.get("statistics", {}).get("rating", 0)
+
+        # Team avg rating
+        all_ratings = [p.get("statistics", {}).get("rating", 0) for p in top_players.get("rating", []) if p.get("statistics", {}).get("rating")]
+        team_avg = round(sum(all_ratings) / len(all_ratings), 2) if all_ratings else 0
+
         # ── Marcatori ──
         scorers_lines = []
         for p in top_players.get("goals", [])[:6]:
             pl = p.get("player", {})
             s = p.get("statistics", {})
+            pid = pl.get("id")
             name = pl.get("name", "")
             goals = s.get("goals", 0)
             apps = s.get("appearances", 1) or 1
@@ -2806,8 +2829,10 @@ def api_custom_match_analyze():
             # TM position
             tm = tm_positions.get(_normalize_name(name), {})
             pos = tm.get("position_short", pl.get("position", "?"))
+            rating = round(rating_map.get(pid, 0), 2)
+            rating_str = f", rating={rating}" if rating > 0 else ""
             scorers_lines.append(
-                f"    {name} ({pos}): {goals}gol in {apps}pg (gol/g={gpm}, xG={round(xg, 1)}, tiri={shots}, inPorta={sot})"
+                f"    {name} ({pos}): {goals}gol in {apps}pg (gol/g={gpm}, xG={round(xg, 1)}, tiri={shots}, inPorta={sot}{rating_str})"
             )
 
         # ── Cartellini ──
@@ -2828,14 +2853,15 @@ def api_custom_match_analyze():
                 f"    {name} ({pos_short}/{pos}): {yellows}gialli in {apps}pg (gialli/g={ypm}, tackle={tackles})"
             )
 
+        rating_ctx = f"  RATING MEDIO {team_name}: ⭐ {team_avg}\n" if team_avg > 0 else ""
         scorers_ctx = f"  MARCATORI {team_name}:\n" + "\n".join(scorers_lines) + "\n" if scorers_lines else ""
         cards_ctx = f"  CARTELLINI {team_name}:\n" + "\n".join(cards_lines) + "\n" if cards_lines else ""
-        return scorers_ctx, cards_ctx
+        return rating_ctx, scorers_ctx, cards_ctx
 
     context += "\n--- STATISTICHE GIOCATORI ---\n"
     for tid_team, tname in [(home_id, home_name), (away_id, away_name)]:
-        scorers_ctx, cards_ctx = _get_team_player_stats(tid_team, tname)
-        context += scorers_ctx + cards_ctx
+        rating_ctx, scorers_ctx, cards_ctx = _get_team_player_stats(tid_team, tname)
+        context += rating_ctx + scorers_ctx + cards_ctx
 
     # ── Call AI ──
     try:
