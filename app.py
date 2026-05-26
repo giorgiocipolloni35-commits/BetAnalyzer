@@ -2392,16 +2392,23 @@ def api_custom_match_info():
     event_tid = tournament.get("id")
     event_sid = season.get("id")
 
+    # International cups to skip when looking for domestic league
+    _INTL_CUPS = {
+        7, 679, 17015,      # UEFA: Champions League, Europa League, Conference League
+        384, 480, 8136,      # CONMEBOL: Libertadores, Sudamericana, Recopa
+        16, 8720,            # National cups (Copa del Rey, etc.)
+    }
+
     def _find_domestic(team_id):
         """Find team's domestic league tid/sid via near-events."""
         ne = _ss_get(f"/team/{team_id}/near-events")
         for side in ["previousEvent", "nextEvent"]:
-            e = ne.get(side, {})
+            e = ne.get(side) or {}
             if not e:
                 continue
             ut = (e.get("tournament") or {}).get("uniqueTournament") or {}
             utid = ut.get("id")
-            if utid and utid not in (7, 679, 17015) and utid != event_tid:
+            if utid and utid not in _INTL_CUPS and utid != event_tid:
                 return utid, (e.get("season") or {}).get("id"), ut.get("name", "")
         return event_tid, event_sid, tournament.get("name", "")
 
