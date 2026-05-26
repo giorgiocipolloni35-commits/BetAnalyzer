@@ -2292,13 +2292,13 @@ def api_custom_match_info():
     if not ev:
         return jsonify({"success": False, "error": f"Evento {event_id} non trovato su Sofascore"})
 
-    home = ev.get("homeTeam", {})
-    away = ev.get("awayTeam", {})
-    venue = ev.get("venue", {})
-    referee = ev.get("referee", {})
-    tournament = ev.get("tournament", {}).get("uniqueTournament", {})
-    season = ev.get("season", {})
-    round_info = ev.get("roundInfo", {})
+    home = ev.get("homeTeam") or {}
+    away = ev.get("awayTeam") or {}
+    venue = ev.get("venue") or {}
+    referee = ev.get("referee") or {}
+    tournament = (ev.get("tournament") or {}).get("uniqueTournament") or {}
+    season = ev.get("season") or {}
+    round_info = ev.get("roundInfo") or {}
 
     result = {
         "event_id": event_id,
@@ -2310,8 +2310,8 @@ def api_custom_match_info():
         "round": f"Giornata {round_info.get('round', '')}" if round_info.get("round") else "",
         "start_time": ev.get("startTimestamp"),
         "venue": {
-            "name": venue.get("stadium", {}).get("name") or venue.get("name", ""),
-            "city": venue.get("city", {}).get("name", ""),
+            "name": (venue.get("stadium") or {}).get("name") or venue.get("name", ""),
+            "city": (venue.get("city") or {}).get("name", ""),
         } if venue else None,
         "referee": None,
     }
@@ -2321,7 +2321,7 @@ def api_custom_match_info():
         ref_games = referee.get("games", 0) or 1
         ref_info = {
             "name": referee.get("name", ""),
-            "country": referee.get("country", {}).get("name", ""),
+            "country": (referee.get("country") or {}).get("name", ""),
             "games": referee.get("games", 0),
             "yellow_cards": referee.get("yellowCards", 0),
             "red_cards": referee.get("redCards", 0),
@@ -2399,10 +2399,10 @@ def api_custom_match_info():
             e = ne.get(side, {})
             if not e:
                 continue
-            ut = e.get("tournament", {}).get("uniqueTournament", {})
+            ut = (e.get("tournament") or {}).get("uniqueTournament") or {}
             utid = ut.get("id")
             if utid and utid not in (7, 679, 17015) and utid != event_tid:
-                return utid, e.get("season", {}).get("id"), ut.get("name", "")
+                return utid, (e.get("season") or {}).get("id"), ut.get("name", "")
         return event_tid, event_sid, tournament.get("name", "")
 
     # Get domestic info for both teams
@@ -2537,13 +2537,13 @@ def api_custom_match_info():
             if len(form) >= 5:
                 break
             # Filter: only domestic league matches
-            evt_tid = e.get("tournament", {}).get("uniqueTournament", {}).get("id")
+            evt_tid = ((e.get("tournament") or {}).get("uniqueTournament") or {}).get("id")
             if dom_tid and evt_tid != dom_tid:
                 continue
-            ht = e.get("homeTeam", {})
-            at = e.get("awayTeam", {})
-            hs = e.get("homeScore", {}).get("current")
-            as_ = e.get("awayScore", {}).get("current")
+            ht = e.get("homeTeam") or {}
+            at = e.get("awayTeam") or {}
+            hs = (e.get("homeScore") or {}).get("current")
+            as_ = (e.get("awayScore") or {}).get("current")
             if hs is None or as_ is None:
                 continue
             is_home = ht.get("id") == team_id
@@ -2563,7 +2563,7 @@ def api_custom_match_info():
 
     # 5. H2H
     h2h_data = _ss_get(f"/event/{event_id}/h2h")
-    td = h2h_data.get("teamDuel", {})
+    td = h2h_data.get("teamDuel") or {}
     result["h2h"] = {
         "home_wins": td.get("homeWins", 0),
         "draws": td.get("draws", 0),
@@ -2576,8 +2576,8 @@ def api_custom_match_info():
     lineups = {
         "home": [], "away": [], "confirmed": lu_data.get("confirmed", False),
         "home_label": home.get("name", "Casa"), "away_label": away.get("name", "Ospite"),
-        "home_formation": lu_data.get("home", {}).get("formation", ""),
-        "away_formation": lu_data.get("away", {}).get("formation", ""),
+        "home_formation": (lu_data.get("home") or {}).get("formation", ""),
+        "away_formation": (lu_data.get("away") or {}).get("formation", ""),
     }
     # Sofascore position mapping
     _pos_map = {"G": "POR", "D": "DIF", "M": "CEN", "F": "ATT"}
